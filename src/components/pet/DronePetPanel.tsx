@@ -26,6 +26,7 @@ import { SfxFiles } from "@/lib/pet/sfxFiles";
 import { NeuralVoice, KOKORO_VOICES } from "@/lib/pet/voiceKokoro";
 import { HAZARD_LABELS } from "@/lib/pet/lexicon";
 import { DeepEyes } from "@/lib/pet/eyesDeep";
+import DroneBody3D from "./DroneBody3D";
 import { PetMap, DOCK, ROOM_EXTENT } from "@/lib/pet/map";
 import type { FaceTrack } from "@/lib/pet/vision";
 import type { DronePose, FaceIdentity, Mood } from "@/lib/pet/types";
@@ -1406,6 +1407,9 @@ export default function DronePetPanel() {
         <div className="glass-soft rounded-xl p-2">
           <div className="hud-label px-1 pb-1">FLIGHT BODY · SIMULATOR (swap in MAVLink HAL for real quad)</div>
           <canvas ref={droneCanvasRef} width={640} height={240} className="w-full rounded-lg bg-[#0b0e17]" />
+          <div className="mt-2">
+            <DroneBody3D accentColor={LED_FOR_PERSONA[persona] ?? "#35d0a5"} />
+          </div>
           <div className="grid grid-cols-4 gap-2 mt-2 px-1">
             <Stat label="MOOD" value={MOOD_LABEL[mood]} tone="#f0b90b" />
             <Stat label="ACTIVITY" value={activity.toUpperCase()} tone="#5ac8fa" />

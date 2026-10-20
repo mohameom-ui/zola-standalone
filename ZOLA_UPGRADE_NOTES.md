@@ -593,21 +593,21 @@ Format: [date] slice — action — library source → destination.
 - Port ownership from this date: AETHERIA = 3000, ZOLA = 3001.
 
 ### 2026-10-19 01:50 — Modly generation: `zola-drone-body.glb`
-- **Tool:** Modly (local, lightningpixel/modly) via Aetheria repo `tools/modly/aetheria_bridge.py`
+- **Tool:** Modly (local, lightningpixel/modly) via Aetheria repo `tools/zola-forge/aetheria_bridge.py`
 - **Model:** hunyuan3d-mini-turbo/generate (geometry-only; texture pass pending CUDA toolkit install)
-- **Source:** image: concept render `tools/modly/zola-drone-ref.png` (Aetheria repo), drawn from PARTS_LIST.md specs (ducted 3" props, Pi 5 brain-case, camera gimbal, LED eyes)
+- **Source:** image: concept render `tools/zola-forge/zola-drone-ref.png` (Aetheria repo), drawn from PARTS_LIST.md specs (ducted 3" props, Pi 5 brain-case, camera gimbal, LED eyes)
 - **Destination:** `public/assets/models/zola-drone-body.glb`
 
 ### 2026-10-19 08:15 — Modly generation (TEXTURED): `zola-drone-body.glb`
 - **Tool:** Modly (local, lightningpixel/modly) — full texture bake
 - **Model:** hunyuan3d-mini-turbo/generate + Hunyuan3DPaint texture pass
 - **Enabled by:** CUDA Toolkit 12.8 install + compiled custom_rasterizer & differentiable_renderer (mesh_processor) extensions in the Hunyuan venv
-- **Source:** image: concept render `tools/modly/zola-drone-ref.png` (Aetheria repo)
+- **Source:** image: concept render `tools/zola-forge/zola-drone-ref.png` (Aetheria repo)
 - **Destination:** `public/assets/models/zola-drone-body.glb` (replaces geometry-only version)
 
 ### 2026-10-20 08:15 — Modly generation (TEXTURED): `zola-body-v2.glb` — humanoid-drone hybrid
 - **Model:** hunyuan3d-mini-turbo/generate + paint pass + 30k-face optimizer, octree 256
 - **Design:** per docs/zola-v2-spec.md — 45cm bipedal frame, quad cranial halo (1204/1303.5 motors, folding 2.5" props), Pi 5 + I2S amp chest bay, 3S LiPo ballast, gold armature, cyan UART/LED traces
-- **Source:** concept `tools/modly/refs/ref-zola-v2-humanoid.png` (Aetheria repo)
+- **Source:** concept `tools/zola-forge/refs/ref-zola-v2-humanoid.png` (Aetheria repo)
 - **Enabled by:** pagefile 16-64GB (commit-limit fix for os error 1455)
 - **Destination:** `public/assets/models/zola-body-v2.glb` (hangar card swaps to this body)

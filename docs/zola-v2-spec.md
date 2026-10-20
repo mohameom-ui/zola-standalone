@@ -48,7 +48,7 @@ humanoid-drone hybrid companion robot.
 ## v2.1 engineering addendum (owner directive)
 
 Refined build spec matching the final schematic
-(`tools/modly/refs/ref-zola-v2-humanoid.png`):
+(`tools/zola-forge/refs/ref-zola-v2-humanoid.png`):
 
 1. **Quad-fan head halo:** rectangular carbon frame (12×12 cm), four
    1204/1303.5 motors on outer corners, transparent 2.5" 3-blade folding
@@ -127,6 +127,6 @@ Ballast Bay, UART Trace Wire Mapping, MG90S Servo Node, Hangar Port 3001).
 
 ## Generation record
 
-- Concept reference: Aetheria repo `tools/modly/refs/ref-zola-v2-humanoid.png`
-- Queued to generate via `tools/modly/aetheria_bridge.py` (Turbo + paint +
+- Concept reference: Aetheria repo `tools/zola-forge/refs/ref-zola-v2-humanoid.png`
+- Queued to generate via `tools/zola-forge/aetheria_bridge.py` (Turbo + paint +
   30k-face optimizer) immediately after the district batch completes.

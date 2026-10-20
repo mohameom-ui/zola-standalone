@@ -8,9 +8,18 @@ export async function GET() {
   try {
     const files = readdirSync(dir)
       .filter((f) => f.endsWith(".glb"))
-      .map((f) => f.replace(/\.glb$/, ""))
-      .sort();
-    return Response.json({ gestures: files });
+      .map((f) => f.replace(/\.glb$/, ""));
+    // v2 rigged-body clips (the generated humanoid, retargeted)
+    let v2: string[] = [];
+    try {
+      v2 = readdirSync(path.join(dir, "v2"))
+        .filter((f) => f.endsWith(".glb"))
+        .map((f) => "v2/" + f.replace(/\.glb$/, ""));
+    } catch {
+      // no v2 dir yet
+    }
+    const all = [...files, ...v2].sort();
+    return Response.json({ gestures: all });
   } catch {
     return Response.json({ gestures: [] });
   }

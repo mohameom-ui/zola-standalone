@@ -22,6 +22,7 @@ import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
+import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
 import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
 import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
 import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
@@ -107,6 +108,8 @@ export default function DronePetPanel() {
     gesture?: (name: string) => boolean;
   }>({});
   const gestureApiRef = useRef<GestureApi | null>(null);
+  // SPONTANEA — her last interaction (commands reset it; idle accrues)
+  const lastInteractionRef = useRef(performance.now());
   const lastVisionEventRef = useRef(0);
   const prevVisualHoldRef = useRef(false);
   const prevMoodRef = useRef<Mood>("curious");
@@ -515,6 +518,7 @@ export default function DronePetPanel() {
   const handleCommand = useCallback(async (text: string) => {
     pushLog("you", text);
     memory.countCommand();
+    lastInteractionRef.current = performance.now(); // interaction resets SPONTANEA
 
     const hist = memory.recentChat(12);
     const history = (hist[hist.length - 1]?.text === text ? hist.slice(0, -1) : hist).map((h) => ({
@@ -1805,6 +1809,24 @@ export default function DronePetPanel() {
       return true;
     };
   }, [runIntegrity, exportVlog, triggerDream, handleCommand]);
+
+  // SPONTANEA — the autonomous movement engine: when idle past her
+  // persona's cadence, HER BRAIN picks a move from her repertoire, gated
+  // by her mood, narrated sparsely, logged in the aura ledger.
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const idleS = (performance.now() - lastInteractionRef.current) / 1000;
+      const rand = Math.random();
+      if (!shouldSelfMove(persona, mood, idleS, rand)) return;
+      const move = pickSpontaneous(persona, mood, rand);
+      if (!move) return;
+      lastInteractionRef.current = performance.now(); // the move counts as activity
+      gestureApiRef.current?.playGesture(move.clip);
+      if (move.say) say(move.say);
+      pushLog("aura", `SPONTANEA: ${move.clip} (self-initiated, ${persona.toLowerCase()} cadence)`);
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [persona, mood, say, pushLog]);
   useEffect(() => {
     const le = localEarsRef.current;
     le.onTranscript = (t) => cmdRef.current(t);

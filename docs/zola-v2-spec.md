@@ -84,6 +84,11 @@ Low-center-of-gravity battery ballast in the lower chest cavity.
 4. **Power strategy:** task-and-return energy cycle — short aerial hops,
    then land, cut motor current, walk, magnetic auto-dock to recharge.
 
+## Lexicon
+
+Canonical terminology lives in `docs/zola-dictionary.md` (Quad-Halo, Tattu
+Ballast Bay, UART Trace Wire Mapping, MG90S Servo Node, Hangar Port 3001).
+
 ## Generation record
 
 - Concept reference: Aetheria repo `tools/modly/refs/ref-zola-v2-humanoid.png`

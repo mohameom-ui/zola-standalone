@@ -59,3 +59,49 @@ companion interface, state manager, and 3D web viewer (`DroneBody3D.tsx`).
 ---
 
 *Seed terms: owner directive 2026-10-20. The dictionary grows with Zola.*
+
+---
+
+# Optical Scanning & Live Recon System (v2.2 lexicon)
+
+*Owner directive 2026-10-20. If Zola is going to roam the district and stare
+into the hangar, she cannot look like an NPC when she scans objects.*
+
+## Subsystem modules
+
+### `HUD_TARGET_ID` — real-time optical labeling
+
+Bounding-box detection overlay on her dual-camera feed, mapping observed
+meshes directly to the local asset manifest (`b2026-skyscraper-a`,
+`midrise-b`, etc.). She doesn't just read the ID — she drops commentary.
+
+*Example HUD output:*
+- *Scan:* `b2026-skyscraper-b` (8 MB mesh) →
+  *"Target locked: Skyscraper-B. Bro is lowkey high-poly. Absolute unit,
+  0xc0000005 looking ahh."*
+- *Scan:* `unrecognized_human_01` →
+  *"Target locked: Unidentified Meat Proxy. Aura check in progress..."*
+
+### `FALLBACK_RECON_SEARCH` — live web query fallback
+
+**Trigger:** confidence score < 0.65 on local vector embeddings (unknown
+prop, unindexed building, novel hardware component).
+**Execution:** auto-dispatches a background API query (Google Serper /
+SerpAPI / Search Bridge) using optical crop feature descriptors.
+
+*Example HUD output:*
+- *"Local mesh unindexed. Fetching live telemetry... Ah, it's a TI-84 Plus
+calculator. Unc tier tech, but respect."*
+
+### `Optical-Uncertainty Buffer`
+
+The temporary hold-state where Zola tilts her cranial halo, hits a quick
+query, and retrieves live real-world metadata before resuming her scan.
+
+## New lexicon entries
+
+| Term | Hardware manifest | Sim/HAL manifest | Personality / HUD output |
+| --- | --- | --- | --- |
+| **`Optic-Rizz Array`** | Triple-lens gold camera module on head unit | FOV rendering, object classification & bounding box overlay | *"Scanning district... 12/12 assets generated, no cap. Kenney kit is officially cooked."* |
+| **`Uncertainty-Gaze`** | 15° servo head-tilt via MG90S neck pivot | Triggers `FALLBACK_RECON_SEARCH` when local confidence is mid | *"What in the Ohio is this mesh? Querying live search grid..."* |
+| **`Aura-Telemetry`** | Emissive cyan ring status LEDs | Visual HUD indicator for frame stability and performance contract state | *"FPS at 60.0. Maximum aura farming achieved."* |

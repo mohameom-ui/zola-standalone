@@ -84,6 +84,27 @@ Low-center-of-gravity battery ballast in the lower chest cavity.
 4. **Power strategy:** task-and-return energy cycle — short aerial hops,
    then land, cut motor current, walk, magnetic auto-dock to recharge.
 
+## Optical scanning & live recon system (v2.2 directive)
+
+Zola's head unit gains a scanning personality. Two subsystem modules extend
+the v2.1 build (both spec-only until implementation):
+
+1. **`HUD_TARGET_ID`** — real-time optical labeling: bounding-box overlay on
+   the dual-camera feed mapping observed objects to the local asset manifest
+   (the `gen-b2026-*` / `zola-*` GLB index), with personality commentary in
+   the HUD. Hardware: the `Optic-Rizz Array` triple-lens module.
+2. **`FALLBACK_RECON_SEARCH`** — when local vector-embedding confidence is
+   < 0.65, she enters the `Optical-Uncertainty Buffer` (a 15° `Uncertainty-Gaze`
+   servo head-tilt via the MG90S neck pivot), dispatches a background web
+   query (Serper/SerpAPI/Bridge) using optical crop feature descriptors, and
+   folds the result into her scan readout.
+
+Telemetry tie-in: **`Aura-Telemetry`** — the cyan halo ring doubles as the
+HUD indicator for frame stability and performance-contract state (the 60 FPS
+contract made visible on her body).
+
+Full module specs + lexicon: `docs/zola-dictionary.md` (v2.2 section).
+
 ## Lexicon
 
 Canonical terminology lives in `docs/zola-dictionary.md` (Quad-Halo, Tattu

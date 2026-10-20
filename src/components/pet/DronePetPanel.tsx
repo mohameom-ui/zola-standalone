@@ -95,6 +95,14 @@ export default function DronePetPanel() {
   const sfxFilesRef = useRef<SfxFiles>(new SfxFiles());
   const localEarsRef = useRef<LocalEars>(new LocalEars());
   const cmdRef = useRef<(t: string) => void>(() => {});
+  // v2.4 CORTEX — late-bound feature handles for brain-level decisions
+  // (handlers declared later in the component, reached via this ref)
+  const featuresRef = useRef<{
+    vlog?: () => void;
+    integrity?: () => void;
+    story?: () => void;
+    dream?: () => void;
+  }>({});
   const lastVisionEventRef = useRef(0);
   const prevVisualHoldRef = useRef(false);
   const prevMoodRef = useRef<Mood>("curious");
@@ -418,8 +426,26 @@ export default function DronePetPanel() {
     const visible = (visionRef.current?.objects ?? []).map((o) => o.label).join(", ") || "nothing";
     const today = memory.dailyReport() ?? "nothing happened yet today";
     const profile = memory.describeProfile();
-    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%.`;
+    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. You can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, persona:<persona>, mission:<text>, body:sim|real.`;
   }, [memory, brain]);
+
+  // v2.4 CORTEX — manual dream cycle (the auto-wrap runs at 17-19h; the
+  // brain can now demand one on demand)
+  const triggerDream = useCallback(() => {
+    const cl = governorRef.current.currentLimits;
+    const dream = runDreamCycle(
+      blackboxRef.current.snapshot(),
+      { geofenceRadius: cl.geofenceRadius, visionStaleLimit: cl.visionStaleLimit },
+      (iso) => sunReport(new Date(iso)).phase,
+    );
+    dreamRef.current = dream;
+    if (dream.verdict === "TUNED") {
+      governorRef.current.setLimits(dream.tuning);
+      memory.saveDreamTuning(dream.tuning);
+      pushLog("sys", `dream tuning applied: ${dream.tuning.geofenceRadius !== undefined ? `fence ${dream.tuning.geofenceRadius.toFixed(2)} m ` : ""}${dream.tuning.visionStaleLimit !== undefined ? `vision window ${dream.tuning.visionStaleLimit} ms` : ""}`);
+    }
+    pushLog("aura", "dream cycle complete — today's events consolidated into tuning");
+  }, [memory, pushLog]);
 
   /**
    * Apply an LLM decision (Ollama OR on-device). Returns false when the brain
@@ -428,13 +454,22 @@ export default function DronePetPanel() {
    */
   const applyDecision = useCallback((d: LlmDecision): boolean => {
     const act = (d.do ?? "none").trim();
-    const SIMPLE = new Set(["come", "follow", "trick", "dance", "sleep", "wake", "hover", "scan", "cancel", "status"]);
+    const SIMPLE = new Set(["come", "follow", "trick", "dance", "sleep", "wake", "hover", "scan", "cancel", "status", "patrol"]);
     let canonical = "";
     if (SIMPLE.has(act)) canonical = act === "cancel" ? "cancel task" : act === "scan" ? "scan the room" : act;
     else if (act.startsWith("find:")) canonical = `find ${act.slice(5).trim()}`;
     else if (act.startsWith("goto:")) canonical = `take me to ${act.slice(5).trim()}`;
     else if (act.startsWith("name:")) canonical = `this is ${act.slice(5).trim()}`;
     else if (act.startsWith("remember:")) canonical = `remember that ${act.slice(9).trim()}`;
+    else if (act === "diagnose") { featuresRef.current.integrity?.(); if (!d.say) say("Integrity sweep running. Every asset, every byte, checked."); refreshCounts(); return true; }
+    else if (act === "vlog") { featuresRef.current.vlog?.(); if (!d.say) say("Compiling today into her own words. The ledger gets a new page."); refreshCounts(); return true; }
+    else if (act === "dream") { featuresRef.current.dream?.(); if (!d.say) say("Dream cycle engaged. Today becomes tuning."); refreshCounts(); return true; }
+    else if (act === "story") { featuresRef.current.story?.(); refreshCounts(); return true; }
+    else if (act === "sun") { const sr = sunReport(new Date()); say(`${sr.phase === "golden" ? "Golden hour. Best light of the day and I can see all of it." : `Sun phase: ${sr.phase}.`}`); refreshCounts(); return true; }
+    else if (act.startsWith("mood:")) { const m = act.slice(5).trim() as Mood; brain.setMood(m); setMood(m); if (!d.say) say(`Mood set: ${m}. Feels right.`); refreshCounts(); return true; }
+    else if (act.startsWith("persona:")) { const p = act.slice(8).trim(); if (LED_FOR_PERSONA[p] || PERSONA_TONE[p]) { setPersona(p); if (!d.say) say(`Persona shift: ${p}. The ring already knows.`); refreshCounts(); return true; } return false; }
+    else if (act.startsWith("mission:")) { canonical = act.slice(8).trim(); }
+    else if (act.startsWith("body:")) { const mode = act.slice(5).trim(); if (mode === "sim" || mode === "real") { setBodyMode(mode); if (!d.say) say(`Body mode: ${mode}. ${mode === "real" ? "Talk to me through the link." : "Back in the simulation."}`); refreshCounts(); return true; } return false; }
 
     if (!d.say && !canonical) return false; // garbage output → let reflexes answer
 
@@ -1727,6 +1762,13 @@ export default function DronePetPanel() {
 
   // local ears wiring (stable callbacks via refs)
   useEffect(() => { cmdRef.current = handleCommand; }, [handleCommand]);
+  // v2.4 CORTEX — late-bind the feature handlers the brain can decide to run
+  useEffect(() => {
+    featuresRef.current.integrity = runIntegrity;
+    featuresRef.current.vlog = exportVlog;
+    featuresRef.current.dream = triggerDream;
+    featuresRef.current.story = () => void handleCommand("tell me a story");
+  }, [runIntegrity, exportVlog, triggerDream, handleCommand]);
   useEffect(() => {
     const le = localEarsRef.current;
     le.onTranscript = (t) => cmdRef.current(t);

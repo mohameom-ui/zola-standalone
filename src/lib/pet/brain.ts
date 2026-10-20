@@ -1259,7 +1259,8 @@ export class PetBrain {
   }
 
 
-  private setMood(m: Mood) { this.mood = m; }
+  /** Public since the v2.4 CORTEX — brain-level decisions may set her mood. */
+  setMood(m: Mood) { this.mood = m; }
   private setActivity(a: Activity) { this.activity = a; }
 
   private ledColor(): string {

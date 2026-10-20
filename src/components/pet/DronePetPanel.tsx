@@ -40,7 +40,7 @@ import { SfxFiles } from "@/lib/pet/sfxFiles";
 import { NeuralVoice, KOKORO_VOICES } from "@/lib/pet/voiceKokoro";
 import { HAZARD_LABELS } from "@/lib/pet/lexicon";
 import { DeepEyes } from "@/lib/pet/eyesDeep";
-import DroneBody3D from "./DroneBody3D";
+import DroneBody3D, { type GestureApi, GESTURE_REPERTOIRE } from "./DroneBody3D";
 import { PetMap, DOCK, ROOM_EXTENT } from "@/lib/pet/map";
 import type { FaceTrack } from "@/lib/pet/vision";
 import type { DronePose, FaceIdentity, Mood } from "@/lib/pet/types";
@@ -104,7 +104,9 @@ export default function DronePetPanel() {
     integrity?: () => void;
     story?: () => void;
     dream?: () => void;
+    gesture?: (name: string) => boolean;
   }>({});
+  const gestureApiRef = useRef<GestureApi | null>(null);
   const lastVisionEventRef = useRef(0);
   const prevVisualHoldRef = useRef(false);
   const prevMoodRef = useRef<Mood>("curious");
@@ -468,6 +470,15 @@ export default function DronePetPanel() {
     else if (act === "dream") { featuresRef.current.dream?.(); if (!d.say) say("Dream cycle engaged. Today becomes tuning."); refreshCounts(); return true; }
     else if (act === "story") { featuresRef.current.story?.(); refreshCounts(); return true; }
     else if (act === "sun") { const sr = sunReport(new Date()); say(`${sr.phase === "golden" ? "Golden hour. Best light of the day and I can see all of it." : `Sun phase: ${sr.phase}.`}`); refreshCounts(); return true; }
+    else if (act.startsWith("gesture:")) {
+      const g = act.slice(8).trim();
+      if (featuresRef.current.gesture?.(g)) {
+        if (!d.say) say(`${g.replace(/_/g, " ")} — coming right up.`);
+        refreshCounts();
+        return true;
+      }
+      return false;
+    }
     else if (act.startsWith("mood:")) { const m = act.slice(5).trim() as Mood; brain.setMood(m); setMood(m); if (!d.say) say(`Mood set: ${m}. Feels right.`); refreshCounts(); return true; }
     else if (act.startsWith("persona:")) { const p = act.slice(8).trim(); if (LED_FOR_PERSONA[p] || PERSONA_TONE[p]) { setPersona(p); if (!d.say) say(`Persona shift: ${p}. The ring already knows.`); refreshCounts(); return true; } return false; }
     else if (act.startsWith("mission:")) { canonical = act.slice(8).trim(); }
@@ -1787,6 +1798,12 @@ export default function DronePetPanel() {
     featuresRef.current.vlog = exportVlog;
     featuresRef.current.dream = triggerDream;
     featuresRef.current.story = () => void handleCommand("tell me a story");
+    // the body-control handle: the brain plays any clip in her repertoire
+    featuresRef.current.gesture = (name: string) => {
+      if (!GESTURE_REPERTOIRE.includes(name)) return false;
+      gestureApiRef.current?.playGesture(name);
+      return true;
+    };
   }, [runIntegrity, exportVlog, triggerDream, handleCommand]);
   useEffect(() => {
     const le = localEarsRef.current;
@@ -1966,7 +1983,11 @@ export default function DronePetPanel() {
           <div className="hud-label px-1 pb-1">FLIGHT BODY · SIMULATOR (swap in MAVLink HAL for real quad)</div>
           <canvas ref={droneCanvasRef} width={640} height={240} className="w-full rounded-lg bg-[#0b0e17]" />
           <div className="mt-2">
-            <DroneBody3D accentColor={LED_FOR_PERSONA[persona] ?? "#35d0a5"} />
+            <DroneBody3D
+              accentColor={LED_FOR_PERSONA[persona] ?? "#35d0a5"}
+              mood={mood}
+              gestureApiRef={gestureApiRef}
+            />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-2 px-1">
             <Stat label="MOOD" value={MOOD_LABEL[mood]} tone="#f0b90b" />

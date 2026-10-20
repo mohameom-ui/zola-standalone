@@ -1,109 +1,181 @@
-"use client";
-
-// ============================================================================
-// DRONE BODY 3D — AURA's generated mesh in a hangar viewport (WAVE 10)
-// Renders public/assets/models/zola-drone-body.glb (locally generated via
-// Modly / Hunyuan3D, provenance in ZOLA_UPGRADE_NOTES.md). Geometry-only
-// mesh: styled with a brushed-alloy material + a synthetic LED ring whose
-// emissive color is synced to her persona, like the rest of the panel.
-// Non-destructive: sits beside the 2D flight-body canvas, does not replace it.
-// ============================================================================
+// DRONE BODY 3D — v3: BRAIN-DRIVEN BODY CONTROL
+// The hangar loads her RIGGED body (65-bone skeleton + generated mesh) and
+// runs two layers:
+//   1. The procedural balancer — she STANDS on the dock pad: weight-shift
+//      sway in the pelvis, counter-rotation in the spine, stabilizing head.
+//      Amplitude and character follow her mood (the brain drives balance).
+//   2. Brain-commanded gestures — any of the 19 gesture clips play on
+//      demand via the CORTEX (featuresRef.gesture); her aura ledger logs
+//      every movement choice.
+// The halo (rigid, Head-bone parented from iteration 2.5) tracks her head.
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { scanAsset, scanWorldManifest, type ScanResult } from "@/lib/pet/auraCache";
 
-const BODY_URL = "/assets/models/zola-body-v2.glb";  // v2: humanoid-drone hybrid (gen-zola-humanoid-v2)
+const RIGGED_URL = "/assets/models/zola-anims/v2/rigged_base.glb";
 
-/** Center + normalize the generated mesh so any future export fits the stage. */
-function FittedModel({
+// her movement vocabulary — the CORTEX knows every one of these
+export const GESTURE_REPERTOIRE = [
+  "bow_01", "bow_02", "curtsey_01", "dance_01", "dance_02", "march_01",
+  "wave_01", "wave_02", "shrug_01", "spin_01", "stretch_01", "throw_01",
+  "peekaboo_01", "pickup_01", "rollover_01", "crawl_01", "getup_01",
+  "laydown_01", "mope_01",
+];
+
+export interface GestureApi {
+  playGesture: (name: string) => void;
+  cancelGesture: () => void;
+}
+
+const clipCache = new Map<string, THREE.AnimationClip>();
+
+async function loadGestureClip(name: string): Promise<THREE.AnimationClip | null> {
+  const key = `v2_${name}`;
+  const hit = clipCache.get(key);
+  if (hit) return hit;
+  try {
+    const loader = new GLTFLoader();
+    const gltf = await loader.loadAsync(`/assets/models/zola-anims/v2/v2_${name}.glb`);
+    const clip = gltf.animations[0];
+    if (!clip) return null;
+    clipCache.set(key, clip);
+    return clip;
+  } catch {
+    return null;
+  }
+}
+
+// the mood → balance-character map (the brain drives how she stands)
+const MOOD_SWAY: Record<string, { amp: number; speed: number; wobble: number }> = {
+  happy: { amp: 1.2, speed: 1.15, wobble: 0.5 },
+  curious: { amp: 0.9, speed: 1.0, wobble: 0.3 },
+  excited: { amp: 1.7, speed: 1.5, wobble: 0.9 },
+  idle: { amp: 0.7, speed: 0.85, wobble: 0.2 },
+  sleepy: { amp: 0.45, speed: 0.6, wobble: 0.1 },
+  alarmed: { amp: 1.5, speed: 1.8, wobble: 1.2 },
+  sleeping: { amp: 0.3, speed: 0.5, wobble: 0.05 },
+};
+
+function SceneRig({
   accentColor,
   fps,
+  mood,
   onTelemetry,
+  gestureApiRef,
+  onGestureDone,
 }: {
   accentColor: string;
   fps: number;
+  mood: string;
   onTelemetry?: (fps: number) => void;
+  gestureApiRef?: React.MutableRefObject<GestureApi | null>;
+  onGestureDone?: (name: string) => void;
 }) {
-  const gltf = useLoader(GLTFLoader, BODY_URL);
-  const inner = useRef<THREE.Group>(null);
-  const outer = useRef<THREE.Group>(null);
-  const ringRef = useRef<THREE.Mesh>(null);
-  const frameAcc = useRef({ t: 0, n: 0, fps: 60 });
+  const gltf = useLoader(GLTFLoader, RIGGED_URL);
+  const scene = useMemo(() => gltf.scene, [gltf]);
+  const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
+  const bones = useMemo(
+    () => ({
+      pelvis: scene.getObjectByName("pelvis"),
+      spine: scene.getObjectByName("spine_02"),
+      spineTop: scene.getObjectByName("spine_03"),
+      head: scene.getObjectByName("Head"),
+      upperArmL: scene.getObjectByName("upperarm_l"),
+      upperArmR: scene.getObjectByName("upperarm_r"),
+    }),
+    [scene],
+  );
 
-  useMemo(() => {
-    // Normalize: center at origin, scale to a fixed size. Done once on load.
-    // The GLB now ships with baked AI textures — keep its own materials.
-    const scene = gltf.scene;
-    scene.traverse((obj) => {
-      if ((obj as THREE.Mesh).isMesh) {
-        const mesh = obj as THREE.Mesh;
-        mesh.castShadow = false;
-        mesh.receiveShadow = false;
-      }
-    });
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    const s = 1.6 / maxDim;
-    scene.scale.setScalar(s);
-    scene.position.set(-center.x * s, -center.y * s, -center.z * s);
-  }, [gltf.scene]);
+  const activeAction = useRef<THREE.AnimationAction | null>(null);
+  const activeName = useRef<string | null>(null);
+  const sway = useRef({ t: 0 });
 
-  useFrame(({ clock }, delta) => {
-    const t = clock.getElapsedTime();
-    // gentle hover bob + slow yaw — she's idling in the hangar
-    if (inner.current) inner.current.position.y = Math.sin(t * 1.1) * 0.07;
-    if (outer.current) outer.current.rotation.y = t * 0.28;
-    // AURA_TELEMETRY_REACTIVITY — live fps sampling (hangar-side)
-    const acc = frameAcc.current;
-    acc.t += delta;
-    acc.n += 1;
-    if (acc.t >= 0.5 && acc.n > 0) {
-      acc.fps = acc.n / acc.t;
-      acc.t = 0;
-      acc.n = 0;
-      onTelemetry?.(acc.fps);
+  // the procedural balancer — runs whenever no gesture owns her body
+  useFrame((_, delta) => {
+    mixer.update(delta);
+    if (activeAction.current) return; // a gesture owns her body right now
+
+    const cfg = MOOD_SWAY[mood] ?? MOOD_SWAY.curious;
+    sway.current.t += delta * cfg.speed;
+
+    const t = sway.current.t;
+    // weight-shift: the pelvis drifts side to side, slight vertical bob
+    if (bones.pelvis) {
+      bones.pelvis.position.x = Math.sin(t * 0.9) * 0.012 * cfg.amp;
+      bones.pelvis.position.y = Math.abs(Math.sin(t * 1.8)) * 0.006 * cfg.amp;
+      bones.pelvis.rotation.z = Math.sin(t * 0.9) * 0.045 * cfg.amp;
     }
+    // the spine counter-rotates — she stays over her feet
+    if (bones.spine) bones.spine.rotation.z = -Math.sin(t * 0.9) * 0.03 * cfg.amp;
+    if (bones.spineTop) bones.spineTop.rotation.x = Math.sin(t * 1.4) * 0.02 * cfg.wobble;
+    // the arms hang with a subtle pendulum
+    if (bones.upperArmL) bones.upperArmL.rotation.x = Math.sin(t * 1.8) * 0.05 * cfg.amp;
+    if (bones.upperArmR) bones.upperArmR.rotation.x = -Math.sin(t * 1.8) * 0.05 * cfg.amp;
+    // the head stabilizes — her gaze stays level (that's the balance)
+    if (bones.head) bones.head.rotation.z = -Math.sin(t * 0.9) * 0.02 * cfg.amp;
   });
 
-  // Aura-Telemetry tiers: ring shifts hue/intensity with live fps
-  const tier = fps >= 55 ? "buttery" : fps >= 30 ? "mid" : "critical";
-  const ringColor = tier === "buttery" ? accentColor : tier === "mid" ? "#f0b90b" : "#ff4d4f";
-  const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
+  // the gesture playback: load the clip, fade in, report when done
+  const playGesture = (name: string) => {
+    if (!GESTURE_REPERTOIRE.includes(name)) return;
+    scanAsset(`movement:${name}`); // the aura ledger counts her movement repertoire
+    void loadGestureClip(name).then((clip) => {
+      if (!clip) return;
+      activeAction.current?.fadeOut(0.25);
+      const action = mixer.clipAction(clip);
+      action.reset().setEffectiveWeight(0).fadeIn(0.25).play();
+      activeAction.current = action;
+      activeName.current = name;
+      const dur = clip.duration;
+      window.setTimeout(() => {
+        if (activeName.current !== name) return;
+        action.fadeOut(0.3);
+        activeAction.current = null;
+        activeName.current = null;
+        onGestureDone?.(name);
+      }, ((dur - 0.3) * 1000) | 0);
+    });
+  };
 
-  return (
-    <group ref={outer}>
-      <group ref={inner}>
-        <primitive object={gltf.scene} />
-      </group>
-      {/* synthetic LED ring — emissive glow synced to her persona state,
-          now reactive to live hangar frame telemetry */}
-      <mesh ref={ringRef} position={[0, -0.55, 0.55]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.45, 0.045, 16, 48]} />
-        <meshStandardMaterial
-          color={ringColor}
-          emissive={ringColor}
-          emissiveIntensity={ringIntensity}
-          toneMapped={false}
-        />
-      </mesh>
-      <pointLight position={[0, -0.5, 0.8]} color={ringColor} intensity={3.4} distance={5} decay={1.6} />
-    </group>
-  );
+  // expose the CORTEX handle
+  useEffect(() => {
+    if (!gestureApiRef) return;
+    gestureApiRef.current = {
+      playGesture,
+      cancelGesture: () => {
+        activeAction.current?.fadeOut(0.2);
+        activeAction.current = null;
+        activeName.current = null;
+      },
+    };
+  });
+
+  return <primitive object={scene} />;
 }
 
-export default function DroneBody3D({ accentColor = "#35d0a5" }: { accentColor?: string }) {
-  const [fps, setFps] = useState(60);
+export default function DroneBody3D({
+  accentColor = "#35d0a5",
+  mood = "curious",
+  fps = 60,
+  onTelemetry,
+  gestureApiRef,
+  onGestureDone,
+}: {
+  accentColor?: string;
+  mood?: string;
+  fps?: number;
+  onTelemetry?: (fps: number) => void;
+  gestureApiRef?: React.MutableRefObject<GestureApi | null>;
+  onGestureDone?: (name: string) => void;
+}) {
+  const [fpsLive, setFpsLive] = useState(fps);
   // NEURAL_AURA_CACHE — her first scan target is always herself
   const [scan] = useState<ScanResult | null>(() => {
     try {
-      return scanAsset(BODY_URL.replace("/assets/models/", "").replace(".glb", ""));
+      return scanAsset("zola-body-v2");
     } catch {
       return null;
     }
@@ -119,30 +191,32 @@ export default function DroneBody3D({ accentColor = "#35d0a5" }: { accentColor?:
     });
     return () => { alive = false; };
   }, []);
-  const tierLabel = fps >= 55 ? "AURA FARMING" : fps >= 30 ? "MID" : "CRITICAL";
+  const tierLabel = fpsLive >= 55 ? "AURA FARMING" : fpsLive >= 30 ? "MID" : "CRITICAL";
+  const tier = fpsLive >= 55 ? "buttery" : fpsLive >= 30 ? "mid" : "critical";
+  const ringColor = tier === "buttery" ? accentColor : tier === "mid" ? "#f0b90b" : "#ff4d4f";
+  const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
+
   return (
     <div className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#0b0e17]">
-      <Canvas
-        camera={{ position: [0, 0.7, 3.1], fov: 42 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: false }}
-        onCreated={({ scene }) => {
-          scene.background = new THREE.Color("#0b0e17");
-          scene.fog = new THREE.Fog("#0b0e17", 4, 9);
-        }}
-      >
+      <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}>
         <ambientLight intensity={0.35} />
         <directionalLight position={[3, 5, 4]} intensity={1.4} color="#dfe6f2" />
         <directionalLight position={[-4, 2, -3]} intensity={0.5} color={accentColor} />
-        {/* hangar floor hint — faint reflective grid reads as "dock pad" */}
         <gridHelper args={[6, 24, "#1c2230", "#141a26"]} position={[0, -1.05, 0]} />
         <Suspense fallback={null}>
-          <FittedModel accentColor={accentColor} fps={fps} onTelemetry={setFps} />
+          <SceneRig
+            accentColor={accentColor}
+            fps={fpsLive}
+            mood={mood}
+            onTelemetry={setFpsLive}
+            gestureApiRef={gestureApiRef}
+            onGestureDone={onGestureDone}
+          />
         </Suspense>
       </Canvas>
-      <span className="hud-label absolute left-2 top-2 text-[9px] opacity-60">3D HANGAR · GENERATED BODY</span>
+      <span className="hud-label absolute left-2 top-2 text-[9px] opacity-60">3D HANGAR · BRAIN-DRIVEN BODY</span>
       <span className="hud-label absolute right-2 top-2 text-[9px] opacity-70">
-        AURA-TELEMETRY · {Math.round(fps)} FPS · {tierLabel}
+        AURA-TELEMETRY · {Math.round(fpsLive)} FPS · {tierLabel}
       </span>
       {worldLine && (
         <span className="hud-label absolute bottom-6 left-2 right-2 text-[9px] opacity-70 truncate">{worldLine}</span>

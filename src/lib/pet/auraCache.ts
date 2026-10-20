@@ -73,12 +73,12 @@ export function scanAsset(id: string, meta?: { bytes?: number }): ScanResult {
   };
   save(store);
 
-  if (encounters === 1) {
+  const selfScan = id.startsWith("zola");
+  if (encounters === 1 && !selfScan) {
     return { id, known: false, encounters, verdict: pick(FIRST_CONTACT, id.length) };
   }
   const roast = pick(REPEAT_ROAST, id.length + encounters);
   const kb = store[id].bytes ? ` ${(Math.round(store[id].bytes! / 102.4) / 10).toFixed(1)} KB of` : "";
-  const selfScan = id.startsWith("zola");
   const verdict = selfScan
     ? `Target locked: ${id}. That's literally me. Encounter #${encounters}. Aura: immaculate.`
     : roast(id, encounters) + (kb ? ` (${kb} pure aura.)` : "");

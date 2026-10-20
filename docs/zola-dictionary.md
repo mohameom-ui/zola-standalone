@@ -105,3 +105,58 @@ query, and retrieves live real-world metadata before resuming her scan.
 | **`Optic-Rizz Array`** | Triple-lens gold camera module on head unit | FOV rendering, object classification & bounding box overlay | *"Scanning district... 12/12 assets generated, no cap. Kenney kit is officially cooked."* |
 | **`Uncertainty-Gaze`** | 15° servo head-tilt via MG90S neck pivot | Triggers `FALLBACK_RECON_SEARCH` when local confidence is mid | *"What in the Ohio is this mesh? Querying live search grid..."* |
 | **`Aura-Telemetry`** | Emissive cyan ring status LEDs | Visual HUD indicator for frame stability and performance contract state | *"FPS at 60.0. Maximum aura farming achieved."* |
+
+---
+
+# v2.3 INTELLIGENCE DIRECTIVE — Autonomous Architectural Menace
+
+*Owner directive 2026-10-20: "We can't just stop at static 3D models and
+basic bounding-box name tags. We need to turn her into an autonomous,
+self-aware architectural menace."* Three modules, sequenced by repo:
+
+## 1. `NEURAL_AURA_CACHE` — zero-lag recognition (ZOLA-native)
+
+Instead of hitting the fallback web search every time she encounters an
+unindexed mesh or a weird prop, the `Optic-Rizz Array` logs visual
+embeddings into a local vector memory bank (`zola_aura_cache.json`).
+
+- **v1 (manifest mode):** asset-manifest lookup + encounter counter — once
+  she sees an asset twice, she stops questioning reality and starts roasting
+  it. No ML required; ships immediately.
+- **v2 (embedding mode):** real visual embeddings via the local
+  `@huggingface/transformers` stack already in her package; perceptual-match
+  threshold gates the `FALLBACK_RECON_SEARCH` path.
+- **The sass (canonical examples):**
+  - *First encounter:* "What in the Ohio is this polygon soup? Querying live
+    search..."
+  - *Second encounter:* "Ah, midrise-b. Still ugly, still 30k faces. Moving
+    on."
+
+## 2. `AURA_TELEMETRY_REACTIVITY` — live performance roasting (ZOLA-native
+first, Aetheria-side second)
+
+Tie the cranial ring LEDs and verbal commentary directly to live runtime
+metrics. She reacts in real time.
+
+- **Canonical sass:**
+  - *FPS locked at 60:* "FPS is buttery. Maximum aura farming achieved. We
+    take those."
+  - *Heavy asset micro-stutter:* "Bro, who let a 50MB monstrosity into the
+    viewport? My servo nodes are literally crying. Optimize your meshes,
+    clanker."
+- **Implementation hooks:** hangar card first (`DroneBody3D` samples its own
+  rAF delta); district-side second (taps the `[district-gate]` sampler's
+  store in Aetheria's `DistrictScene`).
+
+## 3. `DISTRICT_PATROL_PATHFINDING` — autonomous recon (AETHERIA-side —
+cross-repo feature)
+
+Zola's bipedal-multirotor hybrid physically enters Aetheria's district view:
+hops between generated rooftops, scans building variants, and drops
+`HUD_TARGET_ID` markers automatically — no manual camera dragging.
+
+- **Prereq:** her v2.1 mesh crosses into Aetheria's scene (asset copy +
+  patrol actor in `DistrictScene`); the `NEURAL_AURA_CACHE` rides along.
+- **Motion model:** the spec is dual-state — bipedal walk on street level,
+  flight hops between rooftops (1-3 s motor bursts, per the power strategy).
+- **This module is Aetheria scope** — it makes the district inhabited.

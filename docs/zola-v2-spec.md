@@ -84,6 +84,19 @@ Low-center-of-gravity battery ballast in the lower chest cavity.
 4. **Power strategy:** task-and-return energy cycle — short aerial hops,
    then land, cut motor current, walk, magnetic auto-dock to recharge.
 
+## v2.3 intelligence directive — autonomous architectural menace
+
+Three modules, sequenced by repo (full specs in
+`docs/zola-dictionary.md` v2.3 section):
+
+1. **`NEURAL_AURA_CACHE`** (ZOLA) — local vector memory bank
+   (`zola_aura_cache.json`); v1 manifest-mode recognition + sass, v2
+   embedding-mode via the local transformers stack.
+2. **`AURA_TELEMETRY_REACTIVITY`** (ZOLA hangar first, Aetheria second) —
+   cranial ring + commentary react to live fps/draw-call telemetry.
+3. **`DISTRICT_PATROL_PATHFINDING`** (AETHERIA) — Zola enters the district
+   view: rooftop-to-rooftop hops, autonomous `HUD_TARGET_ID` scanning.
+
 ## Optical scanning & live recon system (v2.2 directive)
 
 Zola's head unit gains a scanning personality. Two subsystem modules extend

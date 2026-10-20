@@ -14,7 +14,7 @@ import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-const BODY_URL = "/assets/models/zola-drone-body.glb";
+const BODY_URL = "/assets/models/zola-body-v2.glb";  // v2: humanoid-drone hybrid (gen-zola-humanoid-v2)
 
 /** Center + normalize the generated mesh so any future export fits the stage. */
 function FittedModel({ accentColor }: { accentColor: string }) {

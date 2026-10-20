@@ -362,3 +362,10 @@ Format: [date] slice — action — library source → destination.
 - **Enabled by:** CUDA Toolkit 12.8 install + compiled custom_rasterizer & differentiable_renderer (mesh_processor) extensions in the Hunyuan venv
 - **Source:** image: concept render `tools/modly/zola-drone-ref.png` (Aetheria repo)
 - **Destination:** `public/assets/models/zola-drone-body.glb` (replaces geometry-only version)
+
+### 2026-10-20 08:15 — Modly generation (TEXTURED): `zola-body-v2.glb` — humanoid-drone hybrid
+- **Model:** hunyuan3d-mini-turbo/generate + paint pass + 30k-face optimizer, octree 256
+- **Design:** per docs/zola-v2-spec.md — 45cm bipedal frame, quad cranial halo (1204/1303.5 motors, folding 2.5" props), Pi 5 + I2S amp chest bay, 3S LiPo ballast, gold armature, cyan UART/LED traces
+- **Source:** concept `tools/modly/refs/ref-zola-v2-humanoid.png` (Aetheria repo)
+- **Enabled by:** pagefile 16-64GB (commit-limit fix for os error 1455)
+- **Destination:** `public/assets/models/zola-body-v2.glb` (hangar card swaps to this body)

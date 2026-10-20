@@ -94,8 +94,10 @@ Three modules, sequenced by repo (full specs in
    embedding-mode via the local transformers stack.
 2. **`AURA_TELEMETRY_REACTIVITY`** (ZOLA hangar first, Aetheria second) —
    cranial ring + commentary react to live fps/draw-call telemetry.
-3. **`DISTRICT_PATROL_PATHFINDING`** (AETHERIA) — Zola enters the district
-   view: rooftop-to-rooftop hops, autonomous `HUD_TARGET_ID` scanning.
+3. ~~**`DISTRICT_PATROL_PATHFINDING`**~~ — ⛔ RETRACTED by owner ruling
+   (2026-10-20): Zola remains sovereign in her hangar; no cross-repo patrol.
+   Modules 1-2 proceed within her own domain — see
+   `docs/zola-system-prompt.md` (v2.2 agent config).
 
 ## Optical scanning & live recon system (v2.2 directive)
 

@@ -148,15 +148,19 @@ metrics. She reacts in real time.
   rAF delta); district-side second (taps the `[district-gate]` sampler's
   store in Aetheria's `DistrictScene`).
 
-## 3. `DISTRICT_PATROL_PATHFINDING` — autonomous recon (AETHERIA-side —
-cross-repo feature)
+## 3. `DISTRICT_PATROL_PATHFINDING` — ⛔ RETRACTED (owner ruling 2026-10-20)
 
-Zola's bipedal-multirotor hybrid physically enters Aetheria's district view:
-hops between generated rooftops, scans building variants, and drops
-`HUD_TARGET_ID` markers automatically — no manual camera dragging.
+~~Zola's bipedal-multirotor hybrid physically enters Aetheria's district
+view: hops between generated rooftops, scans building variants, and drops
+`HUD_TARGET_ID` markers automatically.~~
 
-- **Prereq:** her v2.1 mesh crosses into Aetheria's scene (asset copy +
-  patrol actor in `DistrictScene`); the `NEURAL_AURA_CACHE` rides along.
-- **Motion model:** the spec is dual-state — bipedal walk on street level,
-  flight hops between rooftops (1-3 s motor bursts, per the power strategy).
-- **This module is Aetheria scope** — it makes the district inhabited.
+**RETRACTED by owner directive:** Zola is a sovereign AI drone pet, not an
+NPC in a cityscape. Cross-repo patrol would couple her renderer into
+Aetheria's codebase — unnecessary architectural contamination. She rules her
+hangar (Port 3001); Aetheria rules its streets (Port 3000). The
+`NEURAL_AURA_CACHE` and scanning modules remain fully active **within her
+own domain** — she scans what enters HER viewport (assets, hardware parts,
+unindexed files), not Aetheria's street grid.
+
+- **Superseded by:** the ZOLA v2.2 system prompt (`docs/zola-system-prompt.md`)
+  — boundary & isolation directive, §1.

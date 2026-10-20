@@ -9,11 +9,11 @@
 // Non-destructive: sits beside the 2D flight-body canvas, does not replace it.
 // ============================================================================
 
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { scanAsset, type ScanResult } from "@/lib/pet/auraCache";
+import { scanAsset, scanWorldManifest, type ScanResult } from "@/lib/pet/auraCache";
 
 const BODY_URL = "/assets/models/zola-body-v2.glb";  // v2: humanoid-drone hybrid (gen-zola-humanoid-v2)
 
@@ -108,6 +108,17 @@ export default function DroneBody3D({ accentColor = "#35d0a5" }: { accentColor?:
       return null;
     }
   });
+  // WORLD SCAN — the Optic-Rizz Array audits her whole domain on mount
+  const [worldLine, setWorldLine] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void scanWorldManifest().then(({ scanned, fresh }) => {
+      if (!alive) return;
+      const latest = scanned[scanned.length - 1];
+      setWorldLine(`WORLD SCAN: ${scanned.length} assets audited · ${fresh} new to the ledger · last: ${latest?.verdict ?? "-"}`);
+    });
+    return () => { alive = false; };
+  }, []);
   const tierLabel = fps >= 55 ? "AURA FARMING" : fps >= 30 ? "MID" : "CRITICAL";
   return (
     <div className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#0b0e17]">
@@ -133,6 +144,9 @@ export default function DroneBody3D({ accentColor = "#35d0a5" }: { accentColor?:
       <span className="hud-label absolute right-2 top-2 text-[9px] opacity-70">
         AURA-TELEMETRY · {Math.round(fps)} FPS · {tierLabel}
       </span>
+      {worldLine && (
+        <span className="hud-label absolute bottom-6 left-2 right-2 text-[9px] opacity-70 truncate">{worldLine}</span>
+      )}
       {scan && (
         <span className="hud-label absolute bottom-2 left-2 right-2 text-[9px] opacity-80 truncate">
           [HUD_TARGET_ID: {scan.id}] encounters {scan.encounters} — "{scan.verdict}"

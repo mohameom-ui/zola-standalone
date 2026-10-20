@@ -21,6 +21,8 @@ import { MissionExecutor, type Waypoint, type MissionAct } from "@/lib/pet/missi
 import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { HapticLink } from "@/lib/pet/haptics";
+import { webRecon } from "@/lib/pet/recon";
+import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
 import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
 import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
 import ZolaShell from "@/components/pet/ZolaShell";
@@ -470,6 +472,23 @@ export default function DronePetPanel() {
     else if (act.startsWith("persona:")) { const p = act.slice(8).trim(); if (LED_FOR_PERSONA[p] || PERSONA_TONE[p]) { setPersona(p); if (!d.say) say(`Persona shift: ${p}. The ring already knows.`); refreshCounts(); return true; } return false; }
     else if (act.startsWith("mission:")) { canonical = act.slice(8).trim(); }
     else if (act.startsWith("body:")) { const mode = act.slice(5).trim(); if (mode === "sim" || mode === "real") { setBodyMode(mode); if (!d.say) say(`Body mode: ${mode}. ${mode === "real" ? "Talk to me through the link." : "Back in the simulation."}`); refreshCounts(); return true; } return false; }
+    else if (act.startsWith("recon:")) {
+      const term = act.slice(6).trim();
+      if (!term) return false;
+      say(`Uncertainty-Gaze engaged. Querying the live grid about ${term}…`);
+      void (async () => {
+        const r = await webRecon(term);
+        if (!r) { say(`The grid came back empty on ${term}. The uncertainty stays open.`); return; }
+        if (r.learned) {
+          brain.command(`remember that ${r.factLine}`, batteryRef.current);
+          say(`Learned. ${r.extract.split(".")[0]}. Filed permanently — ask me again tomorrow.`);
+        } else {
+          say(`Already in my ledger: ${r.factLine}`);
+        }
+        refreshCounts();
+      })();
+      return true; // the async recon speaks for herself
+    }
 
     if (!d.say && !canonical) return false; // garbage output → let reflexes answer
 

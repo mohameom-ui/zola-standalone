@@ -89,3 +89,62 @@ export function scanAsset(id: string, meta?: { bytes?: number }): ScanResult {
 export function dumpAura(): AuraEntry[] {
   return Object.values(load()).sort((a, b) => b.encounters - a.encounters);
 }
+
+// ---- the world manifest: everything in Zola's domain, by asset id -------
+
+export interface ManifestEntry {
+  id: string;
+  url: string;
+}
+
+export function worldManifest(): ManifestEntry[] {
+  const district = [
+    "lowrise-a", "lowrise-b", "lowrise-c", "lowrise-d",
+    "midrise-a", "midrise-b", "midrise-c", "midrise-d",
+    "midrise-e", "midrise-f", "midrise-g",
+    "highrise-a", "highrise-b", "highrise-c",
+    "skyscraper-a", "skyscraper-b", "skyscraper-c",
+    "civic-dome-a", "civic-dome-b",
+  ];
+  const manifest: ManifestEntry[] = district.map((n) => ({
+    id: `b2026-${n}`,
+    url: `/assets/models/gen-b2026-${n}.glb`,
+  }));
+  manifest.push(
+    { id: "zola-drone-body", url: "/assets/models/zola-drone-body.glb" },
+    { id: "zola-body-v2", url: "/assets/models/zola-body-v2.glb" },
+  );
+  return manifest;
+}
+
+/**
+ * WORLD SCAN — the Optic-Rizz Array audits every asset in her domain:
+ * real HEAD requests, real byte counts, real ledger entries. Unknown
+ * assets (never scanned) surface for the FALLBACK_RECON_SEARCH path.
+ * Safe to run on every hangar load — the ledger dedupes.
+ */
+export async function scanWorldManifest(): Promise<{ scanned: ScanResult[]; fresh: number }> {
+  const manifest = worldManifest();
+  const before = dumpAura().filter((e) => e.encounters === 1).length;
+  const scanned: ScanResult[] = [];
+  const batch = 6;
+  for (let i = 0; i < manifest.length; i += batch) {
+    const slice = manifest.slice(i, i + batch);
+    const results = await Promise.all(
+      slice.map(async ({ id, url }) => {
+        let bytes: number | undefined;
+        try {
+          const r = await fetch(url, { method: "HEAD" });
+          const len = r.headers.get("content-length");
+          if (len) bytes = parseInt(len, 10);
+        } catch {
+          // offline — scan without bytes
+        }
+        return scanAsset(id, { bytes });
+      }),
+    );
+    scanned.push(...results);
+  }
+  const after = dumpAura().filter((e) => e.encounters === 1).length;
+  return { scanned, fresh: after - before };
+}

@@ -188,6 +188,25 @@ export class LlmConsultant {
     return { say: parsed.say ?? null, do: parsed.do ?? null };
   }
 
+  /** WAVE 3 — freeform completion for creative work (storytelling). Plain text
+   * in, plain text out; no JSON contract. Throws on failure. */
+  async complete(prompt: string, maxTokens = 160): Promise<string> {
+    const res = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        stream: false,
+        options: { temperature: 0.9, num_predict: maxTokens },
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
+    const data = (await res.json()) as { message?: { content?: string } };
+    return (data.message?.content ?? "").trim();
+  }
+
   /**
    * Compose ONE spontaneous idle observation from her live context — her
    * unprompted chatter becomes thought-up, not recited. Returns null on failure.

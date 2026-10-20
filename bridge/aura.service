@@ -1,0 +1,17 @@
+# /etc/systemd/system/aura.service
+# AURA drone pet — ground relay autostart on the Raspberry Pi
+[Unit]
+Description=AURA Drone Pet — Ground Relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/aura/bridge
+ExecStart=/home/pi/aura/bridge/venv/bin/python aura_relay.py --connection udp://:14540
+Restart=always
+RestartSec=3
+# Safety: if the relay dies, the FC's own failsafe holds hover/land.
+
+[Install]
+WantedBy=multi-user.target

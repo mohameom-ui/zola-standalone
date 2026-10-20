@@ -15,6 +15,7 @@
 // ============================================================================
 
 import type { Actuation, DronePose } from "./types";
+import { sunReport } from "./suncalc";
 
 /** obstacle-avoidance whisker: given (from,to,altitude) return a steered target */
 export type AvoidFn = (
@@ -153,6 +154,19 @@ export class SimDroneHAL implements PetHAL {
     const bobAmp = sleeping ? 0 : excited ? 0.05 : act.mood === "alarmed" ? 0.02 : 0.035;
     this.p.bob += dt * bobSpeed * (sleeping ? 0 : 1);
     this.bobAmp = bobAmp;
+
+    // COMPANION IDLE ORBIT: Lissajous floating near the human's position —
+    // organic, non-repetitive hover that feels alive, not robotic
+    if (act.activity === "hover" && !sleeping) {
+      // WAVE 5 — SHADOW PLAY: her local sun model bends the orbit. Golden hour
+      // drifts her gently toward the light side; high sun steadies the orbit
+      // (comfort-seeking, not random). Night keeps her parked near center.
+      const sun = sunReport();
+      const drift = sun.phase === "golden" ? 0.06 : sun.phase === "dawn" || sun.phase === "dusk" ? 0.03 : 0;
+      const orbit = 0.1 * (sun.phase === "midday" ? 0.75 : 1);
+      this.v.x += (Math.sin(this.t * 0.31) * orbit + drift - this.v.x) * dt * 0.5;
+      this.v.y += (Math.sin(this.t * 0.47 + Math.PI / 3) * orbit * 0.7 - this.v.y) * dt * 0.5;
+    }
 
     // ---- props --------------------------------------------------------------------
     const thrust = Math.abs(act.vx) + Math.abs(act.vy) + Math.abs(act.vz) + Math.abs(act.yaw);

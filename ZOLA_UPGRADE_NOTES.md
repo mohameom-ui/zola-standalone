@@ -1,5 +1,247 @@
 # 📋 ZOLA UPGRADE NOTES — provenance log (canonical; the other session owns UPGRADE_NOTES.md)
 
+## 2026-10-18 — V13 HANDOFF PROMPT SAVED (with corrections)
+`ZOLA_V13_HANDOFF_PROMPT.md` — the save-and-return master prompt for the post-bench
+session (v13.0 Hardware Ascension). Corrections applied before saving:
+- The draft cited `neuralPredictor.ts` and `semanticPercept.ts` as existing files —
+  NEITHER exists. Documented the real homes: predictor = `safety.ts` setPredictor
+  callback + panel wiring; anchoring = `spatialMap.ts` anchor().
+- Carried the open heuristic-depth tag item forward as v13 task #1's first step.
+- Recorded the full bench-day chain (dry-run corrected) + the two-agent
+  coordination protocol, so the next session inherits the seams, not just the code.
+
+## 2026-10-18 — DEEP SYSTEM CHECK — 4 pillars verified against code (not prose)
+Independent verification of the pre-bench audit claims. Result: 3 pillars verified,
+1 claim FALSE as stated, 1 open gap confirmed.
+- **P1 Transport — CORRECTION**: `aura_relay.py` does NOT default to `/dev/serial0`.
+  Its --connection default remains `udpin:0.0.0.0:14551` (correct for desktop SITL
+  dev). The SERIAL default lives in pi-setup.sh's systemd service
+  (ZOLA_CONNECTION=/dev/serial0, ZOLA_BAUD=57600). Consequence: running the relay
+  manually on the Pi WITHOUT args gets UDP, not serial — always launch her via the
+  systemd service on hardware. MAVLink2 pass-through: no translation layer exists
+  (pymavlink handles the protocol) — verified by absence of any codec code.
+- **P2 Governor — VERIFIED with the real hierarchy** (file is `safety.ts`, class
+  SafetyGovernor — not "governor.ts"): gate() order is KILL SWITCH first →
+  CRITICAL battery (forced descent) → LOW battery flag → speed clamp → face
+  stand-off → predictive trajectory decel → soft geofence → visual hold
+  (altitude lock) → ceiling guard → descent cap. Dream clamps verified in code:
+  fence Math.min(2.4, max(0.6, …)), vision window Math.min(4000, max(2000, …)).
+  Mission executor sits outside the gate but pauses itself on governor flags and
+  aborts on kill — verified.
+- **P3 Spatial — GAP CONFIRMED, OPEN ITEM**: spatialMap.ts does NOT tag monocular
+  depth as heuristic evidence (grep: zero matches). The ray-marching and sparse
+  hash are real, but the log-odds constants treat heuristic depth as if it had a
+  known sensor model. OPEN ITEM for spatialMap's owner (other session): add the
+  heuristic-depth-evidence tag to the map's output/docs. Not edited here — file
+  ownership respected per handoff protocol.
+- **P4 Deployment — VERIFIED**: deploy-excludes.txt contains no `*.wav` rule (Piper
+  voice pack protected); systemd boots serial-first with arming checks ENABLED
+  unless ZOLA_RELAXED=1; pi-dayone.sh checks match the serial transport.
+- Server health during audit: :3000 → 200.
+
+## 2026-10-18 — TRIM PASS — deployment manifest, measured refusals
+The post-simulation trim proposal was audited against reality before cutting:
+- **REFUSED — "remove SimDroneHAL"**: it is hooked (bodyMode sim/real toggle), it
+  is the dual-HAL contract's other half, her SITL test rig and training environment.
+  Removing it would break the parity contract for a 0-byte saving.
+- **DECLINED — "trim the 434 SVG kit"**: measured 1.9 MB total, zero runtime cost.
+- **REVIEWED — "25 GB models"**: KEPT (her offline brain is deliberate); documented
+  the ~4 GB minimal-brain option (llama3.2:3b + whisper-tiny + kokoro + smolvlm)
+  as a human decision for tight SD cards.
+- **BUILT — the real footprint lever**: `DEPLOY.md` (manifest: what flies to the
+  Pi vs stays home, with measured sizes) + `deploy-excludes.txt` (rsync exclude
+  list: Tools/blender 929 MB, assets_src, .next, node_modules, Scripts, docs,
+  *.md, logs). Deployable body: ~1.4 GB + the 25 GB model mirror.
+- **REMOVED**: ai_voice_test.wav (stray), zola-dev-verify.log, zola-standalone.log,
+  zola-server.log (runtime logs, regenerated).
+- **Auto-review catch of the day**: my first exclude draft had `*.wav` — which
+  would have silently stripped her Piper voice pack from the Pi. The reviewer
+  caught it; the rule was removed before it ever ran. The integrity review layer
+  works on the operators too.
+- next.config.ts verified clean (no debug flags — item 4 needed nothing).
+- Server untouched through the trim (page 200 after).
+
+## 2026-10-18 — BENCH-DAY CORRECTION — pi-setup.sh relay service was SITL-wired
+Dry-running the day-one bring-up procedure against the actual installer exposed a
+two-part trap that would have failed bench day silently:
+1. `zola-relay.service` hardcoded `--connection 'udpin:0.0.0.0:14551'` — a UDP
+   listen address a physical UART-connected ArduPilot can NEVER reach. The setup
+   text even claimed the relay "finds it automatically" (false for hardware).
+2. The service launched with `--relaxed-arming` — which the relay's own help
+   marks "SITL only — never on hardware". Boot-time arming-check bypass on a
+   real drone = safety failure.
+FIXED in pi-setup.sh (bash syntax verified over the whole file):
+- `ZOLA_CONNECTION` (default **/dev/serial0** — the bench UART) and `ZOLA_BAUD`
+  (default **57600** — ArduPilot TELEM standard) configure the systemd service;
+  USB (`/dev/ttyACM0`) and SITL (`udpin:...` + `ZOLA_RELAXED=1`) documented inline.
+- `--relaxed-arming` now ONLY applied when explicitly requested for SITL —
+  hardware boots with arming checks ENABLED by default.
+- Final setup banner now prints the wired connection/baud and the required FC
+  side params (SERIAL2_PROTOCOL=2, SERIAL2_BAUD=57) + pi-dayone.sh verification.
+- CRLF line endings in the file required a tail-splice fix; `bash -n` clean.
+This closes the loop with the day-one procedure: power harness → UART cross-wiring
+→ FC params (SERIAL2_PROTOCOL=2 / SERIAL2_BAUD=57) → pi-setup.sh (serial-default)
+→ pi-dayone.sh 11 checks → first tethered flight.
+
+## 2026-10-18 — WAVE 12 — dream-state replay & bounded auto-tuning (this session)
+New `src/lib/pet/dreamEngine.ts` — she dreams over her own flight telemetry at the
+nightly cycle (runs with the wrap-up, after buildNightlyNode):
+- **Event census × environment**: safety flags correlated with hour-of-day AND
+  light phase (via her sun model) — correlations stated only when the census
+  supports them (≥3 occurrences).
+- **Bounded arithmetic auto-tuning** (the blueprint's "safety bias weighting",
+  honest edition — ARITHMETIC, never prose): geofence breach → fence radius +0.15 m;
+  3+ soft approaches → +0.10 m; 3+ visual holds → vision-confidence window −500 ms.
+  HARD CLAMPS added to the governor (`setLimits`): fence 0.6–2.4 m, vision window
+  2000–4000 ms — tuning shifts margins but can never disable a safety. Persisted in
+  memory.dreamTuning, restored on boot.
+- **safety.ts gained `setLimits`/`currentLimits`** + a tunable `visionStaleLimit`
+  (was hardcoded 4000 ms). Applied against a fresh read — coexists cleanly with the
+  other session's WAVE 11 predictor additions, which were edited concurrently.
+- **ASCII trajectory dream-map**: density heat-map of recorded px×py, logged at the
+  cycle. Occupied-voxel overlay DEFERRED — spatialMap.ts is the other session's
+  claimed file and exposes no voxel-list accessor; flagged, not touched.
+- **Integrity contract**: LLM (if online) contributes reflective PROSE only (logged
+  as "dream prose"); the tuning numbers are pure census arithmetic. Thin evidence
+  (<60 samples) → INSUFFICIENT DATA and nothing changes.
+- Build green; server restarted; page 200.
+
+## 2026-10-18 — WAVE 10 — autonomous mission scripting (waypoints + orbit-POI)
+New `src/lib/pet/missions.ts` — a deterministic waypoint + orbit-POI state machine:
+- **Waypoint queueing**: HUD mission-planner card (X/Y/Z + hold-ms inputs, ADD,
+  per-waypoint remove, START). Executor drives her flight vectors step-by-step:
+  P-controller toward each waypoint (≤0.35 m/s — calmer than her reactive cap),
+  arrival tolerance 0.12 m against ACTUAL pose (no dead-reckoning — if she can't
+  confirm arrival, she holds), hold phase, then next; "mission complete" spoken.
+- **Orbit-POI**: circles a point at standoff radius (default: home @ 0.8 m, 2 laps)
+  with the camera YAW LOCKED on the POI the whole flight — pure circular kinematics
+  (0.25 m/s tangential, lap budget tracked in radians).
+- **Override handoff (the architecture contract)**: the executor PROPOSES; the
+  SafetyGovernor DISPOSES. Mission actuation passes through the same gate() as her
+  brain — soft geofence, visual hold, battery failsafes physically override missions,
+  never the reverse. Safety flags PAUSE the mission (holding pattern — a zero-motion
+  hover that lets the governor's safe-return vectors act unmolested); clean sky
+  resumes it; kill switch aborts it outright.
+- **Voice override**: "abort mission" / "cancel mission" releases control instantly.
+- Mood/LED stay hers during missions — the state machine flies, the personality
+  stays on.
+- Known sim-honesty note: sim positioning is exact, so drift-pause triggers only
+  via safety flags; real-VIO drift thresholds become meaningful with real
+  positioning — the tolerance check is already pose-actual, ready for it.
+- Build green first pass; server restarted; page 200.
+
+## 2026-10-18 — WAVE 11 — spatial cybernetics: occupancy, foresight, touch
+Integrity audit of the 4-module blueprint, then the honest build:
+1. **3D Spatial Occupancy Map** (`src/lib/pet/spatialMap.ts`, new): sparse voxel
+   hash at 0.1 m resolution with probabilistic log-odds updates (hit +0.85,
+   pass-through −0.35, clamped ±4, occupied when P>0.65). INTEGRITY GUARDRAIL
+   KEPT: voxels update ONLY along true camera sightlines — the ray from her pose
+   through a detection's bbox center, out to the distance her own monocular
+   size-model resolved. Unobserved space is UNKNOWN, never free. Her old flat
+   projection ignored bbox x-offset; sightlines now steer within her ~60° FOV —
+   item positions got MORE honest as a side effect.
+2. **Semantic 3D anchors** (same module): certain detections bind label → last
+   confirmed 3D position; queryable via getAnchor(). Her memory items already
+   carried world position — the anchors add the occupancy context around them.
+3. **Predictive Trajectory Governor** (`types.ts` + `safety.ts` + panel): her
+   MEASURED velocity (pose deltas over the real frame interval — the derivative
+   of where she actually was, no model) is extrapolated 1.5 s ahead. Predicted
+   geofence breach → 60% outward-motion decel BEFORE the soft fence reacts;
+   predicted occupied voxel (probe at horizon + midpoint) → 50–75% hard decel.
+   Governor stays map-agnostic via a setPredictor() callback wired to the map.
+4. **Cybernetic Haptic Link** (`src/lib/pet/haptics.ts`, new): telemetry-driven
+   tactile profiles over the Web Gamepad vibrationActuator — cruise rumble scaled
+   by live prop RPM, rhythmic fence-proximity pulses that speed up as distance
+   falls, triple distress pulse on visual-hold/critical. HONESTY CONTRACT: fires
+   ONLY through a physically connected gamepad; no controller → dormant, logged
+   as such — simulated touch is not touch.
+- **NOT built (integrity):** EKF-uncertainty variance (no EKF in sim — the
+  blueprint's own zero-fake-metrics rule excludes it); LiDAR-grade ranging (she
+  has monocular size-model rays only — labeled as such inside the module).
+- Build green first pass; server restarted; page 200.
+
+## 2026-10-18 — WAVE 9 — interactive flight replay scrubber
+New `src/components/pet/FlightReplay.tsx` — a scrubber card under her gesture stage:
+- **Timeline slider + play/pause** (8 samples/sec playback = 4× speed review of her
+  2 Hz ring), stepping through EXACT recorded samples. The guardrail from the
+  proposal is the design: zero interpolation, zero synthetic frames — the artificial
+  horizon, traces, and readouts render only what the ring actually holds.
+- **Traces**: battery (amber, top) and altitude (cyan, middle) across the full window;
+  **event pins** color-coded by real governor flags (teal governor, amber geofence,
+  purple visual-hold, red critical) at the exact sample where they occurred.
+- **Attitude dial**: artificial horizon driven by the selected sample's recorded
+  pitch/roll — scrub backwards through a gust and watch her lean again, exactly
+  as recorded.
+- Readouts: timestamp, activity, mood, battery, altitude, pitch/roll, flags.
+- The card auto-hides until the ring holds samples. Refreshes from the live ring
+  every 5 s (recording continues while you scrub history).
+- Battery is honestly a fraction trace in sim (linear sim battery — labeled by
+  context); real voltage-based sag pins arrive with MAVLink BATTERY_STATUS.
+- Build green first pass; server restarted on :3000; page 200.
+
+## 2026-10-18 — WAVE 8 — autonomous post-flight diagnostics (honest-signal edition)
+New module `src/lib/pet/diagnostics.ts` — deterministic analysis over the black-box
+ring the moment she lands or docks after real flight time. Integrity audit applied
+to the proposal first:
+- **BUILT — attitude stability** (σ of max(|pitch|,|roll|) across hover/follow
+  samples — the vibration/imbalance early-warning; black-box entries now record
+  attitude in degrees each sample).
+- **BUILT — altitude hold quality** (alt σ during hover).
+- **BUILT — loop regularity** (jitter % of black-box sample timing — real pipeline
+  health; serial-layer jitter STAGED, needs relay heartbeat timing — labeled, not
+  faked).
+- **BUILT — voltage sag section reports DORMANT honestly** (sim battery is linear;
+  activates when MAVLink BATTERY_STATUS streams — no invented numbers).
+- **BUILT — safety-event census** (geofence/hold/critical events counted from
+  recorded governor flags).
+- **HONEST THRESHOLDS**: attitude σ ≤ 2°, altitude σ ≤ 0.05 m, jitter ≤ 25% —
+  labeled in the output as SIM-TUNED, recalibrate on the real airframe before
+  bench judgment.
+- **Behavior**: fires automatically on the airborne→dock/sleep transition; speaks
+  a one-line verdict ("Flight check complete: nominal…"), logs the full run, and
+  the VLOG export now renders a "Post-flight diagnostics" section with the verdict
+  header and every check. Verdicts: NOMINAL / REVIEW / INSUFFICIENT DATA (ring
+  under 40 samples refuses to analyze rather than pretending).
+- Build green first pass; server restarted; page 200.
+
+## 2026-10-18 — WAVE 7 — physical-precursor autonomy: geofence, vision hold, LiPo profiler
+Integrity audit first: of the 4 proposed modules, #2 (acoustic landing beacon via
+pulse-echo resonance) was DEFERRED — echo-based surface classification needs a known
+transducer pair + calibrated mic array; faking it from a laptop mic would be fake
+telemetry. Honest substitute noted for later: optical descent assessment via her
+camera. Built the three that pass the integrity bar:
+1. **Soft Geofence & Safe Return** (`safety.ts`): horizontal cylinder around home
+   (geofenceRadius, default 1.2, 0=off). At 85% radius: outward velocity component
+   proportionally canceled + inward return vector (gentle inside, firm 0.3 past
+   breach). Flags: "SOFT GEOFENCE · NN%" / "GEOFENCE BREACH — RETURNING HOME".
+   Pure vector math — works identically in sim and under MAVLink.
+2. **Visual-Confidence Safeguard** (`types.ts` + `safety.ts` + panel): percept gains
+   visionStaleMs (ms since ANY detection); if her feed is expected live but silent
+   for 4 s (lighting drop/feature loss), the governor degrades to inertial hold —
+   velocities ×0.25, ALTITUDE LOCKED — until detections resume. One alert chirp +
+   flash per episode; freshness clock fed by onDetections/onTrack callbacks.
+3. **LiPo Discharge Curve Profiler** (`src/lib/pet/battery.ts`, new): piecewise
+   published LiPo per-cell curve (3.0–4.2 V → 0–100%), sag-aware resting-voltage
+   correction (0.1–0.2 V/cell under load — measured constants, not invented), and a
+   FlightTimeEstimator that learns HER OWN drain rate (%/min over a 5-min window)
+   and predicts remaining air minutes. Honest activation: samples ONLY from real
+   MAVLink telemetry (sim battery is linear → profiler stays dormant, panel shows
+   "SIM" rather than pretending). New EST AIR stat joins CELL HEALTH/CYCLES row.
+- **Port incident, resolved:** her package.json scripts were found changed to -p 3001
+  (other session). Port 3000 was free and is hers by every doc + pi-dayone.sh →
+  reverted dev/start to 3000; server verified back on :3000. Noted here so both
+  sessions know.
+- Build green (one shorthand-property type error caught pre-compile); page 200.
+- **RELAY IS SERIAL-READY FOR BENCH DAY** (`bridge/aura_relay.py`): `--baud` argument
+  added (default 57600 — the ArduPilot TELEM standard; 921600 for fast links).
+  Device-path connections (`/dev/ttyAMA0`, `/dev/serial0`, `COM*`) get the baud
+  passed to pymavlink; tcp/udp strings untouched (SITL path byte-identical).
+  Syntax verified in her WSL venv environment. Bench invocation will be:
+  `python aura_relay.py --connection /dev/serial0 --baud 57600` (or the TELEM2 UART
+  the wiring tutorial's serial link lands on). Run the linked Pi↔ArduPilot serial
+  walkthrough BEFORE first power-up: pinout (TX↔RX crossed), 3.3 V logic on both
+  sides, and common ground — the three things that brick boards when rushed.
+
 ## 2026-10-18 — WAVE 6.6 — refinement deltas on the circadian + archive design
 The user's refined architecture for the two Wave-6 integration points arrived after
 Wave 6 shipped. Delta audit → three genuine additions built:

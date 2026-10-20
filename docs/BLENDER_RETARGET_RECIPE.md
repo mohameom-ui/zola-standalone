@@ -1,5 +1,37 @@
 # Blender Retargeting Recipe — BVH → Zola's rig
 
+> **STATUS (2026-10-18): PIPELINE PROVEN — 19 GESTURES LIVE.** Blender 5.2.2 LTS
+> installed at `Tools/blender/blender-5.2.2-windows-x64/`. Full repertoire in
+> `Scripts/gestures_core.txt` (format `path:gesture_name`): the core four
+> (wave/bow/spin/stretch from CMU subject 111) + 15 expressive takes mapped to
+> her brain states — dance ×2 (excited), shrug (search/lost), mope (sleepy),
+> peekaboo + curtsey (greetings), pickup (found item), throw + rollover (play),
+> laydown (sleeping), getup (wake), crawl + march (search/patrol), wave_02/bow_02
+> variants. Each GLB: 195 animated channels, 30 fps.
+> The GESTURE STAGE auto-performs on mood/activity changes (excited→dance,
+> sleepy→mope, sleeping→laydown, search→shrug/crawl, trick→cycle).
+> Known optimization (not urgent): each GLB embeds the full character mesh
+> (~16 MB); if the library grows much larger, switch to one shared mesh +
+> animation-only clips.
+
+## Lessons locked in (do not re-learn these)
+1. **Real bone names** (parsed from Superhero_Female_FullBody.gltf): the rig is
+   UE-style — `pelvis, spine_01/02/03, neck_01, Head, clavicle_l/r, upperarm_l/r,
+   lowerarm_l/r, hand_l/r, thigh_l/r, calf_l, foot_l, ball_l`. The recipe's
+   original guess (Hips→Hips, LowerLeg.L) matched almost nothing — BONE_MAP in
+   the script now carries the verified CMU→Quaternius mapping (22 bones).
+2. **`nla.bake` is banned** — it silently produced nothing (fresh-import bones
+   aren't selected; Blender 5 also dropped `use_current_frame`). The script now
+   does a deterministic manual retarget: per frame, world-space rotation delta
+   with per-bone rest-offset alignment, parents-first, keyframed directly.
+3. **Delete the BVH source's ACTION before export** — an orphaned source action
+   makes the glTF exporter emit a flat rest-pose animation named after the BVH
+   file instead of her real baked action.
+4. Blender resets cwd under `--background` — the script resolves `--out` to an
+   absolute path itself.
+5. BVH pick truth: subject 09 is RUNNING, not gestures. Always pick takes from
+   `cmu-mocap-index-text.txt` descriptions, never by subject-number folklore.
+
 Goal: turn the 85 CMU gesture candidates (`docs/BVH_GESTURE_CANDIDATES.txt`)
 into game-ready GLBs her web view can play: wave, bow, spin, stretch.
 

@@ -9,7 +9,7 @@
 // Non-destructive: sits beside the 2D flight-body canvas, does not replace it.
 // ============================================================================
 
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";

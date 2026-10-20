@@ -67,13 +67,22 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+# WAVE 12 — bench-correct relay wiring (edit these two before running this
+# script if your wiring differs):
+#   • physical FC on a UART  → ZOLA_CONNECTION="/dev/serial0"  ZOLA_BAUD=57600
+#   • FC over USB            → ZOLA_CONNECTION="/dev/ttyACM0"  ZOLA_BAUD=57600
+#   • SITL on this same Pi   → ZOLA_CONNECTION="udpin:0.0.0.0:14551"  ZOLA_RELAXED=1
+ZOLA_CONNECTION="${ZOLA_CONNECTION:-/dev/serial0}"
+ZOLA_BAUD="${ZOLA_BAUD:-57600}"
+RELAXED_FLAG=""
+[ "${ZOLA_RELAXED:-0}" = "1" ] && RELAXED_FLAG="--relaxed-arming"  # SITL ONLY — never on hardware
 sudo tee /etc/systemd/system/zola-relay.service > /dev/null <<EOF
 [Unit]
 Description=Zola MAVLink relay
 After=network-online.target
 [Service]
 User=$USER
-ExecStart=$HOME/aura-venv/bin/python -u $ZOLA_DIR/bridge/aura_relay.py --connection 'udpin:0.0.0.0:14551' --relaxed-arming
+ExecStart=$HOME/aura-venv/bin/python -u $ZOLA_DIR/bridge/aura_relay.py --connection '$ZOLA_CONNECTION' --baud $ZOLA_BAUD $RELAXED_FLAG
 Restart=always
 RestartSec=3
 [Install]
@@ -101,8 +110,8 @@ echo "  • relay:    systemd zola-relay  (MAVLink <-> WebSocket:8765)"
 echo "  • app:      systemd zola-app    (http://localhost:3000)"
 echo "  • screen:   kiosk Chromium auto-opens her panel on boot"
 echo "  Reboot now: sudo reboot"
-echo "  After reboot she boots with the drone: senses on, listening."
-echo "  Connect the FC via USB/TELEM: the relay finds it automatically"
-echo "  on udpin:14551 (PX4/ArduPilot) — or edit the connection string"
-echo "  in zola-relay.service for your wiring (e.g. tcp:127.0.0.1:5760)."
+echo "  - relay wired for: connection '$ZOLA_CONNECTION' @ $ZOLA_BAUD baud"
+echo "  - arming checks: ENABLED on hardware (relaxed only when ZOLA_RELAXED=1, SITL)"
+echo "  - FC side must match: SERIAL2_PROTOCOL=2, SERIAL2_BAUD=57 (57600), saved."
+echo "  Verify with: bash pi-dayone.sh"
 echo "============================================================"

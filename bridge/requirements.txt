@@ -1,0 +1,3 @@
+# AURA ground relay dependencies (run on the Raspberry Pi)
+mavsdk>=2.0.0
+websockets>=12.0

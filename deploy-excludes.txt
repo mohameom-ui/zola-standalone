@@ -1,0 +1,10 @@
+Tools/
+assets_src/
+.next/
+node_modules/
+Scripts/
+docs/
+*.md
+*.log
+.git/
+zola-*.log

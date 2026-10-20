@@ -41,6 +41,8 @@ export interface Expression {
   frown: number;
   eyesClosed: number;
   browRaise: number;
+  /** composite stress indicator (0 = calm, 1 = visibly stressed) */
+  stress: number;
 }
 
 /** What the vision+memory pipeline concluded about the person in frame. */
@@ -77,6 +79,12 @@ export interface Percept {
   px: number;
   py: number;
   pz: number;
+  /** WAVE 7 — ms since her vision pipeline last produced ANY detection.
+   * Undefined = no camera feed at all (the governor doesn't hold without one). */
+  visionStaleMs?: number;
+  /** WAVE 11 — her MEASURED velocity (pose deltas over the last frame),
+   * in sim-units/sec — feeds the predictive trajectory governor. */
+  vel?: { x: number; y: number; z: number };
 }
 
 /** Motor/LED output frame — consumed by the HAL (sim drone or real flight controller). */

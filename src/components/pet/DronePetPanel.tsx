@@ -10,11 +10,23 @@
 // ============================================================================
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import GestureStage from "./GestureStage";
+import FlightReplay from "./FlightReplay";
+import { AmbientMusic } from "@/lib/pet/ambient";
+import { Blackbox } from "@/lib/pet/blackbox";
+import { Storyteller } from "@/lib/pet/storyteller";
+import { FlightTimeEstimator } from "@/lib/pet/battery";
+import { runDiagnostics, type DiagnosticsResult } from "@/lib/pet/diagnostics";
+import { MissionExecutor, type Waypoint, type MissionAct } from "@/lib/pet/missions";
+import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
+import { SpatialMap } from "@/lib/pet/spatialMap";
+import { HapticLink } from "@/lib/pet/haptics";
+import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
+import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
 import ZolaShell from "@/components/pet/ZolaShell";
 import { PetBrain } from "@/lib/pet/brain";
 import { DroneVision } from "@/lib/pet/vision";
 import { DroneEars } from "@/lib/pet/ears";
-import { DroneVoice } from "@/lib/pet/voice";
 import { SimDroneHAL, MavLinkBridgeHAL, type PetHAL } from "@/lib/pet/hardware";
 import { PiperPack } from "@/lib/pet/piperPack";
 import { AuraMemory } from "@/lib/pet/memory";
@@ -34,6 +46,13 @@ import type { DronePose, FaceIdentity, Mood } from "@/lib/pet/types";
 const PERSONA_TONE: Record<string, string> = {
   SWEET: "#35d0a5", EXPLORER: "#5ac8fa", HYPER: "#ff9f43", SKITTISH: "#ff4d4f",
   GRUMPY: "#b58a2e", DREAMING: "#43506b", "ROAST MODE": "#ff9f43", SULKING: "#ff4d4f",
+};
+
+// WAVE 5 — LED ring color: what her simulated (and, later, real) LED ring shows.
+// Same color drives the panel's ambient glow — screen and drone agree.
+const LED_FOR_PERSONA: Record<string, string> = {
+  SWEET: "#35d0a5", EXPLORER: "#5ac8fa", HYPER: "#f0b90b", SKITTISH: "#ffd98a",
+  GRUMPY: "#c8ccd6", DREAMING: "#b98cf0", "ROAST MODE": "#ff6b7b", SULKING: "#ff4d4f",
 };
 
 const MOOD_LABEL: Record<Mood, string> = {
@@ -61,7 +80,6 @@ export default function DronePetPanel() {
   const droneCanvasRef = useRef<HTMLCanvasElement>(null);
   const visionRef = useRef<DroneVision | null>(null);
   const earsRef = useRef<DroneEars>(new DroneEars());
-  const voiceRef = useRef<DroneVoice>(new DroneVoice());
   const neuralRef = useRef<NeuralVoice>(new NeuralVoice());
   const halRef = useRef<PetHAL>(new SimDroneHAL());
   const bodyModeRef = useRef<"sim" | "real">("sim");
@@ -77,6 +95,8 @@ export default function DronePetPanel() {
   const sfxFilesRef = useRef<SfxFiles>(new SfxFiles());
   const localEarsRef = useRef<LocalEars>(new LocalEars());
   const cmdRef = useRef<(t: string) => void>(() => {});
+  const lastVisionEventRef = useRef(0);
+  const prevVisualHoldRef = useRef(false);
   const prevMoodRef = useRef<Mood>("curious");
   const prevActivityRef = useRef<string>("hover");
   const lastSayRef = useRef<{ text: string; until: number }>({ text: "", until: 0 });
@@ -113,6 +133,12 @@ export default function DronePetPanel() {
         memory.countCommand();
         return `Noted: ${f}.`;
       },
+      // WAVE 2+6.6 — on sleep: build the nightly node AND consolidate the day
+      consolidateNight: () => {
+        memory.buildNightlyNode();
+        return memory.consolidateNight();
+      },
+      takeNightInsight: () => memory.takeNightInsight(),
       memorySummary: () => {
         const snap = memory.snapshot;
         if (snap.people.length === 0 && snap.facts.length === 0 && snap.items.length === 0) {
@@ -179,6 +205,33 @@ export default function DronePetPanel() {
             : "All clear. No hazards on my map, none in view. The room is safe.";
         }
         return parts.join(" ");
+      },
+      zoneQuery: (query) => {
+        const zones = petMapRef.current.getZones();
+        const zone = zones.find((z2) => query.includes(z2.name) || z2.itemLabels.some((l) => query.includes(l)));
+        if (!zone) return null;
+        return `The ${zone.name} has: ${zone.itemLabels.join(", ")}.`;
+      },
+      gotoZone: (zoneName) => {
+        const zone = petMapRef.current.getZones().find((z2) => zoneName.includes(z2.name) || z2.itemLabels.some((l) => zoneName.includes(l)));
+        if (!zone) return null;
+        const yaw = zone.x != null && zone.y != null ? Math.atan2(zone.y, zone.x) : null;
+        const pos = zone.x != null && zone.y != null ? { x: zone.x, y: zone.y, z: 0.8 } : null;
+        const task = brainRef.current!.runner.planGoto(zone.name, yaw, pos);
+        if (!task) return null;
+        brainRef.current!.runner.start(task, performance.now());
+        return `Navigating to the ${zone.name}.`;
+      },
+      investigateSound: (kind) => {
+        const dir = soundWatchRef.current.lastDirection > 0 ? "left" : "right";
+        return `Investigating a ${kind} from the ${dir}. Flying to check.`;
+      },
+      anticipateGaze: (fvx, fvy) => {
+        if (Math.abs(fvx) > 0.04 && Math.abs(fvy) > 0.02) {
+          const dir = fvx > 0 ? "right" : "left";
+          return `You're heading ${dir}. I'll lead the way.`;
+        }
+        return null;
       },
       balanceReport: () => {
         const p = poseRef.current;
@@ -286,8 +339,35 @@ export default function DronePetPanel() {
   const [linkState, setLinkState] = useState<"-" | "LINKED" | "NO LINK">("-");
   const [voices, setVoices] = useState<{ name: string; lang: string }[]>([]);
   const [voiceName, setVoiceName] = useState("");
+  const [musicOn, setMusicOn] = useState(false);
+  const [integrity, setIntegrity] = useState<"" | "OK" | "DRIFT" | "BASELINE_CREATED">("");
+  const [stretchCue, setStretchCue] = useState(0);
+  const ambientRef = useRef<AmbientMusic | null>(null);
+  const blackboxRef = useRef<Blackbox>(new Blackbox());
+  const storytellerRef = useRef<Storyteller>(new Storyteller());
+  const sunSaidHourRef = useRef(-1);
+  const noiseNoteAtRef = useRef(0);
+  const voiceAttributionRef = useRef<{ kind: string; at: number }>({ kind: "", at: 0 });
+  const voiceSpeedRef = useRef(1.0);
+  const lastWrapDayRef = useRef("");
+  const estimatorRef = useRef<FlightTimeEstimator>(new FlightTimeEstimator());
+  const estSampleAtRef = useRef(0);
+  const diagRef = useRef<DiagnosticsResult | null>(null);
+  const lastHapticTickRef = useRef(0);
+  const missionRef = useRef<MissionExecutor>(new MissionExecutor());
+  const spatialRef = useRef<SpatialMap>(new SpatialMap());
+  const hapticsRef = useRef<HapticLink>(new HapticLink());
+  const hapticsNoteRef = useRef("");
+  const prevPoseRef = useRef<{ pose: { x: number; y: number; z: number }; at: number } | null>(null);
+  const measuredVelRef = useRef({ x: 0, y: 0, z: 0 });
+  const [wp, setWp] = useState({ x: 0.5, y: 0, z: 0.4, holdMs: 1500 });
+  const [missionWps, setMissionWps] = useState<Waypoint[]>([]);
+  const dreamRef = useRef<DreamResult | null>(null);
+  const workSinceRef = useRef<number | null>(null);
+  const lastPaceRef = useRef(0);
   const [neuralOn, setNeuralOn] = useState(false);
   const [neuralVoiceId, setNeuralVoiceId] = useState("af_heart");
+  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [log, setLog] = useState<LogEntry[]>([
     { who: "sys", text: "Zola online. Learning is LOCAL-ONLY; nothing leaves this device.", at: Date.now() },
   ]);
@@ -301,7 +381,6 @@ export default function DronePetPanel() {
   const say = useCallback((text: string, opts?: { interrupt?: boolean }) => {
     if (!text) return;
     const persona = brainRef.current?.getPersona() ?? "SWEET";
-    voiceRef.current.setPersonaStyle(persona); // delivery matches her mood
     // PIPER PACK first: her authentic drone-body voice for known lines
     void (async () => {
       const packReady = await piperPackRef.current.ensureLoaded();
@@ -309,20 +388,20 @@ export default function DronePetPanel() {
         const spoken = await piperPackRef.current.speak(text);
         if (spoken) return; // her real Pi voice handled it
       }
-      // fallback chain: neural (Kokoro) → browser TTS
+      // fallback: neural (Kokoro) only — no browser TTS
       if (neuralRef.current.loaded && neuralRef.current.enabled) {
         const speedByPersona: Record<string, number> = { GRUMPY: 0.9, DREAMING: 0.88, HYPER: 1.1, "ROAST MODE": 1.08, SULKING: 0.9, SKITTISH: 1.06 };
         neuralRef.current.setRate(speedByPersona[persona] ?? 1.0);
         const spoken = await neuralRef.current.speak(text, opts);
-        if (!spoken) voiceRef.current.speak(text, opts);
+        if (!spoken) pushLog("sys", "neural voice unavailable — line shown in log only");
       } else {
-        voiceRef.current.speak(text, opts);
+        pushLog("sys", "no voice engine active — line shown in log only");
       }
     })();
     pushLog("aura", text);
     lastSayRef.current = { text, until: performance.now() + 3200 + Math.min(3000, text.length * 45) };
     brainRef.current?.addBond(0.015); // every exchange deepens the friendship (persisted)
-  }, [pushLog]);
+  }, [pushLog, neuralRef]);
 
   const refreshCounts = useCallback(() => {
     setPeopleCount(memory.snapshot.people.length);
@@ -421,6 +500,46 @@ export default function DronePetPanel() {
       say(line);
       chirpsRef.current.chirp("curious");
       flash("WAKE WORD → ATTENTION");
+      return;
+    }
+
+    // WAVE 10 — mission voice override: "abort mission" releases control instantly
+    if (/\b(cancel|abort|stop)\b[\s\S]*\bmission\b/i.test(text)) {
+      say(missionRef.current.abort("manual override"), { interrupt: false });
+      pushLog("aura", "mission override — control released to manual/reactive flight");
+      return;
+    }
+
+    // WAVE 3 — STORYTELLING: her room is the game board; Ollama writes when online,
+    // a procedural weaver when offline. "tell me a story" begins, "continue" advances.
+    if (/\b(story|tale|once upon)\b/i.test(text) && !/\bend\b/i.test(text)) {
+      const snap = memory.snapshot;
+      const ctx = {
+        places: (petMapRef.current?.getZones() ?? []).map((z) => z.name),
+        items: snap.items.slice(-8).map((i) => i.customName ?? i.label),
+        people: snap.people.map((p) => p.name),
+        mood,
+      };
+      const beat = await storytellerRef.current.next(ctx, {
+        online: llmRef.current.isOnline,
+        complete: (p, n) => llmRef.current.complete(p, n),
+      });
+      say(beat);
+      pushLog("aura", `story beat ${storytellerRef.current.beatCount} (${llmRef.current.isOnline ? "llm-written" : "procedurally woven"})`);
+      refreshCounts();
+      return;
+    }
+    if (/\b(show me my day|how was (your|my) day|my day so far)\b/i.test(text)) {
+      const v = buildVlogInput();
+      say(spokenDaySummary(v));
+      pushLog("aura", "day summary spoken (micro-vlog headline)");
+      return;
+    }
+    if (/^(the end|end the story|finish the story)\b/i.test(text.trim())) {
+      const snap = memory.snapshot;
+      say(storytellerRef.current.end({
+        places: [], items: snap.items.slice(-8).map((i) => i.customName ?? i.label), people: [], mood,
+      }));
       return;
     }
 
@@ -523,25 +642,60 @@ export default function DronePetPanel() {
       if (bodyModeRef.current === "real") {
         // real drone: battery comes from telemetry, not simulation
         const b = poseRef.current.battery;
-        if (typeof b === "number" && b > 0) batteryRef.current = b;
+        if (typeof b === "number" && b > 0) {
+          batteryRef.current = b;
+          // WAVE 7 — feed the flight-time estimator with REAL drain (1 Hz)
+          if (now - estSampleAtRef.current > 1000) {
+            estSampleAtRef.current = now;
+            estimatorRef.current.sample(b * 100, Date.now(), actName !== "sleep" && actName !== "dock");
+          }
+        }
       } else {
         const perched = actName === "sleep" || (actName === "dock" && poseRef.current.z < 0.06);
         if (perched) {
           batteryRef.current = Math.min(1, batteryRef.current + dt * 0.012); // charging on the pad
+          memory.noteBatteryPhase("charge", batteryRef.current);
         } else {
           batteryRef.current = Math.max(0.02, batteryRef.current - dt * 0.0016);
+          memory.noteBatteryPhase("discharge", batteryRef.current);
         }
       }
 
-      // self-hearing suppression: her own voice (either engine) never enters her ears
-      if (voiceRef.current.isSpeaking() || neuralRef.current.isSpeaking()) speakTailUntil = now + 500;
+      // self-hearing suppression: her own voice never enters her ears
+      if (neuralRef.current.isSpeaking() || piperPackRef.current.isSpeaking()) speakTailUntil = now + 500;
       localEarsRef.current.muted = now < speakTailUntil;
       // hover engine ambience follows her altitude (library SFX)
       // engineRef wiring pending in the AURA session
 
       const t = trackRef.current;
       const poseNow = halRef.current.pose();
+      // WAVE 11 — MEASURED velocity: pose deltas over the real frame interval
+      // (no model, no assumption — the derivative of where she actually was)
+      const prevP = prevPoseRef.current;
+      if (prevP && now - prevP.at > 0) {
+        const s = (now - prevP.at) / 1000;
+        measuredVelRef.current = {
+          x: (poseNow.x - prevP.pose.x) / s,
+          y: (poseNow.y - prevP.pose.y) / s,
+          z: (poseNow.z - prevP.pose.z) / s,
+        };
+      }
+      prevPoseRef.current = { pose: { x: poseNow.x, y: poseNow.y, z: poseNow.z }, at: now };
+      // WAVE 11 — wire the predictive governor to the occupancy map
+      governorRef.current.setPredictor((px, py, pz) => {
+        // probe the predicted position and a point halfway there
+        if (spatialRef.current.isOccupied(px, py, pz)) return { decel: 0.25, reason: "PREDICTED OCCUPIED VOXEL · HARD DECEL" };
+        const mid = { x: poseNow.x + (px - poseNow.x) / 2, y: poseNow.y + (py - poseNow.y) / 2, z: poseNow.z + (pz - poseNow.z) / 2 };
+        if (spatialRef.current.isOccupied(mid.x, mid.y, mid.z)) return { decel: 0.5, reason: "PREDICTED OCCUPIED VOXEL · DECEL" };
+        return null;
+      });
+      // WAVE 7 — vision freshness: ms since her pipeline last saw anything
+      const visionStaleMs = visionRef.current?.active
+        ? performance.now() - lastVisionEventRef.current
+        : undefined;
+      governorRef.current.setVisionFeed(!!visionRef.current?.active);
       const percept = {
+        visionStaleMs,
         faceSeen: t.seen,
         faceX: t.x,
         faceY: t.y,
@@ -557,10 +711,25 @@ export default function DronePetPanel() {
         pz: poseNow.z,
         expression: t.expression,
       };
-      const act = brain.perceive(percept);
+      const brainAct = brain.perceive(percept);
+      // WAVE 10 — MISSION EXECUTOR: proposes actuation; the governor still decides.
+      // While a mission runs, her flight vectors come from the state machine —
+      // mood/LED stay hers. Hold/pause phases are a zero-motion hover, which lets
+      // the governor's own safe-return vectors act unmolested.
+      let missionAct: MissionAct | null = null;
+      if (missionRef.current.active()) {
+        const m = missionRef.current.tick(poseNow, dt, now);
+        if (m.event) { say(m.event, { interrupt: false }); flash(m.event.toUpperCase()); }
+        missionAct = m.act;
+      }
+      const act = missionAct
+        ? { ...brainAct, vx: missionAct.vx, vy: missionAct.vy, vz: missionAct.vz, yaw: missionAct.yaw }
+        : missionRef.current.active()
+          ? { ...brainAct, vx: 0, vy: 0, vz: 0 }
+          : brainAct;
       // "scan" activity auto-arms the scanner (once) and scans DENSELY
       if (visionRef.current?.active) {
-        visionRef.current.scanIntervalMs = act.activity === "scan" ? 500 : 1200;
+        visionRef.current.scanIntervalMs = act.activity === "scan" ? 250 : 600;
       }
       if (act.activity === "scan" && visionRef.current?.active && !visionRef.current.scanning && !autoScanTried.current) {
         autoScanTried.current = true;
@@ -572,8 +741,65 @@ export default function DronePetPanel() {
       setMood(safeAct.mood);
       setActivity(safeAct.activity);
       setBattery(batteryRef.current);
-      const flagStr = flags.join(" · ");
+      // WAVE 2 — theory-of-mood: focused human shown in the safety row
+      const focusFlag = brain.humanFocused ? "HUMAN FOCUSED · HOLDING CHATTER" : "";
+      const flagStr = [flags.join(" · "), focusFlag].filter(Boolean).join(" · ");
       setSafetyFlags((f) => (f === flagStr ? f : flagStr));
+      // WAVE 7 — announce entering visual hold (once per episode, never nagging)
+      const holding = flags.some((f) => f.startsWith("VISUAL HOLD"));
+      if (holding && !prevVisualHoldRef.current) {
+        chirpsRef.current.chirp("alert");
+        flash("VISUAL CONFIDENCE LOW — HOLDING");
+        pushLog("sys", "self-safeguard: vision feed went quiet — inertial hold until detections resume");
+      }
+      prevVisualHoldRef.current = holding;
+      // WAVE 10 — override handoff: safety flags PAUSE the mission (holding
+      // pattern); clean sky resumes it. Kill switch aborts it outright.
+      if (missionRef.current.active()) {
+        const breach = flags.some((f) => /GEOFENCE BREACH|VISUAL HOLD|CRITICAL/.test(f));
+        if (breach) missionRef.current.pause(flags.join(" · "));
+        else missionRef.current.maybeResume(true);
+        if (governorRef.current.isKilled) {
+          const line = missionRef.current.abort("kill switch engaged");
+          if (line.startsWith("Mission")) say(line, { interrupt: false });
+        }
+      }
+      // WAVE 2 — telemetry black-box sampling (~2 Hz, local ring buffer)
+      blackboxRef.current.record(
+        { mood: safeAct.mood, activity: safeAct.activity, battery: batteryRef.current,
+          alt: poseNow.z, yaw: poseNow.yaw, px: poseNow.x, py: poseNow.y,
+          pitch: poseNow.pitch * 57.2958, roll: poseNow.roll * 57.2958,
+          flags: flags.length > 0 ? flags.join(",") : undefined },
+        now,
+      );
+      // WAVE 8 — AUTONOMOUS POST-FLIGHT DIAGNOSTICS: the moment she lands or
+      // docks after real flight time, the black-box ring is analyzed for free.
+      const airborne = !["dock", "sleep"].includes(safeAct.activity);
+      if (!airborne && prevActivityRef.current !== safeAct.activity &&
+          !["dock", "sleep", "hover"].includes(prevActivityRef.current)) {
+        const diag = runDiagnostics(blackboxRef.current.snapshot(), bodyModeRef.current as "sim" | "real");
+        diagRef.current = diag;
+        say(diag.headline, { interrupt: false });
+        pushLog("aura", `post-flight diagnostics: ${diag.verdict} — ${diag.lines.length} checks run on ${blackboxRef.current.size} samples`);
+      }
+
+      // WAVE 11 — cybernetic haptic link: RPM rumble + fence-proximity pulses.
+      // Fires ONLY through a physically connected gamepad's vibration actuator;
+      // with no controller, HapticLink is dormant and says so.
+      if (now - lastHapticTickRef.current > 240) {
+        lastHapticTickRef.current = now;
+        const hf = hapticsRef.current.tick(
+          halRef.current.propsRpm() > 600,
+          halRef.current.propsRpm(),
+          Math.min(1, Math.hypot(poseNow.x, poseNow.y) / 1.2),
+          flags.some((f) => /CRITICAL|VISUAL HOLD/.test(f)),
+          now,
+        );
+        if (hf && hapticsNoteRef.current !== hf) {
+          hapticsNoteRef.current = hf;
+          pushLog("sys", `haptic link: ${hf} (gamepad vibration — real actuator, real telemetry)`);
+        }
+      }
 
       // persona + trust meter (render only on change)
       const per = brain.getPersona();
@@ -581,12 +807,14 @@ export default function DronePetPanel() {
       const res = brain.persona.resentment;
       setResent((r) => (Math.abs(r - res) < 0.01 ? r : res));
 
-      // mood-change feedback: real library samples first, synth chirp fallback
+      // mood-change feedback: real library samples (suppressed in quiet mode)
       if (safeAct.mood !== prevMoodRef.current) {
         prevMoodRef.current = safeAct.mood;
         memory.setLastMood(safeAct.mood);
-        if (safeAct.mood !== "idle") sfxFilesRef.current.playMood(safeAct.mood);
-        if (chirpsRef.current.enabled && safeAct.mood !== "idle") chirpsRef.current.chirpForMood(safeAct.mood);
+        if (!brain.isQuiet && safeAct.mood !== "idle") {
+          sfxFilesRef.current.playMood(safeAct.mood);
+          if (chirpsRef.current.enabled) chirpsRef.current.chirpForMood(safeAct.mood);
+        }
       }
       // remember what she was doing — for the "where were we" resume
       memory.setLastSession(
@@ -631,10 +859,21 @@ export default function DronePetPanel() {
       // composed LIVE by her LLM brain when available, her classic lines otherwise
       if (now - lastProactiveCheck > 2000) {
         lastProactiveCheck = now;
-        const chatter = brain.proactiveTick({ now, faceSeen: t.seen, visibleItems: percept.visibleItems });
+        // WAVE 5 — counterfactual curiosity context: first visible thing she has
+        // no memory record of (labels are matched against her item memory)
+        const knownLabels = new Set(memory.snapshot.items.map((i) => (i.customName ?? i.label).toLowerCase()));
+        const unknownObject = percept.visibleItems.find((l) => !knownLabels.has(l.toLowerCase()));
+        const chatter = brain.proactiveTick({ now, faceSeen: t.seen, visibleItems: percept.visibleItems, unknownObject });
         if (chatter) {
           const llm = llmRef.current;
-          if (llm.enabled && llm.isOnline) {
+          if (llm.enabled && llm.isOnline && chatter.category === "curious" && unknownObject) {
+            // LLM writes the hypothesis; the trained line is the fallback
+            void llm.complete(
+              `You are Zola, a small flying robot pet. You just noticed a "${unknownObject}" near your human that is not in your memory. ` +
+              `In ONE short playful sentence: state a counterfactual guess about what it might be, then ask a short verification question. No preamble.`,
+              90,
+            ).then((live) => say(live || chatter.line, { interrupt: false })).catch(() => say(chatter.line, { interrupt: false }));
+          } else if (llm.enabled && llm.isOnline) {
             void llm.chatter(buildContext()).then((live) => {
               say(live ?? chatter.line, { interrupt: false }); // a thought-up line, or the trained repertoire
             });
@@ -858,16 +1097,26 @@ export default function DronePetPanel() {
       visionRef.current = v;
       v.onError = (m) => { setVisionError(m); pushLog("sys", m); };
       v.onDetections = (dets) => {
+        // WAVE 7 — any detection refreshes her vision-freshness clock
+        lastVisionEventRef.current = performance.now();
         // scanner learning: record everything seen (certain AND uncertain)
         const seen = new Set<string>();
-        const uncertainSeen = new Set<string>();
         for (const d of dets) {
           if (seen.has(d.label)) continue;
           seen.add(d.label);
           // spatial + identity memory: world position AND color signature
           const pose = halRef.current.pose();
           const dist = Math.max(0.5, Math.min(2.5, 0.55 / Math.max(0.06, d.h)));
-          const pos = { x: pose.x + Math.cos(pose.yaw) * dist, y: pose.y + Math.sin(pose.yaw) * dist, z: pose.z };
+          // WAVE 11 — the bbox x-offset steers the sightline within her ~60° FOV:
+          // a detection at the frame edge lies along a different ray than one
+          // centered — this is the honest monocular geometry
+          const fovOffset = (d.x + d.w / 2 - 0.5) * 1.05; // ≈60° FOV, radians
+          const sightYaw = pose.yaw + fovOffset;
+          const pos = { x: pose.x + Math.cos(sightYaw) * dist, y: pose.y + Math.sin(sightYaw) * dist, z: pose.z };
+          // WAVE 11 — occupancy: integrate the TRUE sightline (free along the
+          // ray, occupied at the resolved surface) + bind the semantic anchor
+          spatialRef.current.markRay({ x: pose.x, y: pose.y, z: pose.z }, pos);
+          if (d.certain) spatialRef.current.anchor(d.label, pos);
           // self-learned obstacles: scanned items mark her own map (not near dock)
           petMapRef.current.addSoft(pos.x, pos.y, 0.08 + dist * 0.06);
           const { item, isNew, moved } = memory.learnItem(d.label, pose.yaw, pos, d.sig, d.shape);
@@ -898,9 +1147,22 @@ export default function DronePetPanel() {
             say(`I think I see a ${d.label}? Show me closer so I can be sure.`, { interrupt: false });
           }
         }
+        // WAVE 5 — SEMANTIC STACKING: two certain detections where one's bottom
+        // rests on the other's top (and they overlap horizontally) → "A is under B"
+        for (const a of dets) {
+          if (!a.certain) continue;
+          for (const b of dets) {
+            if (b === a || !b.certain) continue;
+            const ax = a.x + a.w / 2, bx = b.x + b.w / 2;
+            const overlapX = Math.abs(ax - bx) < Math.max(a.w, b.w) * 0.5;
+            const restingOn = Math.abs((b.y + b.h) - a.y) < 0.08;
+            if (overlapX && restingOn) memory.noteStacking(a.label, b.label);
+          }
+        }
       };
       v.onTrack = (t) => {
         trackRef.current = t;
+        if (t.seen) lastVisionEventRef.current = performance.now(); // WAVE 7
       };
       // multi-person identity resolution (consent-gated, local only)
       v.onFaces = (faces) => {
@@ -920,6 +1182,13 @@ export default function DronePetPanel() {
         if (v.active) {
           setCamOn(true);
           setVisionError(null);
+          // ALWAYS-LEARNING: scanner auto-arms with the eye — she learns items continuously
+          const scanOk = await v.enableScanner();
+          if (scanOk) {
+            setScannerOn(true);
+            v.scanIntervalMs = 2000; // background learning pace
+            pushLog("sys", "scanner auto-armed — she learns items continuously while her eye is open");
+          }
           pushLog("sys", "camera attached — optical lock armed (local processing only)");
           say("I can see you.");
         }
@@ -992,10 +1261,25 @@ export default function DronePetPanel() {
         chirpsRef.current.chirp(kind === "music" ? "happy" : "curious");
         flash(kind === "thud" ? "THUD DETECTED" : kind === "voice" ? "VOICE DETECTED" : "MUSIC DETECTED");
       }
+      // WAVE 4 — voice attribution lite: a voice sounding while her face lock is
+      // held gets attributed to that person (temporal correlation, no embeddings)
+      if (kind === "voice") {
+        const nowS = performance.now();
+        const id = identityRef.current;
+        if (id?.known && id.personId && nowS - voiceAttributionRef.current.at > 30_000) {
+          voiceAttributionRef.current.at = nowS;
+          memory.noteBehavior(id.personId, "voice");
+        }
+      }
     };
     sw.onLevel = (l) => {
       const now = performance.now();
       if (now - lastLevelUpdateRef.current > 150) { lastLevelUpdateRef.current = now; setMicLevel(l); }
+      // WAVE 3 — room ecology: learn the room's acoustic rhythm (per hour of day)
+      if (now - noiseNoteAtRef.current > 30_000) {
+        noiseNoteAtRef.current = now;
+        memory.noteNoise(new Date().getHours(), l);
+      }
     };
     setSoundOn(true);
     pushLog("sys", "sound watch on — clap for attention, loud noises startle Zola (audio never recorded)");
@@ -1006,6 +1290,216 @@ export default function DronePetPanel() {
     setChirpsOn(!chirpsOn);
     pushLog("sys", chirpsOn ? "chirps muted" : "chirps enabled — Zola now vocalizes moods");
   }, [chirpsOn, pushLog]);
+
+  // ---- AMBIENT MUSIC — generative soundscape that follows her mood ---------
+  const toggleMusic = useCallback(() => {
+    if (!ambientRef.current) ambientRef.current = new AmbientMusic();
+    const am = ambientRef.current;
+    if (am.enabled) {
+      am.stop();
+      setMusicOn(false);
+      pushLog("sys", "ambient music off — the room goes quiet");
+    } else {
+      am.start(mood);
+      setMusicOn(true);
+      pushLog("sys", "ambient music on — generative, follows her mood, always quiet");
+    }
+  }, [mood, pushLog]);
+
+  // keep the soundscape tuned to her inner state
+  useEffect(() => {
+    if (ambientRef.current?.enabled) ambientRef.current.setMood(mood);
+  }, [mood]);
+
+  // ---- WAVE 4 — MICRO-VLOG COMPILER: her day, compiled locally -------------
+  const buildVlogInput = useCallback((): VlogInput => {
+    const snap = memory.snapshot;
+    const weights = memory.getChatterWeights();
+    let topChatter: string | null = null;
+    let topW = 0;
+    for (const [cat, w] of Object.entries(weights)) if (w > topW) { topW = w; topChatter = cat; }
+    return {
+      date: snap.daily.day,
+      commandsToday: snap.daily.commands,
+      itemsToday: snap.daily.items,
+      peopleToday: snap.daily.people,
+      peopleKnown: snap.people.map((p) => ({ name: p.name, voiceBabble: p.behavior?.voiceBabble })),
+      itemsKnown: snap.items.length,
+      factsKnown: snap.facts.length,
+      flightHours: memory.getLogbook().hours,
+      flights: memory.getLogbook().flights,
+      battery: memory.batteryHealth(),
+      moodArc: blackboxRef.current.moodArc(),
+      blackbox: { samples: blackboxRef.current.size, summary: blackboxRef.current.summary() },
+      lastDream: snap.lastDream,
+      nightInsight: snap.lastNightInsight ?? memory.getDreamJournal()[0]?.insight ?? null,
+      recentDiary: memory.getDiary(),
+      topChatter,
+      nightly: memory.getNightlyNodes().find((n) => n.date === snap.daily.day) ?? null,
+      archiveNights: memory.getNightlyNodes().length,
+      diagnostics: diagRef.current ? { verdict: diagRef.current.verdict, lines: diagRef.current.lines } : null,
+    };
+  }, [memory]);
+
+  const exportVlog = useCallback(() => {
+    const md = compileVlog(buildVlogInput());
+    const blob = new Blob([md], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `zola-vlog-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    pushLog("sys", "micro-vlog compiled — markdown saved locally (her day, in her words)");
+  }, [buildVlogInput, pushLog]);
+
+  // ---- AIR-GAP INTEGRITY AUDITOR — prove her local assets are untouched ----
+  const runIntegrity = useCallback(async () => {
+    try {
+      const r = await fetch("/api/zola/integrity");
+      const d = (await r.json()) as { verdict: string; drifted: string[] };
+      setIntegrity(d.verdict as typeof integrity);
+      if (d.verdict === "DRIFT") pushLog("sys", `INTEGRITY DRIFT: ${d.drifted.join(", ")} — investigate before trusting offline assets`);
+    } catch { /* offline-safe: ignore */ }
+  }, [pushLog]);
+
+  useEffect(() => {
+    void runIntegrity();
+    const iv = setInterval(() => void runIntegrity(), 10 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, [runIntegrity]);
+
+  // ---- ENERGY PACING — gentle stretch companion, no nagging ----------------
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const now = Date.now();
+      if (workSinceRef.current === null) { workSinceRef.current = now; return; }
+      const workedMs = now - workSinceRef.current;
+      const sinceLastPace = now - lastPaceRef.current;
+      // first cue after 45 min of continuous presence, then every 20 min
+      if (workedMs > 45 * 60_000 && sinceLastPace > 20 * 60_000) {
+        lastPaceRef.current = now;
+        workSinceRef.current = now;
+        setStretchCue((c) => c + 1);
+        say("You have been at this a while. Stretch with me — I will show you how.");
+        pushLog("aura", "energy pacing: stretch cue issued (her idea, quietly)");
+      }
+    }, 60_000);
+    return () => clearInterval(iv);
+  }, [say, pushLog]);
+
+  // dispose the audio graph when the panel goes away
+  useEffect(() => () => { ambientRef.current?.dispose(); }, []);
+
+  // WAVE 2 — theory-of-mood: any typing = the human is engaged; she holds chatter
+  useEffect(() => {
+    let strike = 0;
+    const onKey = () => {
+      strike += 1;
+      if (strike >= 3) { brainRef.current?.noteHumanFocus(); strike = 0; }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // WAVE 3 — SELF-HEALING STATE RECOVERY: contain runtime errors, auto-revive the eye
+  const healStateRef = useRef({ errors: 0, revives: 0, healing: false });
+  useEffect(() => {
+    const contain = () => {
+      const s = healStateRef.current;
+      s.errors += 1;
+      if (s.errors === 1 || s.errors % 25 === 0) {
+        pushLog("sys", `self-healing: runtime hiccup contained (${s.errors} total) — session continues`);
+      }
+      if (s.errors >= 3 && !s.healing && s.revives < 2) {
+        s.healing = true;
+        s.revives += 1;
+        s.errors = 0;
+        setTimeout(async () => {
+          if (camOn) {
+            pushLog("sys", "self-healing: recycling the camera eye...");
+            await toggleCamera();
+            setTimeout(() => { void toggleCamera(); s.healing = false; }, 1500);
+          } else {
+            s.healing = false;
+          }
+        }, 2000);
+      }
+    };
+    window.addEventListener("error", contain);
+    window.addEventListener("unhandledrejection", contain);
+    return () => {
+      window.removeEventListener("error", contain);
+      window.removeEventListener("unhandledrejection", contain);
+    };
+  }, [camOn, toggleCamera, pushLog]);
+
+  // WAVE 12 — apply persisted dream tuning on boot (bounded, governor-clamped)
+  useEffect(() => {
+    const saved = memory.getDreamTuning();
+    if (saved.geofenceRadius !== undefined || saved.visionStaleLimit !== undefined) {
+      governorRef.current.setLimits(saved);
+      const cl = governorRef.current.currentLimits;
+      pushLog("sys", `dream tuning restored: fence ${cl.geofenceRadius.toFixed(2)} m · vision window ${cl.visionStaleLimit} ms (from ${saved.appliedOn ?? "earlier"})`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // WAVE 3 — ROOM ECOLOGY: golden-hour appreciation, at most once per hour
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const hour = new Date().getHours();
+      if (isGoldenHour() && sunSaidHourRef.current !== hour && !brainRef.current?.humanFocused) {
+        sunSaidHourRef.current = hour;
+        say("The light is golden right now. My favorite flying weather.");
+      }
+      // WAVE 6 — episodic compression worker: keep her context lean, her gist forever
+      const c = memory.compressEpisodes();
+      if (c.done) pushLog("sys", `episodic compression: ${c.summary}`);
+      // WAVE 6+12 — daily wrap-up: archive the day, then DREAM over it
+      const today = new Date().toDateString();
+      if (hour >= 17 && hour < 19 && lastWrapDayRef.current !== today && !brainRef.current?.humanFocused) {
+        lastWrapDayRef.current = today;
+        const node = memory.buildNightlyNode();
+        // WAVE 12 — dream cycle: correlate events × environment, auto-tune (bounded)
+        const cl = governorRef.current.currentLimits;
+        const dream = runDreamCycle(
+          blackboxRef.current.snapshot(),
+          { geofenceRadius: cl.geofenceRadius, visionStaleLimit: cl.visionStaleLimit },
+          (iso) => sunReport(new Date(iso)).phase,
+        );
+        dreamRef.current = dream;
+        if (dream.verdict === "TUNED") {
+          governorRef.current.setLimits(dream.tuning);
+          memory.saveDreamTuning(dream.tuning);
+          pushLog("sys", `dream tuning applied: ${dream.tuning.geofenceRadius !== undefined ? `fence ${dream.tuning.geofenceRadius.toFixed(2)} m ` : ""}${dream.tuning.visionStaleLimit !== undefined ? `vision window ${dream.tuning.visionStaleLimit} ms` : ""}`);
+        }
+        if (dream.heatmap) pushLog("sys", `dream-map: ${dream.heatmap.split("\n").join(" | ")}`);
+        say(dream.reflection, { interrupt: false });
+        // LLM garnish: reflective prose ONLY — the tuning numbers above are arithmetic
+        if (llmRef.current.enabled && llmRef.current.isOnline) {
+          void llmRef.current.complete(
+            "You are Zola, a small flying robot pet, dreaming over your flight telemetry. One short dreamy sentence about what today's flights felt like. No numbers, no advice.",
+            80,
+          ).then((prose) => { if (prose) pushLog("aura", `dream prose: ${prose}`); }).catch(() => {});
+        }
+        say("The day is winding down. Say 'show me my day' for the headline — or press VLOG for my full story.", { interrupt: false });
+        if (node.built) pushLog("sys", `nightly node archived for ${node.date} — the vlog archive grows`);
+        chirpsRef.current.express("curious");
+      }
+    }, 5 * 60_000);
+    return () => clearInterval(iv);
+  }, [say, memory, pushLog]);
+
+  // WAVE 6 — CIRCADIAN VOICE: her delivery follows the sun (user slider stays master)
+  useEffect(() => {
+    const apply = () => {
+      const cv = circadianVoice();
+      neuralRef.current.setRate(voiceSpeedRef.current * cv.rate);
+    };
+    apply();
+    const iv = setInterval(apply, 30 * 60_000); // re-tune twice an hour as light shifts
+    return () => clearInterval(iv);
+  }, []);
 
   const toggleGestures = useCallback(async () => {
     const v = visionRef.current;
@@ -1231,19 +1725,6 @@ export default function DronePetPanel() {
     })();
   }, [pushLog]);
 
-  // voice list population (browsers load voices async)
-  useEffect(() => {
-    let tries = 0;
-    const pull = () => {
-      const list = voiceRef.current.listVoices();
-      if (list.length > 0 || tries > 10) {
-        setVoices(list);
-        setVoiceName(voiceRef.current.getVoiceName());
-      } else { tries += 1; window.setTimeout(pull, 500); }
-    };
-    pull();
-  }, []);
-
   // local ears wiring (stable callbacks via refs)
   useEffect(() => { cmdRef.current = handleCommand; }, [handleCommand]);
   useEffect(() => {
@@ -1308,8 +1789,8 @@ export default function DronePetPanel() {
     governorRef.current.kill();
     setKilled(true);
     pushLog("sys", "KILL SWITCH — all motion frozen, hover-idle");
-    voiceRef.current.speak("Emergency hold.");
     pushLog("aura", "Emergency hold. I will stay put until you re-arm me.");
+    say("Emergency hold. I will stay put until you re-arm me.");
   }, [pushLog]);
 
   const wipeMemory = useCallback(() => {
@@ -1337,9 +1818,25 @@ export default function DronePetPanel() {
         @font-face { font-family: 'Rajdhani'; src: url('/fonts/Rajdhani-Bold.ttf'); font-weight: 700; }
         @font-face { font-family: 'Cairo'; src: url('/fonts/Cairo-Variable.ttf'); }
       `}</style>
-      <div className="p-4 space-y-4 text-xs" style={{ fontFamily: "'Rajdhani', 'Cairo', monospace" }}>
+      <div
+        className="p-4 space-y-4 text-xs"
+        style={{
+          fontFamily: "'Rajdhani', 'Cairo', monospace",
+          // WAVE 5 — theme sync: the panel breathes in her LED color; dim at night
+          boxShadow: `0 0 48px ${LED_FOR_PERSONA[persona] ?? "#35d0a5"}${sunReport().phase === "night" ? "18" : "33"}`,
+          transition: "box-shadow 1.2s ease",
+        }}
+      >
         {/* --- tab bar ---------------------------------------------------------- */}
-        <div className="flex gap-1 sticky top-0 z-10 -mx-1 px-1 py-1 bg-[rgba(8,10,16,0.9)] rounded-lg">
+        <div className="flex gap-1 sticky top-0 z-10 -mx-1 px-1 py-1 bg-[rgba(8,10,16,0.9)] rounded-lg items-center">
+          <span
+            title="LED ring — synced to her persona (same color on the real drone)"
+            style={{
+              width: 10, height: 10, borderRadius: 9999, flexShrink: 0,
+              background: LED_FOR_PERSONA[persona] ?? "#35d0a5",
+              boxShadow: `0 0 10px ${LED_FOR_PERSONA[persona] ?? "#35d0a5"}`,
+            }}
+          />
           {(["senses", "flight", "mind", "memory"] as const).map((t) => (
             <button
               key={t}
@@ -1422,11 +1919,39 @@ export default function DronePetPanel() {
             <Stat label="ROLL" value={`${flightStats.roll.toFixed(0)}°`} tone="#c8ccd6" />
             <Stat label="PROPS" value={`${Math.round(flightStats.rpm)}`} tone="#c8ccd6" />
           </div>
+          <div className="grid grid-cols-5 gap-2 mt-1 px-1">
+            <Stat label="CELL HEALTH" value={`${memory.batteryHealth().health}%`} tone={memory.batteryHealth().health > 90 ? "#35d0a5" : "#f0b90b"} />
+            <Stat label="CYCLES" value={`${memory.batteryHealth().cycles}`} tone="#c8ccd6" />
+            <Stat label="EST AIR" value={bodyMode === "real"
+              ? (estimatorRef.current.remainingFlightMinutes(battery * 100) !== null
+                ? `${Math.round(estimatorRef.current.remainingFlightMinutes(battery * 100)!)}m`
+                : estimatorRef.current.confidence === "learning" ? "LEARN…" : "—")
+              : "SIM"} tone="#5ac8fa" />
+            <Stat label="FLIGHT HRS" value={memory.getLogbook().hours.toFixed(1)} tone="#c8ccd6" />
+            <Stat label="SUN" value={sunReport().phase.toUpperCase()} tone="#f0b90b" />
+          </div>
           <div className="mt-2 px-1 flex items-center gap-2 flex-wrap">
             <span className="hud-label">PERSONA:</span>
-            <span className="text-[9px] px-2 py-0.5 rounded border tracking-widest" style={{ color: PERSONA_TONE[persona] ?? "#f0b90b", borderColor: PERSONA_TONE[persona] ?? "#f0b90b" }}>
+            <span
+              className="text-[9px] px-2 py-0.5 rounded border tracking-widest"
+              title="WARMTH · SARCASM · ENERGY · FOCUS — her live trait vector: nudged by how you treat her, decaying 8%/hour to baseline"
+              style={{ color: PERSONA_TONE[persona] ?? "#f0b90b", borderColor: PERSONA_TONE[persona] ?? "#f0b90b" }}>
               {persona}
             </span>
+            {/* WAVE 5.5 — trait vector bars (W·S·E·F), live from her persona engine */}
+            {(() => {
+              const v = brainRef.current?.getPersonaVector();
+              if (!v) return null;
+              const traits: [string, number][] = [["W", v.warmth], ["S", v.sarcasm], ["E", v.energy], ["F", v.focus]];
+              return traits.map(([label, val]) => (
+                <span key={label} className="flex items-center gap-0.5" title={`${label}: ${(val * 100).toFixed(0)}%`}>
+                  <span className="text-[8px] text-[#5a5f6e]">{label}</span>
+                  <span className="w-8 h-1 rounded bg-white/10 overflow-hidden inline-block">
+                    <span className="block h-full transition-all duration-700" style={{ width: `${val * 100}%`, background: PERSONA_TONE[persona] ?? "#f0b90b" }} />
+                  </span>
+                </span>
+              ));
+            })()}
             <span className="hud-label ml-1">TRUST</span>
             <div className="w-20 h-1.5 rounded bg-white/10 overflow-hidden">
               <div className="h-full transition-all duration-300" style={{ width: `${(1 - resent) * 100}%`, background: resent > 0.5 ? "#ff4d4f" : "#35d0a5" }} />
@@ -1441,6 +1966,87 @@ export default function DronePetPanel() {
               <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.15)] text-[#35d0a5] tracking-widest">LIMITS ACTIVE</span>
             )}
             {safetyFlags && <span className="text-[9px] text-[#ff9f43] tracking-wider">{safetyFlags}</span>}
+            {integrity === "OK" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.12)] text-[#35d0a5] tracking-widest" title="SHA-256 of all local models/runtimes verified against baseline">AIR-GAP VERIFIED</span>}
+            {integrity === "DRIFT" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[#ff4d4f] tracking-widest" title="A local asset changed since baseline — investigate">INTEGRITY DRIFT</span>}
+            {(integrity === "" || integrity === "BASELINE_CREATED") && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(139,143,156,0.15)] text-[#8b8f9c] tracking-widest">AIR-GAP {integrity === "BASELINE_CREATED" ? "BASELINE SET" : "CHECKING…"}</span>}
+          </div>
+        </div>
+
+        {/* --- gesture stage ------------------------------------------------------ */}
+        <GestureStage activity={activity} mood={mood} stretchCue={stretchCue} />
+
+        {/* --- flight replay (WAVE 9) ---------------------------------------------- */}
+        <FlightReplay getEntries={() => blackboxRef.current.snapshot()} />
+
+        {/* --- mission planner (WAVE 10) -------------------------------------------- */}
+        <div className="glass-soft rounded-xl p-2">
+          <div className="hud-label px-1 pb-1">MISSION PLANNER · WAYPOINT QUEUE + ORBIT-POI (governor-gated)</div>
+          <div className="flex flex-wrap gap-2 items-center px-1">
+            {(["x", "y", "z"] as const).map((k) => (
+              <label key={k} className="flex items-center gap-1 text-[9px] text-[#8b8f9c]">
+                {k.toUpperCase()}
+                <input
+                  type="number" step={0.1} value={wp[k]}
+                  onChange={(e) => setWp({ ...wp, [k]: parseFloat(e.target.value) || 0 })}
+                  className="w-16 bg-black/40 border border-white/10 rounded px-1 py-0.5 text-[10px] text-[#e9e7dc]"
+                />
+              </label>
+            ))}
+            <label className="flex items-center gap-1 text-[9px] text-[#8b8f9c]">
+              HOLD ms
+              <input
+                type="number" step={500} value={wp.holdMs}
+                onChange={(e) => setWp({ ...wp, holdMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                className="w-20 bg-black/40 border border-white/10 rounded px-1 py-0.5 text-[10px] text-[#e9e7dc]"
+              />
+            </label>
+            <button
+              onClick={() => setMissionWps((w) => [...w, { ...wp }] as Waypoint[])}
+              className="px-2 py-1 rounded border border-[#35d0a5]/60 text-[#35d0a5] text-[9px] tracking-widest hover:bg-[rgba(53,208,165,0.12)]"
+            >
+              + ADD WP
+            </button>
+          </div>
+          {missionWps.length > 0 && (
+            <div className="px-1 mt-1 font-mono text-[9px] text-[#8b8f9c]">
+              {missionWps.map((w, i) => (
+                <span key={i} className="mr-3">
+                  WP{i + 1} ({w.x.toFixed(1)}, {w.y.toFixed(1)}, {w.z.toFixed(1)}) h{w.holdMs}ms
+                  <button onClick={() => setMissionWps((list) => list.filter((_, j) => j !== i))} className="ml-1 text-[#ff4d4f]">×</button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 mt-1 px-1 items-center">
+            <button
+              disabled={missionWps.length === 0}
+              onClick={() => {
+                const line = missionRef.current.begin(missionWps);
+                say(line, { interrupt: false });
+                setMissionWps([]);
+              }}
+              className="px-2 py-1 rounded border border-[#35d0a5]/60 text-[#35d0a5] text-[9px] tracking-widest hover:bg-[rgba(53,208,165,0.12)] disabled:opacity-40"
+            >
+              ▶ START MISSION
+            </button>
+            <button
+              onClick={() => {
+                const p = poseRef.current;
+                const line = missionRef.current.orbit(0, 0, p.z, 0.8, 1, 2);
+                say(line, { interrupt: false });
+              }}
+              className="px-2 py-1 rounded border border-[#5ac8fa]/60 text-[#5ac8fa] text-[9px] tracking-widest hover:bg-[rgba(90,200,250,0.12)]"
+              title="Orbit-POI around home at 0.8 m standoff, 2 laps, camera locked inward"
+            >
+              ◎ ORBIT HOME
+            </button>
+            <button
+              onClick={() => say(missionRef.current.abort("manual override"), { interrupt: false })}
+              className="px-2 py-1 rounded border border-[#ff4d4f]/60 text-[#ff4d4f] text-[9px] tracking-widest hover:bg-[rgba(255,77,79,0.12)]"
+            >
+              ✕ ABORT
+            </button>
+            <span className="font-mono text-[9px] text-[#8b8f9c] ml-auto">{missionRef.current.hudStatus()}</span>
           </div>
         </div>
 
@@ -1484,6 +2090,46 @@ export default function DronePetPanel() {
           >
             EARS · {earQuality.toUpperCase()}
           </button>
+          <button
+            onClick={toggleMusic}
+            className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
+              musicOn
+                ? "border-[#b98cf0] text-[#b98cf0] bg-[rgba(185,140,240,0.12)]"
+                : "border-white/15 text-[#8b8f9c] hover:border-[#b98cf0]/60"
+            }`}
+            title="Generative ambient soundscape — follows her mood, never repeats, always quiet"
+          >
+            MUSIC {musicOn ? "ON" : "OFF"}
+          </button>
+          <button
+            onClick={() => { setStretchCue((c) => c + 1); say("Stretch with me — arms up, breathe. Good."); }}
+            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60 tracking-widest transition-colors"
+            title="Energy pacing — she demonstrates a stretch"
+          >
+            PACE
+          </button>
+          <button
+            onClick={() => {
+              const blob = new Blob([blackboxRef.current.exportJSON()], { type: "application/json" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `zola-blackbox-${Date.now()}.json`;
+              a.click();
+              URL.revokeObjectURL(a.href);
+              pushLog("sys", `black-box exported — ${blackboxRef.current.size} telemetry samples (local file, never uploaded)`);
+            }}
+            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60 tracking-widest transition-colors"
+            title="Telemetry black-box — download her last ~20 min of flight + cognition vectors"
+          >
+            BLACKBOX ↓
+          </button>
+          <button
+            onClick={exportVlog}
+            className="px-3 py-1.5 rounded-lg border border-[#b98cf0]/50 text-[#b98cf0] hover:bg-[rgba(185,140,240,0.12)] tracking-widest transition-colors"
+            title="Micro-vlog compiler — her day as a local markdown vlog: highlights, mood arc, flight + battery, memory"
+          >
+            VLOG ↓
+          </button>
           </>)}
           {tab === "mind" && (<>
           <button
@@ -1493,7 +2139,7 @@ export default function DronePetPanel() {
                 ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.12)]"
                 : "border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60"
             }`}
-            title="Kokoro-82M neural TTS — a real voice from the internet. One-time ~90 MB download, then offline."
+            title="Kokoro-82M neural TTS — a real neural voice, loaded entirely from local model files."
           >
             {neuralOn ? "NEURAL VOICE · ON" : "NEURAL VOICE"}
           </button>
@@ -1517,7 +2163,8 @@ export default function DronePetPanel() {
             on={voiceOn}
             label="SPEAKER"
             onClick={() => {
-              voiceRef.current.setEnabled(!voiceOn);
+              neuralRef.current.setEnabled(!voiceOn);
+              piperPackRef.current.enabled = voiceOn;
               setVoiceOn(!voiceOn);
             }}
           />
@@ -1767,30 +2414,52 @@ export default function DronePetPanel() {
         </>)}
 
         {tab === "mind" && (<>
-        {/* --- voice picker ------------------------------------------------------------ */}
-        <div className="glass-soft rounded-xl p-3 space-y-2">
-          <div className="hud-label">VOICE · her sound, your choice (persisted)</div>
-          <div className="flex gap-2 items-center">
-            <select
-              value={voiceName}
+        {/* --- VOICE STUDIO ------------------------------------------------------------ */}
+        <div className="glass-soft rounded-xl p-3 space-y-3">
+          <div className="hud-label">VOICE STUDIO · hear every voice, pick yours</div>
+
+          {/* neural voices (kokoro) */}
+          {neuralOn && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] text-[#35d0a5] tracking-widest">NEURAL VOICES (best quality — on-device)</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {KOKORO_VOICES.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => {
+                      neuralRef.current.setVoice(v.id);
+                      setNeuralVoiceId(v.id);
+                      try { localStorage.setItem("aura.neuralVoiceId", v.id); } catch { /* noop */ }
+                      neuralRef.current.speak(`Hi! I am ${v.label.split(" — ")[0]}. This is how I sound now. Do you like it?`);
+                    }}
+                    className={`px-2 py-1.5 rounded-lg border text-[9px] text-left transition-colors ${
+                      neuralVoiceId === v.id
+                        ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.1)]"
+                        : "border-white/10 text-[#c8ccd6] hover:border-[#35d0a5]/50"
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* speed slider */}
+          <div className="flex items-center gap-2">
+            <span className="hud-label">SPEED</span>
+            <input
+              type="range" min={0.7} max={1.5} step={0.05} value={voiceSpeed}
               onChange={(e) => {
-                voiceRef.current.setVoiceByName(e.target.value);
-                setVoiceName(e.target.value);
-                voiceRef.current.speak("Hello. This is my voice now. Do you like it?");
+                const v = parseFloat(e.target.value);
+                setVoiceSpeed(v);
+                voiceSpeedRef.current = v;
+                // WAVE 6 — user slider is master; circadian model rides on top
+                neuralRef.current.setRate(v * circadianVoice().rate);
               }}
-              className="flex-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-[#e9e7dc] outline-none focus:border-[#f0b90b]/60"
-            >
-              {voices.length === 0 && <option>loading voices…</option>}
-              {voices.map((v) => (
-                <option key={v.name} value={v.name}>{v.name.slice(0, 44)}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => voiceRef.current.speak("Hello. This is my voice. Do you like it?")}
-              className="px-3 py-1.5 rounded-lg border border-[#f0b90b]/60 text-[#f0b90b] hover:bg-[rgba(240,185,11,0.12)] transition-colors tracking-widest"
-            >
-              TEST
-            </button>
+              className="flex-1 accent-[#f0b90b]"
+            />
+            <span className="font-mono text-[10px] text-[#f0b90b]">{voiceSpeed.toFixed(2)}×</span>
           </div>
         </div>
 

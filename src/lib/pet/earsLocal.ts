@@ -67,7 +67,10 @@ export class LocalEars {
   private async loadPipeline(model: string, localBase?: string): Promise<AsrPipeline> {
     const tf = (await import("@huggingface/transformers")) as unknown as {
       pipeline: (task: string, model: string, opts: Record<string, unknown>) => Promise<AsrPipeline>;
+      env?: { backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
     };
+    // air-gap: pin the ONNX runtime wasm to our local copy — never the CDN
+    if (tf.env?.backends?.onnx?.wasm) tf.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/";
     // WebGPU is 5-10x faster; fall back to WASM when unavailable
     for (const device of ["webgpu", "wasm"]) {
         const id = localBase ?? model;

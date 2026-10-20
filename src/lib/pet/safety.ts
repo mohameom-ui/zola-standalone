@@ -19,6 +19,11 @@ export interface SafetyLimits {
   lowBattery: number;
   /** below this it forces a controlled descent regardless of commands */
   criticalBattery: number;
+  /** WAVE 7 — soft geofence radius (horizontal, around home/origin). 0 = disabled. */
+  geofenceRadius: number;
+  /** WAVE 12 — vision-confidence hold threshold (ms without detections).
+   * Dream auto-tuning may tighten this — bounded, never above the default. */
+  visionStaleLimit: number;
 }
 
 export const DEFAULT_LIMITS: SafetyLimits = {
@@ -28,12 +33,38 @@ export const DEFAULT_LIMITS: SafetyLimits = {
   maxAltitude: 0.85,
   lowBattery: 0.2,
   criticalBattery: 0.1,
+  geofenceRadius: 1.2,
+  visionStaleLimit: 4000,
 };
 
 export class SafetyGovernor {
   private limits: SafetyLimits;
   private killed = false;
   private forcedLand = false;
+  /** WAVE 7 — is her vision feed expected to be live? (set by the panel) */
+  private visionFeed = false;
+  setVisionFeed(on: boolean) { this.visionFeed = on; }
+
+  /** WAVE 12 — dream auto-tuning: apply a bounded patch to the limits.
+   * Clamped to sane ranges — tuning can loosen nothing below floor, tighten
+   * nothing past the default. Auto-tune adjusts margins, never disables safety. */
+  setLimits(patch: Partial<SafetyLimits>) {
+    if (patch.geofenceRadius !== undefined) {
+      this.limits.geofenceRadius = Math.min(2.4, Math.max(0.6, patch.geofenceRadius));
+    }
+    if (patch.visionStaleLimit !== undefined) {
+      this.limits.visionStaleLimit = Math.min(4000, Math.max(2000, patch.visionStaleLimit));
+    }
+  }
+  get currentLimits(): SafetyLimits {
+    return { ...this.limits };
+  }
+  /** WAVE 11 — PREDICTIVE TRAJECTORY GOVERNOR: an optional forecaster that
+   * inspects a predicted future position (pose + measured velocity × horizon)
+   * and returns a deceleration order if that future is unsafe. Wired by the
+   * panel to the 3D occupancy map — the governor stays map-agnostic. */
+  private predictor: ((px: number, py: number, pz: number, vx: number, vy: number, vz: number) => { decel: number; reason: string } | null) | null = null;
+  setPredictor(fn: NonNullable<typeof this.predictor>) { this.predictor = fn; }
 
   constructor(limits: SafetyLimits = DEFAULT_LIMITS) {
     this.limits = limits;
@@ -79,6 +110,62 @@ export class SafetyGovernor {
     if (p.faceSeen && p.faceSize > L.standoffSize && act.vx > 0) {
       act.vx = Math.min(act.vx, -0.15);
       flags.push("STAND-OFF ENFORCED");
+    }
+
+    // WAVE 11 — PREDICTIVE TRAJECTORY: extrapolate her MEASURED velocity 1.5 s
+    // into the future. A predicted geofence breach decelerates her BEFORE the
+    // soft fence reacts; a predicted occupied voxel orders hard deceleration.
+    const vel = p.vel;
+    if (vel && this.limits.geofenceRadius > 0) {
+      const HORIZON = 1.5;
+      const fx = p.px + vel.x * HORIZON, fy = p.py + vel.y * HORIZON;
+      const fr = Math.hypot(fx, fy);
+      if (fr > this.limits.geofenceRadius * 0.95) {
+        const ux = fx / (fr || 1), uy = fy / (fr || 1);
+        const outward = act.vx * ux + act.vy * uy;
+        if (outward > 0) {
+          act.vx -= ux * outward * 0.6;
+          act.vy -= uy * outward * 0.6;
+          flags.push("PREDICTIVE GEOFENCE · DECEL");
+        }
+      }
+      const occ = this.predictor?.(fx, fy, p.pz + vel.z * HORIZON, vel.x, vel.y, vel.z);
+      if (occ) {
+        act.vx *= occ.decel; act.vy *= occ.decel; act.vz *= occ.decel;
+        flags.push(occ.reason);
+      }
+    }
+
+    // WAVE 7 — SOFT GEOFENCE: horizontal cylinder around home. At 85% of the
+    // radius, outward velocity is proportionally canceled and an inward return
+    // vector takes over — BEFORE the HAL/flight-controller hard clamp is needed.
+    const R = this.limits.geofenceRadius;
+    const r = Math.hypot(p.px, p.py);
+    if (R > 0 && r > R * 0.85) {
+      const ux = p.px / (r || 1), uy = p.py / (r || 1); // outward unit vector
+      const outward = act.vx * ux + act.vy * uy;
+      const breached = r >= R;
+      if (outward > 0 || breached) {
+        const factor = breached ? 0 : Math.max(0, 1 - (r - R * 0.85) / (R * 0.15));
+        const canceled = Math.max(0, outward) * (1 - factor);
+        act.vx -= ux * canceled;
+        act.vy -= uy * canceled;
+        // safe return-to-center vector — gentle inside the zone, firm past it
+        const inward = breached ? 0.3 : 0.12 * (1 - factor);
+        act.vx -= ux * inward;
+        act.vy -= uy * inward;
+        flags.push(breached ? "GEOFENCE BREACH — RETURNING HOME" : `SOFT GEOFENCE · ${Math.round((r / R) * 100)}%`);
+      }
+    }
+
+    // WAVE 7 — VISUAL CONFIDENCE SAFEGUARD: if her feed is expected live but
+    // produced nothing for the hold window (lighting drop, feature loss — WAVE 12:
+    // window is dream-tunable), degrade to a conservative inertial hold: minimal
+    // motion, altitude locked, until detections resume. Honest everywhere.
+    if (this.visionFeed && (p.visionStaleMs ?? 0) > this.limits.visionStaleLimit) {
+      const k = 0.25;
+      act.vx *= k; act.vy *= k; act.vz = 0; // altitude lock
+      flags.push("VISUAL HOLD · CONFIDENCE LOW");
     }
 
     // Geofence altitude box.

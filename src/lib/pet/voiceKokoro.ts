@@ -1,17 +1,23 @@
 // ============================================================================
-// DRONE PET — Neural Voice (Kokoro-82M, from the internet)
+// DRONE PET — Neural Voice (Kokoro-82M, 100% local)
 // A real neural TTS model running in her browser runtime — dramatically more
-// natural than OS/browser voices. Downloaded once (~90 MB), then fully
-// offline. Same privacy contract: text in, audio out, nothing leaves.
+// natural than OS/browser voices. Served entirely from /vendor and /models —
+// no CDN, no internet, ever. Same privacy contract: text in, audio out,
+// nothing leaves the device.
 // ============================================================================
 
 export const KOKORO_VOICES = [
-  { id: "af_heart", label: "Heart — warm female (best)" },
+  { id: "af_heart", label: "Heart — warm female" },
   { id: "af_bella", label: "Bella — bright female" },
   { id: "af_nicole", label: "Nicole — soft female" },
+  { id: "af_alloy", label: "Alloy — neutral female" },
+  { id: "af_aoede", label: "Aoede — melodic female" },
+  { id: "af_kore", label: "Kore — youthful female" },
   { id: "am_michael", label: "Michael — calm male" },
   { id: "am_adam", label: "Adam — deep male" },
+  { id: "am_fenrir", label: "Fenrir — intense male" },
   { id: "bf_emma", label: "Emma — British female" },
+  { id: "bf_isabella", label: "Isabella — British soft" },
 ] as const;
 
 interface KokoroLike {
@@ -30,22 +36,22 @@ export class NeuralVoice {
 
   async load(onDiag: (m: string) => void): Promise<boolean> {
     if (this.loaded) return true;
-    onDiag("NEURAL VOICE: fetching her real voice from the internet once (~90 MB)...");
+    onDiag("NEURAL VOICE: loading her real voice from local model files...");
     try {
-      // runtime CDN import of the SELF-CONTAINED browser build — this keeps the
-      // Node-only bindings out of the app bundle (which crashes the dev server)
+      // runtime import of the SELF-CONTAINED browser build — served locally
+      // (kokoro.web.js is a 2 MB self-contained bundle in public/vendor/)
       const dynamicImport = new Function("u", "return import(u)") as (u: string) => Promise<unknown>;
-      const k = (await dynamicImport("https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js")) as unknown as {
+      const k = (await dynamicImport("/vendor/kokoro.web.js")) as unknown as {
         KokoroTTS: {
           from_pretrained: (id: string, opts: Record<string, unknown>) => Promise<KokoroLike>;
         };
       };
-      this.tts = await k.KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
+      this.tts = await k.KokoroTTS.from_pretrained("/models/kokoro-82m", {
         dtype: "q8",
         device: "wasm",
         progress_callback: (p: { status?: string; progress?: number }) => {
           if (p?.status === "progress" && typeof p.progress === "number") {
-            onDiag(`NEURAL VOICE: download ${Math.round(p.progress)}%`);
+            onDiag(`NEURAL VOICE: loading ${Math.round(p.progress)}%`);
           }
         },
       });
@@ -60,8 +66,10 @@ export class NeuralVoice {
   }
 
   setVoice(id: string) { this.voice = id; }
-  /** delivery speed 0.8-1.15, mapped from her persona */
-  setRate(r: number) { this.rate = Math.max(0.8, Math.min(1.15, r)); }
+  /** delivery speed 0.5-2.0, mapped from her persona */
+  setRate(r: number) { this.rate = Math.max(0.5, Math.min(2.0, r)); }
+  getRate(): number { return this.rate; }
+  getVoice(): string { return this.voice; }
 
   isSpeaking(): boolean { return this.speakingFlag; }
 

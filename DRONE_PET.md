@@ -511,3 +511,30 @@ AURA's persona shifts with the situation:
 - Indoor flight only at first; prop guards mandatory.
 - Keep total mass under 250g to stay outside FAA registration (US) if flying outdoors.
 - Voice + face data stay local in this prototype; the mic/camera never leaves the browser.
+
+## Product vision — the full companion feature set
+
+Zola implements every software-feasible feature from the product vision doc:
+
+**Built ✓ (software-complete):**
+- Hovering curiosity (wander + tilt + LED expressions + ambient chatter)
+- Greeting & goodbye ceremonies (home detection + farewell + dock)
+- Personality & mood profiles (8 personas, reinforcement learning, quiet mode)
+- Sentry patrols (change detection, hazard zones, patrol reports)
+- Follow-me navigation (follow state machine)
+- Alerts & reminders (routines, timed reminders, proactive chatter)
+- Fall / posture monitoring (face-position drop detection)
+- Companion care (expression reading, behavior profiles, habit learning)
+- Quiet / focus mode (suppresses all chatter, sounds, proactive behavior)
+- Virtual presence (companion view at /zola on any device)
+- Autonomous docking & wireless charging
+
+**Requires hardware ❌:**
+- Aerial fetch (physical ball + gripper)
+- Cinematic photography (real camera + GPS follow)
+- Task lighting (LED payload)
+- Item delivery (magnetic grip)
+- Environmental sensors (smoke/CO/gas)
+- Treat dispenser
+- Telepresence video call
+- Enclosed rotors · quiet props · wireless charging pad

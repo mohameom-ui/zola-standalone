@@ -77,6 +77,34 @@ function pick(list: string[]): string {
 export class PersonaEngine {
   private strikes = 0;
 
+  // ---- WAVE 5.5 — PERSONA VECTOR: traits instead of switches ----------------
+  // A continuous trait blend (the blueprint's PersonaVector, honest edition):
+  // life events NUDGE the traits; they always decay 8%/hour toward her baseline.
+  // Nothing here is decorative — every trait feeds a real behavior path.
+  private vec = { warmth: 0.6, sarcasm: 0.25, energy: 0.5, focus: 0.5 };
+  private vecDecayAt = Date.now();
+  static readonly TRAIT_BASELINE = { warmth: 0.6, sarcasm: 0.25, energy: 0.5, focus: 0.5 };
+
+  get vector() {
+    this.decayVector();
+    return { ...this.vec };
+  }
+
+  private decayVector(now = Date.now()) {
+    const hours = (now - this.vecDecayAt) / 3_600_000;
+    if (hours <= 0) return;
+    this.vecDecayAt = now;
+    const k = Math.pow(0.92, hours); // 8% decay per hour toward baseline
+    for (const key of ["warmth", "sarcasm", "energy", "focus"] as const) {
+      this.vec[key] = PersonaEngine.TRAIT_BASELINE[key] + (this.vec[key] - PersonaEngine.TRAIT_BASELINE[key]) * k;
+    }
+  }
+
+  nudgeTrait(trait: "warmth" | "sarcasm" | "energy" | "focus", amount: number) {
+    this.decayVector();
+    this.vec[trait] = Math.min(1, Math.max(0, this.vec[trait] + amount));
+  }
+
   /** 0..1 — how offended AURA currently is. */
   get resentment(): number {
     return Math.min(1, this.strikes / 3);
@@ -105,12 +133,16 @@ export class PersonaEngine {
   /** Handle rudeness; returns the roast for the new escalation level. */
   offend(): { line: string; level: 0 | 1 | 2 } {
     this.strikes += 1;
+    this.nudgeTrait("sarcasm", +0.08);
+    this.nudgeTrait("warmth", -0.06);
     if (this.strikes >= 3) return { line: pick(ROASTS_L3), level: 2 };
     if (this.strikes === 2) return { line: pick(ROASTS_L2), level: 1 };
     return { line: pick(ROASTS_L1), level: 0 };
   }
 
   praise(): string {
+    this.nudgeTrait("warmth", +0.05);
+    this.nudgeTrait("sarcasm", -0.03);
     return pick(SWEET_LINES);
   }
 
@@ -121,6 +153,7 @@ export class PersonaEngine {
     }
     const forgiven = true;
     this.strikes = Math.max(0, this.strikes - 2);
+    this.nudgeTrait("warmth", +0.04);
     return { line: pick(APOLOGY_ACCEPTED), forgiven };
   }
 

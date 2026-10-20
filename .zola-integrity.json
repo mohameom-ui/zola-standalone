@@ -1,0 +1,18 @@
+{
+  "public/vendor/kokoro.web.js": "a2efba7393770abb77b8b525e437eed3976c92cbb141360547314a30efec4d33",
+  "public/vendor/ort/ort-wasm-simd-threaded.jsep.mjs": "c2f80e915e9df63289788a99d434d8c4e00e64e9c1f030f4b80b022458dd2c99",
+  "public/vendor/ort/ort-wasm-simd-threaded.jsep.wasm": "62ff86b2f2fa3a79eb87a7e4720e8ea9051942bf975f314181bf7dcef2feac06",
+  "public/vendor/ort/ort-wasm-simd-threaded.mjs": "43c25054b6b9ac000f786c65545ff83a45f871e0e310e8c2f4d48a363bb66db4",
+  "public/vendor/ort/ort-wasm-simd-threaded.wasm": "f061472c6e77d6d50d079aacdc0ff9b63fee287ddd2cbf46cf62438d3891de2b",
+  "public/vendor/ort-kokoro/ort-wasm-simd-threaded.jsep.mjs": "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9",
+  "public/vendor/ort-kokoro/ort-wasm-simd-threaded.jsep.wasm": "c46655e8a94afc45338d4cb2b840475f88e5012d524509916e505079c00bfa39",
+  "public/mediapipe/wasm/vision_wasm_internal.wasm": "6a5c64584c2ab61c763b6e204afbdbc7ce1caf7f5216187322bca8df94f646bc",
+  "public/models/kokoro-82m/config.json": "df34b4f930b23447cd4dc410fabfb42eb3f24e803e6c3f97d618fb359380a36f",
+  "public/models/kokoro-82m/onnx/model_quantized.onnx": "fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478",
+  "public/models/kokoro-82m/tokenizer.json": "77a02c8e164413299b4b4c403b14f8e0e1c1b727db4d46a09d6327b861060a34",
+  "public/models/kokoro-82m/voices/af_heart.bin": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
+  "public/models/whisper-tiny-en/config.json": "251ea843b5901a99efa58c0b99b8052c6019aa3e7d2baf46693a1128ff606233",
+  "public/models/mediapipe/face_landmarker.task": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+  "public/models/mediapipe/hand_landmarker.task": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+  "public/models/mediapipe/efficientdet_lite0.float16.tflite": "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993"
+}

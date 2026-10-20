@@ -70,10 +70,64 @@ export function steerAround(from: { x: number; y: number }, to: { x: number; y: 
   return from; // fully boxed in — hold position (governor keeps her safe)
 }
 
+/** A semantic zone — a named area of the home with a centroid. */
+export interface Zone {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  /** items associated with this zone (auto-clustered from spatial memory) */
+  itemLabels: string[];
+}
+
+/** Room zone presets — auto-named from object clustering */
+const ZONE_NAMES = [
+  "workspace", "reading corner", "kitchen counter", "living area",
+  "storage zone", "entryway", "hobby station", "window perch",
+];
+
 export class PetMap {
   private obstacles: Obstacle[] = [];
+  private zones: Zone[] = [];
 
   all(): Obstacle[] { return this.obstacles; }
+  getZones(): Zone[] { return this.zones; }
+
+  /** Auto-detect zones by clustering items spatially (DBSCAN-lite). */
+  detectZones(items: { label: string; pos: { x: number; y: number } | null }[]): Zone[] {
+    if (items.length < 3) return this.zones;
+    const positioned = items.filter((i) => i.pos);
+    if (positioned.length < 3) return this.zones;
+    // cluster by proximity (0.8m threshold)
+    const clusters: { x: number; y: number; labels: string[] }[] = [];
+    for (const item of positioned) {
+      const p = item.pos!;
+      const nearest = clusters.find((c) => Math.hypot(c.x - p.x, c.y - p.y) < 0.8);
+      if (nearest) { nearest.labels.push(item.label); }
+      else clusters.push({ x: p.x, y: p.y, labels: [item.label] });
+    }
+    // name each cluster from its dominant object type
+    this.zones = clusters.slice(0, 8).map((c, i) => ({
+      id: `zone_${i}`,
+      name: ZONE_NAMES[i % ZONE_NAMES.length],
+      x: c.x, y: c.y,
+      itemLabels: c.labels,
+    }));
+    return this.zones;
+  }
+
+  /** Find a zone by natural language query ("the desk", "kitchen area"). */
+  findZone(query: string): Zone | null {
+    const q = query.toLowerCase();
+    return this.zones.find((z) => q.includes(z.name) || z.itemLabels.some((l) => q.includes(l))) ?? null;
+  }
+
+  /** HARM AWARENESS: hazard zones keep a LARGER standoff than plain obstacles. */
+  addHazard(x: number, y: number, r: number) {
+    const rr = Math.min(0.45, r * 2.2);
+    if (this.obstacles.some((o) => Math.hypot(o.x - x, o.y - y) < (o.r + rr) * 0.8)) return;
+    this.obstacles.push({ id: `h_${Date.now().toString(36)}`, x, y, r: rr, h: 1.0, hazard: true });
+  }
 
   toggle(x: number, y: number): boolean {
     const hit = this.obstacles.find((o) => Math.hypot(o.x - x, o.y - y) < o.r + 0.05);
@@ -89,20 +143,6 @@ export class PetMap {
   }
 
   clear() { this.obstacles = []; }
-
-  /**
-   * Self-learned obstacle: scanned items become soft obstacles automatically —
-   * she marks her own room as she explores (never near her dock).
-   */
-  /** HARM AWARENESS: hazard zones keep a LARGER standoff than plain obstacles. */
-  addHazard(x: number, y: number, r: number) {
-    const rr = Math.min(0.45, r * 2.2); // hazards get a wide berth
-    if (this.obstacles.some((o) => Math.hypot(o.x - x, o.y - y) < (o.r + rr) * 0.8)) return;
-    this.obstacles.push({
-      id: `h_${Date.now().toString(36)}`,
-      x, y, r: rr, h: 1.0, hazard: true,
-    });
-  }
 
   addSoft(x: number, y: number, r: number) {
     if (Math.hypot(x - DOCK.x, y - DOCK.y) < 0.5) return; // keep her landing zone clear

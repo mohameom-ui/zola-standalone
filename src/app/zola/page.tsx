@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// ZOLA COMPANION VIEW — open http://<this-pc-ip>:3000/zola on a phone
+// ZOLA COMPANION VIEW — open http://<this-pc-ip>:3001/zola on a phone
 // (same Wi-Fi) to watch her live: mood, flight, task, her last words.
 // Text-only — her camera never streams (privacy contract).
 // ============================================================================

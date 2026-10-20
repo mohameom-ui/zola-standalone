@@ -28,7 +28,7 @@ export interface FaceTrack {
    * Used for local recognition only.
    */
   embedding: number[];
-  /** facial expression read (null while no face) */
+  /** facial expression read (null while no face) — includes stress score */
   expression: Expression | null;
 }
 
@@ -80,16 +80,16 @@ export class DroneVision {
       try {
         const vision = await import("@mediapipe/tasks-vision");
         const fileset = await vision.FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+          "/mediapipe/wasm"
         );
         this.detector = await vision.ObjectDetector.createFromOptions(fileset, {
           baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+            modelAssetPath: "/models/mediapipe/efficientdet_lite0.float16.tflite",
             delegate: "GPU",
           },
           runningMode: "VIDEO",
-          scoreThreshold: 0.3, // catch weak sightings too (reported as "uncertain")
-          maxResults: 12,      // see EVERYTHING in the picture, not just 5
+          scoreThreshold: 0.2, // catch weak sightings too (reported as "uncertain")
+          maxResults: 20,      // see EVERYTHING in the picture
         });
       } catch {
         this.onError("SCANNER MODEL FAILED — object learning unavailable");
@@ -130,11 +130,11 @@ export class DroneVision {
     try {
       const vision = await import("@mediapipe/tasks-vision");
       const fileset = await vision.FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+        "/mediapipe/wasm"
       );
       this.landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
         baseOptions: {
-          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          modelAssetPath: "/models/mediapipe/face_landmarker.task",
           delegate: "GPU",
         },
         runningMode: "VIDEO",
@@ -208,6 +208,7 @@ export class DroneVision {
               frown: prev.expression.frown + (expression.frown - prev.expression.frown) * 0.3,
               eyesClosed: prev.expression.eyesClosed + (expression.eyesClosed - prev.expression.eyesClosed) * 0.3,
               browRaise: prev.expression.browRaise + (expression.browRaise - prev.expression.browRaise) * 0.3,
+              stress: prev.expression.stress + (expression.stress - prev.expression.stress) * 0.3,
             }
           : expression,
       };
@@ -224,7 +225,7 @@ export class DroneVision {
   }
 
   /** Periodic object pass — the drone "looks around" and learns items. */
-  scanIntervalMs = 1200; // tightened to 500 while actively scanning
+  scanIntervalMs = 600; // tightened to 250 while actively scanning
   private scan() {
     if (!this.scannerOn || !this.detector || !this.video) return;
     const now = performance.now();
@@ -365,14 +366,21 @@ export class DroneVision {
     this.last = { seen: false, x: 0, y: 0, size: 0, embedding: [], expression: null };
   }
 
-  /** Parse blendshape categories into the four expression channels. */
+  /** Parse blendshape categories into expression channels + stress score. */
   private readExpression(cats: { categoryName?: string; score: number }[]): Expression {
     const get = (n: string) => cats.find((c) => c.categoryName === n)?.score ?? 0;
+    // stress: browDown + eyeSquint + jawClench composite (0=calm, 1=stressed)
+    const stress = Math.min(1, (
+      get("browDownLeft") + get("browDownRight") +
+      get("eyeSquintLeft") + get("eyeSquintRight") +
+      get("mouthPressLeft") + get("mouthPressRight")
+    ) / 3);
     return {
       smile: (get("mouthSmileLeft") + get("mouthSmileRight")) / 2,
       frown: (get("mouthFrownLeft") + get("mouthFrownRight")) / 2,
       eyesClosed: (get("eyeBlinkLeft") + get("eyeBlinkRight")) / 2,
       browRaise: get("browInnerUp"),
+      stress,
     };
   }
 
@@ -382,11 +390,11 @@ export class DroneVision {
     try {
       const vision = await import("@mediapipe/tasks-vision");
       const fileset = await vision.FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+        "/mediapipe/wasm"
       );
       this.handLandmarker = await vision.HandLandmarker.createFromOptions(fileset, {
         baseOptions: {
-          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+          modelAssetPath: "/models/mediapipe/hand_landmarker.task",
           delegate: "GPU",
         },
         runningMode: "VIDEO",

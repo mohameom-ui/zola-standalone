@@ -106,6 +106,14 @@ export interface BrainHooks {
   onCorrection?: (heard: string, understood: string) => void;
   /** live attitude report (wired to her flight body's real pose) */
   balanceReport?: () => string | null;
+  /** semantic zone queries: "what's in the workspace" → zone description */
+  zoneQuery?: (query: string) => string | null;
+  /** navigate to a named zone */
+  gotoZone?: (zoneName: string) => string | null;
+  /** audio threat investigation: fly toward a detected sound */
+  investigateSound?: (kind: string) => string | null;
+  /** predictive gaze: where is the human about to go? */
+  anticipateGaze?: (faceVx: number, faceVy: number) => string | null;
   /** HARM AWARENESS: what dangerous things does she know about + see now */
   hazardReport?: (personVisible: boolean) => string;
   /** her LIFE hooks (backed by memory) */
@@ -113,10 +121,14 @@ export interface BrainHooks {
   dailyReport?: () => string | null;
   getDream?: () => string | null;
   yesterdayReport?: () => string | null;
+  /** WAVE 2 — dream consolidation: called when she goes to sleep; returns tonight's insight */
+  consolidateNight?: () => string | null;
+  /** WAVE 2 — the night's consolidated insight, consumed on wake */
+  takeNightInsight?: () => string | null;
   /** behavior learning: note something about the tracked person */
   noteBehavior?: (
     personId: string,
-    kind: "presence" | "command" | "smile" | "frown" | "message",
+    kind: "presence" | "command" | "smile" | "frown" | "message" | "voice",
     detail?: string,
   ) => void;
   /** spoken report of one person's behavioral patterns */
@@ -184,6 +196,20 @@ export class PetBrain {
   private lastHeard = "";
   private frownComfort = 0;
   private lastChatter: { category: string; at: number } | null = null;
+  /** WAVE 5 — counterfactual curiosity rate limiter */
+  private lastCuriousAt = 0;
+  private quietMode = false;
+  /** WAVE 2 — THEORY-OF-MOOD: while the human is deeply engaged (typing/working),
+   * she holds her unprompted chatter. Respectful silence, automatically. */
+  private focusUntil = 0;
+  noteHumanFocus(durationMs = 90_000) {
+    this.focusUntil = Math.max(this.focusUntil, performance.now() + durationMs);
+  }
+  get humanFocused() {
+    return performance.now() < this.focusUntil;
+  }
+  private faceYHistory: { t: number; y: number }[] = [];
+  private lastFallReact = 0;
   /** behavior attribution: who is currently in front of me */
   private lastIdentityId: string | null = null;
   private presenceNoteAt: Record<string, number> = {};
@@ -212,20 +238,34 @@ export class PetBrain {
     return line;
   }
 
-  /** Pick a reply variant, honoring how the human talks (brief vs chatty). */
+  /** Pick a reply variant, honoring how the human talks (brief vs chatty)
+   * and her own energy — a low-energy Zola gives short answers even to chatty humans. */
   private styleLine(list: string[]): string {
     const prof = this.hooks.profile?.get();
-    if (prof && prof.brief > 0.6) {
-      return list.reduce((a, b) => (b.length < a.length ? b : a)); // terse human, terse pet
+    const vec = this.persona.vector;
+    if ((prof && prof.brief > 0.6) || vec.energy < 0.3) {
+      return list.reduce((a, b) => (b.length < a.length ? b : a)); // terse human, or tired pet
     }
     return this.pickFresh(list);
   }
 
   /** She initiates: ambient chatter, REINFORCEMENT-WEIGHTED by what you respond to. */
-  proactiveTick(ctx: { now: number; faceSeen: boolean; visibleItems: string[] }): { line: string; category: string } | null {
-    if (this.activity === "sleep" || this.runner.current) return null;
+  proactiveTick(ctx: { now: number; faceSeen: boolean; visibleItems: string[]; unknownObject?: string }): { line: string; category: string } | null {
+    if (this.activity === "sleep" || this.runner.current || this.quietMode || this.humanFocused) return null;
+    // WAVE 5 — COUNTERFACTUAL CURIOSITY: something she cannot place earns ONE
+    // targeted hypothesis question (rate-limited to ~1 per 10 min).
+    if (ctx.unknownObject && ctx.now - this.lastCuriousAt > 10 * 60_000) {
+      this.lastCuriousAt = ctx.now;
+      const l = ctx.unknownObject;
+      return {
+        line: `That ${l} near you is not in my world model yet. Hypothesis: it arrived recently — is it new, or have I been flying past it blind?`,
+        category: "curious",
+      };
+    }
     if (ctx.now < this.nextProactiveAt || !ctx.faceSeen) return null;
-    this.nextProactiveAt = ctx.now + 60_000 + Math.random() * 60_000;
+    // WAVE 5.5 — trait effect: a high-energy Zola is chattier, a drained one keeps to herself
+    const energy = this.persona.vector.energy;
+    this.nextProactiveAt = ctx.now + (energy > 0.65 ? 30_000 : energy < 0.35 ? 120_000 : 60_000) + Math.random() * 60_000;
 
     // unanswered chatter fades a little — she stops trying topics you ignore
     if (this.lastChatter) this.hooks.reinforceChatter?.(this.lastChatter.category, false);
@@ -337,6 +377,18 @@ export class PetBrain {
         : "Nope. Fix your attitude first.";
     }
 
+    // --- quiet mode ---------------------------------------------------------------
+    if (has("quiet mode", "focus mode", "stop talking", "silence")) {
+      this.quietMode = true;
+      this.setMood("idle");
+      this.setActivity("hover");
+      return "Quiet mode. I'll hover silently and stay out of your way. Say 'zola' when you need me.";
+    }
+    if (has("resume talking", "end quiet mode", "talk to me", "normal mode")) {
+      this.quietMode = false;
+      this.setMood("happy");
+      return "I'm back! What did I miss?";
+    }
     // --- reassurance -------------------------------------------------------------
     if (has("calm down", "it's okay", "its okay", "all good", "relax", "you're safe", "you are safe")) {
       this.searchActive = false;
@@ -463,6 +515,8 @@ export class PetBrain {
     if (has("sleep", "rest", "goodnight", "nap")) {
       this.setMood("sleeping");
       this.setActivity("sleep");
+      // WAVE 2 — consolidate the day into a lasting insight while she sleeps
+      this.hooks.consolidateNight?.();
       return this.pickFresh(SLEEP_LINES);
     }
     if (has("wake", "up", "good morning")) {
@@ -471,7 +525,9 @@ export class PetBrain {
       this.setActivity("hover");
       if (wasSleeping) {
         const dream = this.hooks.getDream?.();
-        return dream ? `${this.persona.grumpyWake()} Also — ${dream.toLowerCase()}` : this.persona.grumpyWake();
+        const insight = this.hooks.takeNightInsight?.();
+        const base = dream ? `${this.persona.grumpyWake()} Also — ${dream.toLowerCase()}` : this.persona.grumpyWake();
+        return insight ? `${base} ${insight}` : base;
       }
       return this.styleLine(WAKE_LINES);
     }
@@ -500,6 +556,62 @@ export class PetBrain {
     if (has("is it safe", "safety check", "any danger", "anything dangerous", "is the room safe")) {
       return this.hooks.hazardReport?.(false) ?? "Room check complete. No concerns.";
     }
+    // --- greeting & goodbye ceremonies -----------------------------------------
+    if (has("i'm home", "i am home", "im home", "just got home", "back home")) {
+      this.setMood("excited");
+      this.setActivity("come");
+      this.addBond(0.03);
+      return this.styleLine([
+        "Welcome home! I kept everything safe. Follow me — I have something to show you.",
+        "You're back! I missed you. Let me show you around.",
+        "Home! The best place. I saved you a spot near the window.",
+      ]);
+    }
+    if (has("goodbye", "i'm leaving", "i am leaving", "see you later", "heading out")) {
+      this.setMood("happy");
+      this.setActivity("sleep");
+      this.hooks.profile?.update(0.02, 0);
+      return this.styleLine([
+        "Safe travels! I'll guard the room and dream of tailwinds.",
+        "Going out? I'll hold the fort. See you when you get back.",
+        "Off you go! I'll be right here when you return. Docking now.",
+      ]);
+    }
+    // --- quiet / focus mode ------------------------------------------------------
+    if (has("quiet mode", "focus mode", "stop talking", "silence")) {
+      this.setMood("idle");
+      this.setActivity("hover");
+      return "Quiet mode. I'll hover silently and stay out of your way. Tap me when you need me.";
+    }
+    // --- timed reminders ----------------------------------------------------------
+    if (has("remind me at", "remind me in")) {
+      const relMatch = /remind me in\s+(\d+)\s*(minute|min|hour|hr)/i.exec(text);
+      if (relMatch) {
+        const n = parseInt(relMatch[1]);
+        const unit = relMatch[2].toLowerCase();
+        const everyMin = unit.startsWith("h") ? n * 60 : n;
+        const msg = text.replace(/remind me in\s+\d+\s*\w+\s*/i, "").trim() || "your reminder";
+        this.hooks.addRoutine?.(`Reminder: ${msg}`, `say ${msg}`, everyMin);
+        return `Reminder set: ${msg}, in ${everyMin} minutes. I'll hover into your view when it's time.`;
+      }
+      const timeMatch = /remind me at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(text);
+      if (timeMatch) {
+        const h = parseInt(timeMatch[1]);
+        const m = parseInt(timeMatch[2] ?? "0");
+        const ampm = (timeMatch[3] ?? "").toLowerCase();
+        let hour = h;
+        if (ampm === "pm" && h < 12) hour += 12;
+        if (ampm === "am" && h === 12) hour = 0;
+        const nowH = new Date().getHours();
+        const everyMin = Math.max(1, Math.round((hour * 60 + m - (nowH * 60 + new Date().getMinutes()) + 1440) % 1440));
+        const msg = text.replace(/remind me at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*/i, "").trim() || "your reminder";
+        this.hooks.addRoutine?.(`Reminder: ${msg}`, `say ${msg}`, everyMin);
+        return `Reminder set for ${h}:${m.toString().padStart(2, "0")}. I'll hover into your view when it's time.`;
+      }
+      return "Tell me a time — like: remind me at 3pm, or remind me in 10 minutes.";
+    }
+    // --- fall / posture monitoring --------------------------------------------------
+    // handled in perceive() via expression + position drop detection
     if (has("how is your balance", "balance check", "are you level", "balanced")) {
       const rep = this.hooks.balanceReport?.();
       return rep ?? "Level as my attitude. Which is very level.";
@@ -532,6 +644,21 @@ export class PetBrain {
     if (has("sing", "song")) {
       this.setMood("excited");
       return "Beep boop bop beeeep. That was my song. I wrote it about you. It has one note.";
+    }
+    // --- semantic zone queries ----------------------------------------------------
+    if (has("what's in the", "what is in the", "whats in the", "check the")) {
+      const zoneMatch = /(?:what's in the|what is in the|whats in the|check the)\s*(.+?)[?.!]*$/i.exec(text);
+      if (zoneMatch) {
+        const answer = this.hooks.zoneQuery?.(zoneMatch[1].trim());
+        if (answer) return answer;
+      }
+    }
+    if (has("go to the", "fly to the", "check the")) {
+      const zoneMatch = /(?:go to the|fly to the|check the)\s*(.+?)[?.!]*$/i.exec(text);
+      if (zoneMatch) {
+        const nav = this.hooks.gotoZone?.(zoneMatch[1].trim());
+        if (nav) return nav;
+      }
     }
     if (has("what can you do", "help", "abilities", "capabilit")) {
       return "I follow you, come when called, scan and remember items, find things and fly to them, run routines, patrol, dance, watch your face, and roast the rude. Try me.";
@@ -596,6 +723,23 @@ export class PetBrain {
   perceive(p: Percept): Actuation {
     const now = p.now;
     const taskActive = this.runner.current !== null;
+
+    // --- FALL DETECTION: sudden face-position drop ==============================
+    if (p.faceSeen && p.faceY > 0.6) {
+      this.faceYHistory.push({ t: now, y: p.faceY });
+      this.faceYHistory = this.faceYHistory.filter((f) => now - f.t < 3000);
+      const wasNormal = this.faceYHistory.some((f) => f.t < now - 1500 && f.y < 0);
+      const isLow = this.faceYHistory.every((f) => f.y > 0.4);
+      if (wasNormal && isLow && this.faceYHistory.length >= 4 && now - this.lastFallReact > 30_000) {
+        this.lastFallReact = now;
+        this.setMood("alarmed");
+        this.setActivity("come");
+        p.say = p.say ?? "ARE YOU OKAY?! I saw you go down! I'm coming to you right now!";
+        this.lastLine = p.say;
+      }
+    } else if (!p.faceSeen) {
+      this.faceYHistory = [];
+    }
 
     // --- identity & learning reflexes (MULTI-PERSON) ---------------------------
     if (p.faceSeen && p.identities.length > 0) {
@@ -890,6 +1034,7 @@ export class PetBrain {
 
   getMood(): Mood { return this.mood; }
   getActivity(): Activity { return this.activity; }
+  get isQuiet(): boolean { return this.quietMode; }
 
   /** "Zola!" — instant attention: drop everything, face me. */
   attend(): string {
@@ -960,15 +1105,28 @@ export class PetBrain {
     const s = this.persona.sulkLevel;
     if (s === 2) return "SULKING";
     if (s === 1) return "ROAST MODE";
+    let name: PersonaName;
     switch (this.mood) {
-      case "happy": return "SWEET";
-      case "excited": return "HYPER";
-      case "alarmed": return "SKITTISH";
-      case "sleepy": return "GRUMPY";
-      case "sleeping": return "DREAMING";
-      case "curious": return "EXPLORER";
-      default: return "SWEET";
+      case "happy": name = "SWEET"; break;
+      case "excited": name = "HYPER"; break;
+      case "alarmed": name = "SKITTISH"; break;
+      case "sleepy": name = "GRUMPY"; break;
+      case "sleeping": name = "DREAMING"; break;
+      case "curious": name = "EXPLORER"; break;
+      default: name = "SWEET"; break;
     }
+    // WAVE 5 — AUTO-EVOLVING PERSONA LADDER: the day bends the baseline.
+    // Work hours blend her playful selves into a focused co-pilot cadence;
+    // late night softens everything into her dreaming gentleness.
+    const h = new Date().getHours();
+    if ((h >= 22 || h < 6) && (name === "SWEET" || name === "HYPER")) name = "DREAMING";
+    else if (h >= 9 && h < 17 && (name === "SWEET" || name === "HYPER")) name = "EXPLORER";
+    return name;
+  }
+
+  /** WAVE 5.5 — her live trait vector (for the panel's persona readout). */
+  getPersonaVector() {
+    return this.persona.vector;
   }
 
   /** coarse intent category for behavior learning */
@@ -1034,10 +1192,10 @@ export class PetBrain {
     return "Yes? I am listening.";
   }
 
-  /** Sustained loud noise — startle, or an alarmed wake-up. */
+  /** Sustained loud noise — startle, or an alarmed wake-up. 60s cooldown. */
   hearNoise(): string | null {
     const now = performance.now();
-    if (now - this.lastNoiseReact < 10_000) return null;
+    if (now - this.lastNoiseReact < 60_000) return null;
     this.lastNoiseReact = now;
     this.lastAlarmedAt = now;
     if (this.activity === "sleep" || this.mood === "sleeping") {

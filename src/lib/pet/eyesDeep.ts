@@ -24,16 +24,19 @@ export class DeepEyes {
 
   async load(): Promise<boolean> {
     if (this.loaded) return true;
-    this.onDiag("DEEP EYES: downloading her seeing brain once (~300 MB)...");
+    this.onDiag("DEEP EYES: loading her seeing brain from local files...");
     try {
       const tf = (await import("@huggingface/transformers")) as unknown as {
         pipeline: (task: string, model: string, opts?: Record<string, unknown>) => Promise<VlmPipeline>;
+        env?: { backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
       };
+      // air-gap: pin the ONNX runtime wasm to our local copy — never the CDN
+      if (tf.env?.backends?.onnx?.wasm) tf.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/";
       this.vlm = await tf.pipeline("image-text-to-text", VLM_LOCAL, {
         dtype: "q4f16", // verified: decoder_model_merged_q4f16.onnx exists upstream
         progress_callback: (p: { status?: string; progress?: number }) => {
           if (p?.status === "progress" && typeof p.progress === "number") {
-            this.onDiag(`DEEP EYES: download ${Math.round(p.progress)}%`);
+            this.onDiag(`DEEP EYES: loading ${Math.round(p.progress)}%`);
           }
         },
       });

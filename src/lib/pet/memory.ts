@@ -20,6 +20,8 @@ export interface PersonBehavior {
   frowns: number;
   messages: number;
   msgLenTotal: number;
+  /** WAVE 4 — voice attribution: how often their voice sounded near her */
+  voiceBabble: number;
   firstMet: number;
   lastActive: number;
 }
@@ -33,6 +35,7 @@ function freshBehavior(): PersonBehavior {
     frowns: 0,
     messages: 0,
     msgLenTotal: 0,
+    voiceBabble: 0,
     firstMet: Date.now(),
     lastActive: Date.now(),
   };
@@ -74,6 +77,10 @@ export interface KnownItem {
   lastYaw: number | null;
   /** remembered world position (spatial map) */
   pos: { x: number; y: number; z: number } | null;
+  /** WAVE 5 — semantic stacking: "under the mug" — what was directly on top when seen */
+  stackNote?: string | null;
+  /** WAVE 5.5 — inverse relation: what this item is carrying on top */
+  topNote?: string | null;
   /** color identity signature — distinguishes THIS cup from THAT cup */
   sig: number[];
   /** shape identity signature (mini-HOG) — round vs angular vs elongated */
@@ -118,6 +125,11 @@ export interface MemoryData {
   items: KnownItem[];
   facts: LearnedFact[];
   conversation: ChatEntry[];
+  /** WAVE 6 — episodic compression: old chat turns condensed into semantic summaries */
+  episodeSummaries: { period: string; summary: string }[];
+  /** WAVE 6.6 — nightly nodes: one structured snapshot per day, the vlog archive's spine.
+   * flightSeconds is CUMULATIVE lifetime — consumers diff consecutive nodes. */
+  nightlyNodes: { date: string; commands: number; items: number; people: number; flightSecondsTotal: number; insight: string | null }[];
   routines: RoutineData[];
   profile: HumanProfile;
   /** emotional continuity: the mood she ended the last session with */
@@ -128,6 +140,9 @@ export interface MemoryData {
   lastSession: { activity: string; task: string } | null;
   lastGreetDay: string | null;
   lastDream: string | null;
+  /** WAVE 2 — dream consolidation: nights compressed into lasting insights */
+  dreamJournal: { date: string; insight: string }[];
+  lastNightInsight: string | null;
   /** phrases the human explicitly taught her: heard → means */
   learnedPhrases: { heard: string; means: string }[];
   /** TRAINING: self-tuned flight gains, personal bests, flight hours */
@@ -137,8 +152,14 @@ export interface MemoryData {
   flightFlights: number;
   /** REINFORCEMENT: which chatter topics the human actually responds to */
   chatterStats: Record<string, { w: number; tries: number; hits: number }>;
+  /** WAVE 3 — battery health profiler: cycles, deep discharges, last phase */
+  battery: { cycles: number; deepDischarges: number; lastPhase: "charge" | "discharge" | null };
+  /** WAVE 3 — room ecology: learned noise floor per hour of day (acoustic rhythm) */
+  noiseFloor: Record<string, { sum: number; n: number }>;
   /** her equipment state — restored automatically on reload */
   settings: { scanner: boolean; gestures: boolean; soundWatch: boolean; localEars: boolean };
+  /** WAVE 12 — persisted dream auto-tuning (bounded governor margin adjustments) */
+  dreamTuning?: { geofenceRadius?: number; visionStaleLimit?: number; appliedOn: string };
   stats: { sessions: number; commands: number; greetings: number };
 }
 
@@ -152,6 +173,8 @@ function fresh(): MemoryData {
     items: [],
     facts: [],
     conversation: [],
+    episodeSummaries: [],
+    nightlyNodes: [],
     routines: [],
     profile: { warmth: 0.5, brief: 0.5, bond: 0 },
     lastMood: null,
@@ -159,6 +182,8 @@ function fresh(): MemoryData {
     diary: [],
     lastGreetDay: null,
     lastDream: null,
+    dreamJournal: [],
+    lastNightInsight: null,
     lastSession: null,
     learnedPhrases: [],
     tuning: { gain: 3.2, drag: 2.4, power: 0.8 },
@@ -166,7 +191,10 @@ function fresh(): MemoryData {
     flightSeconds: 0,
     flightFlights: 0,
     chatterStats: {},
+    battery: { cycles: 0, deepDischarges: 0, lastPhase: null },
+    noiseFloor: {},
     settings: { scanner: false, gestures: false, soundWatch: false, localEars: false },
+    dreamTuning: undefined,
     stats: { sessions: 0, commands: 0, greetings: 0 },
   };
 }
@@ -331,7 +359,7 @@ export class AuraMemory {
   /** Note something about how a specific person behaves. */
   noteBehavior(
     personId: string,
-    kind: "presence" | "command" | "smile" | "frown" | "message",
+    kind: "presence" | "command" | "smile" | "frown" | "message" | "voice",
     detail?: string,
   ) {
     const p = this.data.people.find((x) => x.id === personId);
@@ -351,6 +379,9 @@ export class AuraMemory {
     } else if (kind === "message") {
       b.messages += 1;
       b.msgLenTotal += Number(detail) || 0;
+    } else if (kind === "voice") {
+      // WAVE 4 — voice attribution: a voice sounded while this face was locked
+      b.voiceBabble = (b.voiceBabble ?? 0) + 1; // ??-guard: old saved records
     }
     this.save();
   }
@@ -366,6 +397,10 @@ export class AuraMemory {
     const peak = b.hours.indexOf(Math.max(...b.hours));
     if (b.presenceNotes >= 3 && Math.max(...b.hours) > 0) {
       parts.push(`You usually show up around ${peak}:00.`);
+    }
+    // WAVE 4 — voice attribution
+    if ((b.voiceBabble ?? 0) >= 3) {
+      parts.push(`I have heard your voice near me ${b.voiceBabble} times.`);
     }
     // favorite things to ask
     const cmds = Object.entries(b.commands).sort((a, c) => c[1] - a[1]).slice(0, 3);
@@ -452,6 +487,74 @@ export class AuraMemory {
     return this.data.conversation.slice(-n);
   }
 
+  // ---- WAVE 6 — EPISODIC MEMORY COMPRESSION ---------------------------------
+  // The conversation ring holds 60 turns; when it fills, the OLDEST half is
+  // condensed into one dense semantic summary (kept forever, capped at 60).
+  // Her context windows stay lean; the gist of every period survives.
+  compressEpisodes(): { summary: string; done: boolean } {
+    const conv = this.data.conversation;
+    if (conv.length < 40) return { summary: "", done: false };
+    const old = conv.slice(0, conv.length - 30);
+    const rest = conv.slice(conv.length - 30);
+    const yours = old.filter((c) => c.who === "you");
+    const start = new Date(old[0].at);
+    const end = new Date(old[old.length - 1].at);
+    const period = `${start.toISOString().slice(0, 10)} ${String(start.getHours()).padStart(2, "0")}:00–${String(end.getHours()).padStart(2, "0")}:00`;
+    // salience: the first thing you asked, and your most-repeated keyword
+    const firstAsk = yours[0]?.text.slice(0, 60) ?? "silence";
+    const stop = new Set(["the", "and", "you", "for", "that", "with", "this", "have", "can", "what", "where", "her", "his"]);
+    const freq: Record<string, number> = {};
+    for (const c of yours) {
+      for (const w of c.text.toLowerCase().split(/\W+/)) {
+        if (w.length > 3 && !stop.has(w)) freq[w] = (freq[w] ?? 0) + 1;
+      }
+    }
+    const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+    const summary = `${old.length} exchanges. First ask: "${firstAsk}".${top.length > 0 ? ` Recurring words: ${top.join(", ")}.` : ""}`;
+    this.data.episodeSummaries = [...(this.data.episodeSummaries ?? []), { period, summary }].slice(-60);
+    this.data.conversation = rest;
+    this.save();
+    return { summary, done: true };
+  }
+
+  getEpisodes(): { period: string; summary: string }[] {
+    return [...(this.data.episodeSummaries ?? [])].reverse();
+  }
+
+  /** WAVE 6.6 — build today's nightly node (once per day; idempotent).
+   * Called at the daily wrap-up and on entering sleep. Pure addition — no
+   * trimming, no overlap with the compression worker. */
+  buildNightlyNode(): { built: boolean; date: string } {
+    const today = this.ensureDaily();
+    const nodes = (this.data.nightlyNodes ??= []);
+    if (nodes.some((n) => n.date === today.day)) return { built: false, date: today.day };
+    nodes.push({
+      date: today.day,
+      commands: today.commands,
+      items: today.items,
+      people: today.people,
+      flightSecondsTotal: Math.round(this.data.flightSeconds),
+      insight: this.data.dreamJournal?.[this.data.dreamJournal.length - 1]?.insight ?? null,
+    });
+    this.data.nightlyNodes = nodes.slice(-90); // a season of nights
+    this.save();
+    return { built: true, date: today.day };
+  }
+
+  /** WAVE 12 — persist the dream engine's bounded tuning. */
+  saveDreamTuning(t: { geofenceRadius?: number; visionStaleLimit?: number }) {
+    this.data.dreamTuning = { ...t, appliedOn: new Date().toDateString() };
+    this.save();
+  }
+
+  getDreamTuning(): { geofenceRadius?: number; visionStaleLimit?: number; appliedOn?: string } {
+    return this.data.dreamTuning ?? {};
+  }
+
+  getNightlyNodes(): { date: string; commands: number; items: number; people: number; flightSecondsTotal: number; insight: string | null }[] {
+    return [...(this.data.nightlyNodes ?? [])];
+  }
+
   // ---- routines ------------------------------------------------------------------
 
   addRoutine(label: string, task: string, everyMin: number): string {
@@ -519,6 +622,45 @@ export class AuraMemory {
     const y = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
     const entry = this.data.diary.find((d) => d.day === y);
     return entry ? `Yesterday: ${entry.summary}` : null;
+  }
+
+  /** WAVE 2 — DREAM CONSOLIDATION: on sleep, compress the day into a lasting insight.
+   * Uses her real trained data: reinforcement weights, daily counters, flight logbook. */
+  consolidateNight(): string {
+    const today = this.ensureDaily();
+    const stats = this.data.chatterStats ?? {};
+    let topCat = "";
+    let topW = 0;
+    for (const [cat, s] of Object.entries(stats)) {
+      if (s.w > topW) { topW = s.w; topCat = cat; }
+    }
+    const bits: string[] = [];
+    if (topCat) bits.push(topCat === "general" ? "you like whatever-we-talk-about talk" : `your favorite talks are ${topCat}`);
+    if (today.items > 0) bits.push(`I learned ${today.items} new ${today.items === 1 ? "thing" : "things"}`);
+    if (today.people > 0) bits.push(`${today.people} ${today.people === 1 ? "person" : "people"} crossed my sky`);
+    if (this.data.flightSeconds > 0) bits.push(`${Math.round(this.data.flightSeconds)}s of air time went into my logbook`);
+    const insight = bits.length > 0
+      ? `While you were away I kept it: ${bits.join("; ")}.`
+      : "A quiet day folded into my diary. Even quiet days count.";
+    this.data.dreamJournal = [...(this.data.dreamJournal ?? []), { date: today.day, insight }].slice(-30);
+    this.data.lastNightInsight = insight;
+    this.save();
+    return insight;
+  }
+
+  /** The night's consolidated insight — consumed once (on her wake). */
+  takeNightInsight(): string | null {
+    const v = this.data.lastNightInsight ?? null;
+    if (v) {
+      this.data.lastNightInsight = null;
+      this.save();
+    }
+    return v;
+  }
+
+  /** What she has consolidated across nights (newest first). */
+  getDreamJournal(): { date: string; insight: string }[] {
+    return [...(this.data.dreamJournal ?? [])].reverse();
   }
 
   /** Where she was when the human last left — for the "where was I" resume. */
@@ -653,7 +795,70 @@ export class AuraMemory {
 
   getFlightScores(): Record<string, number> { return { ...this.data.flightScores }; }
 
+  /** WAVE 5 — semantic stacking: record that a label was seen directly under another.
+   * WAVE 5.5 — typed both ways: the lower knows what covers it, the upper knows
+   * what it carries. Relation notes are human-readable, not a graph — honest. */
+  noteStacking(label: string, underOf: string) {
+    const lower = this.data.items.find((i) => i.label === label);
+    const upper = this.data.items.find((i) => i.label === underOf);
+    const note = `under ${underOf}`;
+    let dirty = false;
+    if (lower && (lower.stackNote ?? null) !== note) { lower.stackNote = note; dirty = true; }
+    if (upper && (upper.topNote ?? null) !== label) { upper.topNote = label; dirty = true; }
+    if (dirty) this.save();
+  }
+
   addFlightTime(seconds: number) { this.data.flightSeconds += seconds; this.save(); }
+
+  // ---- WAVE 3 — BATTERY HEALTH PROFILER --------------------------------------
+  private lastLevel = 1; // in-memory only — crossing detection, not persisted
+  /** Call once per tick with the current phase; counts real charge cycles
+   * and deep-discharge crossings (exactly once per crossing). */
+  noteBatteryPhase(phase: "charge" | "discharge", level: number) {
+    const b = (this.data.battery ??= { cycles: 0, deepDischarges: 0, lastPhase: null });
+    if (b.lastPhase === "discharge" && phase === "charge") b.cycles += 1; // a real cycle completed
+    if (phase === "discharge" && level < 0.12 && this.lastLevel >= 0.12) b.deepDischarges += 1;
+    this.lastLevel = level;
+    b.lastPhase = phase;
+  }
+
+  /** Estimated cell health + honest advice. Purely local model, no hardware required. */
+  batteryHealth(): { health: number; cycles: number; advice: string } {
+    const b = this.data.battery ?? { cycles: 0, deepDischarges: 0, lastPhase: null };
+    const health = Math.max(60, Math.round(100 - b.cycles * 0.4 - b.deepDischarges * 2));
+    let advice = "cells healthy — charge habits are kind";
+    if (b.deepDischarges > 5) advice = "avoid running her below 15% — deep discharges age cells";
+    else if (b.cycles > 150) advice = "high cycle count — plan a cell check before long flights";
+    else if (b.cycles > 60) advice = "mid-life pack — keep top-ups shallow and regular";
+    return { health, cycles: b.cycles, advice };
+  }
+
+  // ---- WAVE 3 — ROOM ECOLOGY: acoustic rhythm --------------------------------
+  /** Learn the room's noise floor, one hour-bucket at a time. */
+  noteNoise(hour: number, level: number) {
+    const nf = (this.data.noiseFloor ??= {});
+    const key = String(hour);
+    const cur = nf[key] ?? { sum: 0, n: 0 };
+    cur.sum += level;
+    cur.n += 1;
+    nf[key] = cur;
+    if (cur.n % 20 === 0) this.save(); // save every ~20 samples, not every tick
+  }
+
+  /** The room's rhythm: quietest and loudest hours she has learned. */
+  roomRhythm(): { quietHour: number | null; loudHour: number | null; samples: number } {
+    const nf = this.data.noiseFloor ?? {};
+    let quietHour: number | null = null, loudHour: number | null = null;
+    let quiet = Infinity, loud = -1, samples = 0;
+    for (const [h, v] of Object.entries(nf)) {
+      if (v.n < 3) continue; // not enough evidence
+      samples += v.n;
+      const avg = v.sum / v.n;
+      if (avg < quiet) { quiet = avg; quietHour = Number(h); }
+      if (avg > loud) { loud = avg; loudHour = Number(h); }
+    }
+    return { quietHour, loudHour, samples };
+  }
   addFlight() { this.data.flightFlights += 1; this.save(); }
   getLogbook(): { hours: number; flights: number } {
     return { hours: this.data.flightSeconds / 3600, flights: this.data.flightFlights };

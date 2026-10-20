@@ -13,7 +13,8 @@ import bpy, os, sys
 ANIMS_DIR = r"C:\Users\self_\ZOLA-standalone\public\assets\models\zola-anims"
 OUT_DIR = os.path.join(ANIMS_DIR, "v2")
 BODY = r"C:\Users\self_\.lmstudio\apps\bionic\projects\d49037d8-47f4-5808-9028-c707de117f8f\workspace\public\assets\models\gen-zola-humanoid-v2.glb"
-TARGET_HEIGHT = 0.45
+TARGET_HEIGHT = 0.45      # her true scale (the hangar card normalizes anyway)
+CLIP_EXPORT_HEIGHT = 1.775 # the legacy gesture-stage scale (legacy clips are 1.775 m in-file)
 MIN_VERTS = 12
 HALO_FRAC = 0.85
 
@@ -89,7 +90,9 @@ def build_scene_for_clip(clip_path):
     body_objs = import_glb(BODY)
     meshes = [o for o in body_objs if o.type == "MESH"]
     body_h = measure_body(meshes)
-    final_scale = TARGET_HEIGHT / max(body_h, 1e-6)
+    # the clip exports ride the legacy stage scale so she fills the frame
+    # exactly like the original clips did
+    final_scale = CLIP_EXPORT_HEIGHT / max(body_h, 1e-6)
     for m in meshes:
         m.scale = (final_scale, final_scale, final_scale)
     bpy.context.view_layer.update()
@@ -105,7 +108,7 @@ def build_scene_for_clip(clip_path):
     zs = [v for b in arm.data.bones for v in (b.head_local.z, b.tail_local.z)]
     skel_h = max(zs) - min(zs)
     n = remap_armature(arm, skel_h)
-    arm.scale = (TARGET_HEIGHT / skel_h,) * 3
+    arm.scale = (CLIP_EXPORT_HEIGHT / skel_h,) * 3
     bpy.context.view_layer.update()
     log(f"{os.path.basename(clip_path)}: remapped {n} landmark bones")
 

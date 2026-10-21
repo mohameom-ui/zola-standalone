@@ -416,14 +416,16 @@ export default function DroneBody3D({
 
   return (
     <div
-      className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#0b0e17] cursor-pointer"
+      className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#141a28] cursor-pointer"
       onClick={onPet}
       title="pet her — she responds with body and voice"
     >
       <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}>
-        <ambientLight intensity={0.35} />
-        <directionalLight position={[3, 5, 4]} intensity={1.4} color="#dfe6f2" />
-        <directionalLight position={[-4, 2, -3]} intensity={0.5} color={accentColor} />
+        {/* the studio: she deserves a photo shoot, not an interrogation */}
+        <ambientLight intensity={0.9} />
+        <directionalLight position={[3, 5, 4]} intensity={2.6} color="#f4f6fb" />
+        <directionalLight position={[-4, 2, -3]} intensity={1.2} color={accentColor} />
+        <directionalLight position={[0, 2, -5]} intensity={1.8} color="#8ecfff" />
         <gridHelper args={[6, 24, "#1c2230", "#141a26"]} position={[0, -1.05, 0]} />
         <Suspense fallback={null}>
           <SceneRig

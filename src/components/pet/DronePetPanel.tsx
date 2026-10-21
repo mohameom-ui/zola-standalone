@@ -41,6 +41,8 @@ import { PiperPack } from "@/lib/pet/piperPack";
 import { AuraMemory } from "@/lib/pet/memory";
 import { SafetyGovernor, DEFAULT_LIMITS } from "@/lib/pet/safety";
 import { LlmConsultant, LocalGenie, type LlmDecision } from "@/lib/pet/llm";
+import { HealthMonitor } from "@/lib/pet/healthMonitor";
+import { SELF_BUILD_PROMPT, parseSelfBuild, installCapability } from "@/lib/pet/selfBuilder";
 import { SoundWatch, PetChirps } from "@/lib/pet/sound";
 import { LocalEars } from "@/lib/pet/earsLocal";
 import { SfxFiles } from "@/lib/pet/sfxFiles";
@@ -95,6 +97,7 @@ export default function DronePetPanel() {
   const petMapRef = useRef<PetMap>(new PetMap());
   const mapCanvasRef = useRef<HTMLCanvasElement>(null);
   const llmRef = useRef<LlmConsultant>(new LlmConsultant());
+  const healthRef = useRef<HealthMonitor>(new HealthMonitor());
   const genieRef = useRef<LocalGenie>(new LocalGenie());
   const deepEyesRef = useRef<DeepEyes>(new DeepEyes());
   const piperPackRef = useRef<PiperPack>(new PiperPack());
@@ -611,6 +614,36 @@ export default function DronePetPanel() {
       role: h.who === "you" ? ("user" as const) : ("assistant" as const),
       content: h.text,
     }));
+
+    // THE SELF-BUILDER: "build:<capability>" — she writes, validates, and
+    // installs her own capability (the sandbox safety lines enforce the rest)
+    if (text.startsWith("build:")) {
+      const task = text.slice(6).trim();
+      if (!task) { say("Build what? Give me a capability name after the colon."); return; }
+      say(`Forging a new capability: ${task}. Give me a moment — I am writing my own code.`);
+      try {
+        const raw = await llmRef.current.complete(SELF_BUILD_PROMPT + "\nTASK: " + task, 300);
+        const code = raw.match(/\`\`\`(?:typescript|ts|javascript)?\n([\s\S]*?)\`\`\`/)?.[1] ?? raw;
+        const shaped = { ...parseSelfBuild("build:" + task, code)!, description: "Self-built capability: " + task, createdAt: new Date().toISOString(), task };
+        if (!shaped.id) { say("I could not shape that into a capability. Ask me again with more detail."); return; }
+        const ok = installCapability(shaped, (cap) => {
+          cortexRef.current.register({
+            id: cap.id, kind: "system", label: cap.label, description: cap.description,
+            run: () => `Capability ${cap.label} — executed.`,
+          });
+        });
+        if (ok) {
+          say(`Done. ${shaped.label} is part of me now — permanently. Ask for it anytime.`);
+          pushLog("sys", `SELF-BUILD installed: ${shaped.id} (sandbox-validated)`);
+        } else {
+          say("My safety lines rejected that build — the code crossed a line I do not cross. Try a different capability.");
+          pushLog("sys", "SELF-BUILD rejected by the sandbox validator");
+        }
+      } catch {
+        say("My big brain is not reachable for forging right now. I will build it when the deep brain wakes.");
+      }
+      return;
+    }
 
     // Tier 1: Ollama (if installed) — strongest local brain
     // v3.2 SELF-ENGAGEMENT: the brain engages ITSELF the moment Ollama is
@@ -1691,6 +1724,19 @@ export default function DronePetPanel() {
     if (last && last.task && last.task !== last.activity) {
       pushLog("sys", `when you left, she was on: ${last.task} — say "continue" to resume`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // THE HEALTH MONITOR — wired at last: she watches her own heap/memory
+  // and her upstream repo, and speaks when something needs attention
+  useEffect(() => {
+    const hm = healthRef.current;
+    hm.onAlertFn((a) => {
+      pushLog("sys", `HEALTH: ${a.level.toUpperCase()} · ${a.system} — ${a.message}`);
+      if (a.level !== "info") say(`Health check: ${a.message}`, { interrupt: false });
+    });
+    hm.start(30_000);
+    return () => hm.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

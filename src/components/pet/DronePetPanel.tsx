@@ -87,6 +87,31 @@ function rememberSelfBuild(cap: GeneratedCapability): void {
   } catch { /* best-effort */ }
 }
 
+// THE SELF-BUILT BRIDGE — when a request clearly matches a capability she
+// forged, her own code answers directly: words of the request overlap the
+// capability's task, the request carries numbers, and the capability's code
+// declares its inputs (args.<name>). This is a shortcut for HER code — the
+// LLM still handles everything the ledger can't match.
+const BRIDGE_STOPWORDS = new Set(["the", "and", "for", "you", "your", "please", "can", "could", "convert", "calculate", "compute", "what", "is", "give", "make", "build", "run", "capability", "that", "this", "with", "from", "into"]);
+async function trySelfBuiltBridge(text: string, execute: (id: string, args?: Record<string, unknown>) => Promise<string | null>): Promise<string | null> {
+  const builds = loadSelfBuilds();
+  if (!builds.length) return null;
+  const words = text.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !BRIDGE_STOPWORDS.has(w) && !/^\d+$/.test(w));
+  const numbers = (text.match(/\d+(\.\d+)?/g) ?? []).map(Number);
+  for (const b of builds) {
+    const hay = `${b.task} ${b.description} ${b.id}`.toLowerCase();
+    const overlap = words.filter((w) => hay.includes(w)).length;
+    if (overlap < 2) continue;
+    const params = [...new Set([...b.code.matchAll(/args\.([a-zA-Z_$][\w$]*)/g)].map((m) => m[1]))];
+    if (!params.length || numbers.length < params.length) continue; // not enough inputs — let the brain converse
+    const args: Record<string, unknown> = {};
+    params.forEach((p, i) => { args[p] = numbers[i]; });
+    const line = await execute(b.id, args);
+    if (line) return line;
+  }
+  return null;
+}
+
 const CHIPS = [
   ["come here", "COME"], ["follow me", "FOLLOW"], ["do a trick", "TRICK"],
   ["go to sleep", "SLEEP"], ["wake up", "WAKE"], ["status", "STATUS"],
@@ -696,6 +721,9 @@ export default function DronePetPanel() {
       }
       return false;
     }
+    // THE SELF-BUILT BRIDGE — her own code answers matched requests directly
+    const bridged = await trySelfBuiltBridge(text, (id, args) => cortexRef.current.execute(id, undefined, args));
+    if (bridged) { say(bridged); refreshCounts(); return; }
 
     // Tier 1: Ollama (if installed) — strongest local brain
     // v3.2 SELF-ENGAGEMENT: the brain engages ITSELF the moment Ollama is

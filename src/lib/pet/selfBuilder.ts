@@ -239,7 +239,10 @@ function checkMember(node: AstNode, declared: Set<string>, errors: string[], cal
 function checkCall(node: AstNode, declared: Set<string>, errors: string[]): void {
   const callee = node.callee as AstNode;
   if (callee.type === "Identifier") {
-    if (!SAFE_CALLS.has(callee.name as string)) errors.push(`call not allowed: ${callee.name}`);
+    const name = callee.name as string;
+    // bare calls: the tiny safe-builtin list, OR her OWN declared functions —
+    // a capability decomposing into helper functions is normal, good structure
+    if (!SAFE_CALLS.has(name) && !declared.has(name)) errors.push(`call not allowed: ${name}`);
   } else if (callee.type === "MemberExpression") {
     checkMember(callee, declared, errors, true);
   } else {

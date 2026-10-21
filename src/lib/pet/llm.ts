@@ -162,26 +162,38 @@ export class LocalGenie {
 }
 
 /**
- * LM STUDIO VISION — her Optic-Rizz Array's deep-sense mode. Sends a
- * camera frame to a vision-capable model served by the Brain Studio
- * (any model with an mmproj: gemma-4, Qwen3.5, Bonsai). Returns a
- * one-line identification, or null when the studio is offline.
+ * OLLAMA VISION — her Optic-Rizz Array's deep-sense mode. Sends a
+ * camera frame to a vision-capable model served by her OWN Ollama
+ * server (llama3.2-vision, llava, moondream…). Returns a one-line
+ * identification, or null when no vision brain is available — she
+ * never fakes a sight she doesn't have.
  */
-export async function lmStudioVision(imageDataUrl: string, question = "Identify the main object in this image in one short line. Be precise, include brand/type if visible."): Promise<string | null> {
+export async function ollamaVision(imageDataUrl: string, question = "Identify the main object in this image in one short line. Be precise, include brand/type if visible."): Promise<string | null> {
   try {
-    const res = await fetch("http://localhost:1234/v1/chat/completions", {
+    // pick a vision-capable brain Ollama actually has installed
+    const list = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(2500) });
+    if (!list.ok) return null;
+    const models = ((await list.json()) as { models?: { name: string }[] }).models ?? [];
+    const prefs = [/llama3\.2-vision/i, /llava/i, /moondream/i, /minicpm-v/i, /qwen.*vl/i];
+    let model: string | null = null;
+    for (const p of prefs) {
+      const hit = models.find((m) => p.test(m.name));
+      if (hit) { model = hit.name; break; }
+    }
+    if (!model) return null; // no vision brain installed — honest refusal
+    const res = await fetch("http://localhost:11434/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(12_000),
       body: JSON.stringify({
-        model: "qwen/qwen3.5-9b", // an mmproj-capable brain on this device
+        model,
         stream: false,
         max_tokens: 80,
         messages: [
           { role: "system", content: "You are Zola's optical cortex. Answer in one short line, no preamble." },
           { role: "user", content: [
             { type: "text", text: question },
-            { type: "image_url", image_url: { data: imageDataUrl } },
+            { type: "image_url", image_url: { url: imageDataUrl } },
           ] },
         ],
       }),
@@ -191,7 +203,7 @@ export async function lmStudioVision(imageDataUrl: string, question = "Identify 
     const line = (data.choices?.[0]?.message?.content ?? "").trim();
     return line || null;
   } catch {
-    return null; // the studio is offline — her local classifier carries on
+    return null; // Ollama offline — her local classifier carries on
   }
 }
 
@@ -200,43 +212,12 @@ export class LlmConsultant {
   model = "llama3.1:8b";
   baseUrl = "http://localhost:11434";
   private online = false;
-  private backend: "ollama" | "lmstudio" = "ollama";
-
   get isOnline() { return this.online; }
-  get brainSource() { return this.backend; }
+  get brainSource() { return "ollama" as const; }
 
-  /** LM STUDIO FIRST — the AI Brain Studio local server (OpenAI-compatible
-   * at :1234/v1). When you load a model there, she upgrades to it
-   * automatically; Ollama stays as the second choice. */
-  private async probeLmStudio(): Promise<string | null> {
-    try {
-      const res = await fetch("http://localhost:1234/v1/models", { signal: AbortSignal.timeout(2500) });
-      if (!res.ok) return null;
-      const data = (await res.json()) as { data?: { id: string }[] };
-      const ids = (data.data ?? []).map((m) => m.id);
-      if (!ids.length) return null;
-      // preference: instruction-tuned brains first, then the biggest listed
-const prefs = [/qwen3\.8-27b/i, /llama-?3\.1|llama-?3\.2/i, /qwen3\.5-9b/i, /qwen/i, /mistral|mixtral/i, /gemma/i, /phi/i];
-      for (const p of prefs) {
-        const hit = ids.find((t) => p.test(t));
-        if (hit) return hit;
-      }
-      return ids[0];
-    } catch {
-      return null;
-    }
-  }
-
-  /** Ping Ollama AND auto-pick the biggest usable brain installed. */
+  /** SOVEREIGN BRAIN — she consults only her own Ollama server (:11434).
+   * No external studio dependency; her mind is entirely hers. */
   async checkAvailable(): Promise<boolean> {
-    const lm = await this.probeLmStudio();
-    if (lm) {
-      this.backend = "lmstudio";
-      this.baseUrl = "http://localhost:1234/v1";
-      this.model = lm;
-      this.online = true;
-      return true;
-    }
     try {
       const res = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(2500) });
       this.online = res.ok;
@@ -269,36 +250,6 @@ const prefs = [/qwen3\.8-27b/i, /llama-?3\.1|llama-?3\.2/i, /qwen3\.5-9b/i, /qwe
     context: string,
     history?: { role: "user" | "assistant"; content: string }[],
   ): Promise<LlmDecision> {
-    if (this.backend === "lmstudio") {
-      // the Brain Studio path: OpenAI-compatible chat completions
-      const messages = [
-        { role: "system", content: SYSTEM_PROMPT + "\nReply with ONLY a JSON object." },
-        ...(history ?? []),
-        { role: "user", content: `${context}\n\nUSER: ${input}` },
-      ];
-      const res = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: this.model,
-          stream: false,
-          temperature: 0.7,
-          max_tokens: 400,
-          messages,
-        }),
-      });
-      if (!res.ok) throw new Error(`lmstudio ${res.status}`);
-      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const raw = data.choices?.[0]?.message?.content ?? "";
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      try {
-        const fixed = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
-        const parsed = JSON.parse(fixed) as Partial<LlmDecision>;
-        return { say: parsed.say ?? null, do: parsed.do ?? null };
-      } catch {
-        return { say: raw.trim() || null, do: null };
-      }
-    }
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

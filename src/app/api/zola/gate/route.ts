@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-// ZOLA GATE TELEMETRY — the district-gate sampler posts its real client-side
-// metrics here; the operator reads them via GET. This closes the "I can't
-// read your DevTools console" gap ARCHITECTURALLY: the app delivers its own
-// telemetry to its own server. Real numbers from the real render pass.
+// AETHERIA GATE TELEMETRY — the district-gate sampler posts its real
+// client-side metrics here; the operator reads them via GET. This closes
+// the "I can't read your DevTools console" gap ARCHITECTURALLY: the app
+// delivers its own telemetry to its own server. Real numbers, real pass.
 
 interface GateSample {
   fps: number;

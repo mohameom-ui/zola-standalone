@@ -1,8 +1,8 @@
 {
   "name": "zola-standalone",
-  "version": "1.0.0",
+  "version": "2.4.0",
   "private": true,
-  "description": "ZOLA \u2014 Drone AI Pet (standalone web brain)",
+  "description": "ZOLA — Drone AI Pet (standalone web brain)",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",

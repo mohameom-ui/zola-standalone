@@ -165,3 +165,18 @@ pre-split leftover, 21×404 per hangar load) are gone. The main panel
 loop no longer re-renders every frame (the pre-existing Maximum update
 depth error is fixed). The forge published its first OTA capability pack
 (`zola-pipeline-home` `13ee5c4`, local — pending push).
+
+## v2.4 — ONE VERSION (2026-10-21)
+
+Unified version stamp: **Zola v2.4** (`package.json` v2.4.0). One number
+for her body, her brain, and her charter — the layered v2.1/v2.2/v2.3
+references are lineage only.
+
+This milestone: the skin fix (19/19 clips + rigged base carry the
+65-bone skeleton, verified by GLB JSON parsing), the hangar rewired to
+the rigged base, the local-first OTA capability channel (she installed
+29 capabilities live: "I grew while you were away."), the ONE-BODY
+consolidation (the 2D quad sim retired; her speech bubble, petting, and
+flight state now live on her rigged body), the sovereign manifest
+cleanup, and the purge of every superseded artifact (~145 MB). Dead
+code is gone; git history preserves the lineage.

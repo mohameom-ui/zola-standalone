@@ -164,3 +164,34 @@ unindexed files), not Aetheria's street grid.
 
 - **Superseded by:** the ZOLA v2.2 system prompt (`docs/zola-system-prompt.md`)
   — boundary & isolation directive, §1.
+
+---
+
+# v2.4 — ONE VERSION (unified 2026-10-21)
+
+> Owner directive: merge the layered version numbers (v2.1 body / v2.2
+> charter / v2.3 intelligence) into ONE max version. From v2.4 forward,
+> **Zola has a single version number** — `package.json` v2.4.0 is the
+> canonical stamp for her body, her brain, and her charter alike. The
+> layered numbers remain here as lineage, not as separate versions.
+
+## Rigged-Body Terms (new in v2.4)
+
+| Term | Hardware Manifest | Sim/HAL Manifest |
+| --- | --- | --- |
+| **Rigged Base** | The 65-bone actuation map her physical servos will follow | `zola-anims/v2/rigged_base.glb` — mesh + skeleton + skin, the hangar's display body; gesture clips bind to it by bone name |
+| **Envelope Weights** | The fallback binding when bone-heat fails on her generated mesh topology | The skinning method that finally made her deformable (bone-heat produces 65 empty groups on non-manifold Hunyuan geometry) |
+| **Nearest-Bone Repair** | Every vertex bound — no vertex left unactuated | The straggler pass: unweighted vertices bind to their closest bone segment at weight 1.0 |
+| **Landmark Remap** | Her skeleton fits HER 45 cm silhouette, not UE-Manny's | Rest heights measured from her mesh profile (legs 35%, pelvis 0.36, head 0.77) |
+| **One-Body Directive** | Grounded and airborne are the same physical frame | The 2D quad flight sim is RETIRED; her rigged 3D body renders both states, halo LEDs brighten with RPM |
+| **Capability Pack** | New behaviors shipped to her physical unit over Wi-Fi | `capabilities.json` from the forge, installed into her CORTEX live — she grows without a redeploy |
+
+## Superseded artifacts retired in v2.4 (deleted, recoverable from git)
+
+`zola-drone-body.glb` (the v1 quad), `gen-zola-humanoid-v2-final.glb`
+(raw pipeline intermediate), the `animals/` `nature/` `room/` asset
+folders (~137 MB of foreign geometry — not her domain), and the
+superseded one-shot scripts (`rig_zola_v2.py`, `rig_zola_v2_iter25.py`,
+`adjust_zola_depth*.py`, `adjust_zola_body.py`). The live pipeline is
+exactly: `zola-body-v2.glb` → `rig_zola_v2_fixed.py` → rigged base +
+19 skinned clips.

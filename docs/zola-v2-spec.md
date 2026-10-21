@@ -130,3 +130,38 @@ Ballast Bay, UART Trace Wire Mapping, MG90S Servo Node, Hangar Port 3001).
 - Concept reference: Aetheria repo `tools/zola-forge/refs/ref-zola-v2-humanoid.png`
 - Queued to generate via `tools/zola-forge/aetheria_bridge.py` (Turbo + paint +
   30k-face optimizer) immediately after the district batch completes.
+
+## Rig provenance — the skin fix (2026-10-21, commit `afbc411`)
+
+The gesture clips historically exported with **0 skins** — three stacked
+root causes, all diagnosed with real diagnostics (no assumptions):
+
+1. **World-space misalignment.** The armature floated ~1 m above the mesh
+   (bones z `0.00..1.55` vs mesh z `-1.00..0.96`). Auto-weights found no
+   overlap and produced 65 all-zero vertex groups; Blender's GLTF exporter
+   drops the skin entirely when no vertex carries weight.
+2. **The remap explosion.** The landmark remap's `subtree()` recursion
+   mutated `shifts[name] += s` and re-propagated mutated values down the
+   chain — exponential double-accumulation that blew bones out to z=110
+   (the historical source of her rest-pose variance). Removed; the
+   per-bone ancestor-sum pass is the only propagation needed.
+3. **Bone heat vs the Hunyuan mesh.** `ARMATURE_AUTO` fails on the
+   non-manifold generated mesh ("failed to find solution" x65). The
+   pipeline now falls back to envelope weights (total 142903.7) and
+   repairs stragglers by nearest-bone assignment (1995/40182 vertices).
+
+Result: all **19 gesture clips + `rigged_base.glb`** export with
+`skins=1, joints=65`, verified by parsing the GLB JSON chunk after every
+export. The hangar consumes the rigged base and binds clips by bone name
+at runtime. Verified headless with Playwright: bones bound, mixer
+advancing, the bow visibly deforming her body (rest vs mid-bow frames in
+`Saved/`). The pipeline lives at `Scripts/rig_zola_v2_fixed.py`
+(`--clip` for one, `--base` for the display body); the superseded
+`rig_zola_v2_iter2.py` / `rig_zola_v2_full.py` were removed as dead code.
+
+Sovereign cleanup in the same commit: her world manifest audits only her
+own domain (2 bodies + 19 clips) — the 21 district-building fetches (a
+pre-split leftover, 21×404 per hangar load) are gone. The main panel
+loop no longer re-renders every frame (the pre-existing Maximum update
+depth error is fixed). The forge published its first OTA capability pack
+(`zola-pipeline-home` `13ee5c4`, local — pending push).

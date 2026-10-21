@@ -2,7 +2,7 @@
 // trait-vector integrity, smart rotation.
 
 import { describe, it, expect } from "vitest";
-import { allPersonas, personaById, personaByName, rotatePersona, PERSONA_COUNT } from "./personas";
+import { allPersonas, personaById, modeByName, rotateMode, PERSONA_COUNT } from "./modes";
 
 describe("the Persona Constellation", () => {
   it("generates exactly 500 personas", () => {
@@ -26,11 +26,11 @@ describe("the Persona Constellation", () => {
     }
   });
 
-  it("deterministic — the same id always returns the same persona", () => {
+  it("deterministic — the same id always returns the same mode", () => {
     const a = personaById(42);
     const b = personaById(42);
     expect(a).toEqual(b);
-    expect(a.name).toBe(personaByName(a.name)?.name);
+    expect(a.name).toBe(modeByName(a.name)?.name);
   });
 
   it("LED colors are valid hsl() strings", () => {
@@ -47,24 +47,24 @@ describe("the Persona Constellation", () => {
 
   it("smart rotation: alarmed mood favors discipline + loyalty", () => {
     // under alarm, the picked persona should skew high-discipline
-    const picked = rotatePersona(0, "alarmed", 0.5);
+    const picked = rotateMode(0, "alarmed", 0.5);
     const p = personaById(picked);
     expect(p.traits.discipline + p.traits.loyalty).toBeGreaterThan(1.0);
   });
 
   it("smart rotation: excited mood favors energy + humor", () => {
-    const picked = rotatePersona(0, "excited", 0.5);
+    const picked = rotateMode(0, "excited", 0.5);
     const p = personaById(picked);
     expect(p.traits.energy + p.traits.humor).toBeGreaterThan(1.0);
   });
 
   it("rotation never returns the current persona", () => {
     for (let i = 0; i < 10; i++) {
-      expect(rotatePersona(i, "curious", 0.5)).not.toBe(i);
+      expect(rotateMode(i, "curious", 0.5)).not.toBe(i);
     }
   });
 
   it("the rotation is deterministic (same inputs → same persona)", () => {
-    expect(rotatePersona(0, "happy", 0.5)).toBe(rotatePersona(0, "happy", 0.5));
+    expect(rotateMode(0, "happy", 0.5)).toBe(rotateMode(0, "happy", 0.5));
   });
 });

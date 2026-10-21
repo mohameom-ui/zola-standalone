@@ -20,7 +20,7 @@ MIN_VERTS = 12
 HALO_FRAC = 0.85
 
 # authored PBR: brushed-alloy treatment (tuned to the hangar's look)
-PBR = {"metallic": 0.62, "roughness": 0.38}
+PBR = {"metallic": 0.62, "roughness": 0.38, "coat": 0.35, "coat_rough": 0.12, "specular": 0.5}
 
 LANDMARKS = {
     "ball": 0.02, "foot": 0.05, "calf": 0.22, "thigh": 0.33,
@@ -90,6 +90,11 @@ def authored_pbr(materials):
         if not hasattr(mat, "metallic"):
             continue
         mat.metallic = PBR["metallic"]
+        if hasattr(mat, "coat_weight"):
+            mat.coat_weight = PBR["coat"]
+            mat.coat_roughness = PBR["coat_rough"]
+        if hasattr(mat, "specular_intensity"):
+            mat.specular_intensity = PBR["specular"]
         mat.roughness = PBR["roughness"]
 
 def build_scene_for_clip(clip_path):

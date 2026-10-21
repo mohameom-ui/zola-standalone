@@ -24,7 +24,7 @@ import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
 import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
 import { Cortex } from "@/lib/pet/cortex";
-import { allPersonas } from "@/lib/pet/personas";
+import { allPersonas, modeByName } from "@/lib/pet/modes";
 import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
 import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
 import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
@@ -498,7 +498,17 @@ export default function DronePetPanel() {
       return false;
     }
     else if (act.startsWith("mood:")) { const m = act.slice(5).trim() as Mood; brain.setMood(m); setMood(m); if (!d.say) say(`Mood set: ${m}. Feels right.`); refreshCounts(); return true; }
-    else if (act.startsWith("persona:")) { const p = act.slice(8).trim(); if (LED_FOR_PERSONA[p] || PERSONA_TONE[p]) { setPersona(p); if (!d.say) say(`Persona shift: ${p}. The ring already knows.`); refreshCounts(); return true; } return false; }
+    else if (act.startsWith("mode:")) {
+      const p = act.slice(5).trim();
+      const mode = modeByName(p);
+      if (mode) {
+        setPersona(mode.name);
+        if (!d.say) say(`Mode shift: ${mode.name} — ${mode.archetype.toLowerCase()} architecture. The ring already knows.`);
+        refreshCounts();
+        return true;
+      }
+      return false;
+    }
     else if (act.startsWith("mission:")) { canonical = act.slice(8).trim(); }
     else if (act.startsWith("body:")) { const mode = act.slice(5).trim(); if (mode === "sim" || mode === "real") { setBodyMode(mode); if (!d.say) say(`Body mode: ${mode}. ${mode === "real" ? "Talk to me through the link." : "Back in the simulation."}`); refreshCounts(); return true; } return false; }
     else if (act.startsWith("recon:")) {
@@ -542,7 +552,18 @@ export default function DronePetPanel() {
     }));
 
     // Tier 1: Ollama (if installed) — strongest local brain
+    // v3.2 SELF-ENGAGEMENT: the brain engages ITSELF the moment Ollama is
+    // reachable — she is never unresponsive again (the old code needed a
+    // manual toggle, so unknown input got silence)
     const llm = llmRef.current;
+    if (!llm.enabled) {
+      const ok = await llm.checkAvailable();
+      if (ok) {
+        llm.enabled = true;
+        setLlmOn(true);
+        pushLog("sys", "Tier-1 brain SELF-ENGAGED — Ollama detected, full intelligence online");
+      }
+    }
     if (llm.enabled && !llm.isOnline) await llm.checkAvailable(); // self-healing retry
     if (llm.enabled && llm.isOnline) {
       try {
@@ -628,9 +649,17 @@ export default function DronePetPanel() {
     }
 
     // Tier 3: reflex brain (deterministic fallback, always available)
+    // v3.2 — the fallback NEVER goes silent: an unmatched input gets an
+    // in-character response + the honest pointer, spoken AND logged.
     const reply = brain.command(text, batteryRef.current);
-    if (reply) { say(reply); refreshCounts(); }
-    else { pushLog("sys", "unrecognized — try: come here · follow me · my name is … · find my cup · what do you see"); setBond((b) => Math.min(1, b + 0.005)); }
+    if (reply) {
+      say(reply);
+      refreshCounts();
+    } else {
+      say("I heard you — that phrasing is beyond my reflexes right now. My big brain handles it once Ollama is engaged. Meanwhile: come here · follow me · find my cup · what do you see.", { interrupt: false });
+      pushLog("sys", "unrecognized — reflexes have no match; spoken guidance given");
+      setBond((b) => Math.min(1, b + 0.005));
+    }
   }, [pushLog, say, brain, memory, buildContext, refreshCounts]);
 
   const toggleGenius = useCallback(async () => {
@@ -1834,7 +1863,7 @@ export default function DronePetPanel() {
     c.register({ id: "sun", kind: "system", label: "Sun report", description: "Report the sun phase and the light.", run: () => { const sr = sunReport(new Date()); return `Sun phase: ${sr.phase}.`; } });
     c.register({ id: "patrol", kind: "system", label: "Room patrol", description: "Fly a patrol loop of the room.", run: () => { void handleCommand("patrol the room"); return "Patrol engaged."; } });
     // the 500 persona-shifts — the run delegates to the panel's real setter
-    c.registerPersonaShifts(allPersonas(), (name) => {
+    c.registerModeShifts(allPersonas(), (name) => {
       setPersona(name);
       return `Persona shift: ${name}.`;
     });

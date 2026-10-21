@@ -3,12 +3,12 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { Cortex } from "./cortex";
-import { allPersonas, PERSONA_COUNT } from "./personas";
+import { allPersonas, PERSONA_COUNT } from "./modes";
 
 describe("the CORTEX registry", () => {
   it("holds exactly 500 persona-shift capabilities", () => {
     const c = new Cortex();
-    c.registerPersonaShifts(allPersonas(), (name) => `Persona shift: ${name}.`);
+    c.registerModeShifts(allPersonas(), (name) => `Persona shift: ${name}.`);
     expect(c.size).toBeGreaterThanOrEqual(PERSONA_COUNT);
     const idx = c.index();
     expect(idx.personas.total).toBe(PERSONA_COUNT);
@@ -16,12 +16,12 @@ describe("the CORTEX registry", () => {
 
   it("every persona-shift capability is real and executable", async () => {
     const c = new Cortex();
-    c.registerPersonaShifts(allPersonas(), (name) => `Persona shift: ${name}.`);
+    c.registerModeShifts(allPersonas(), (name) => `Persona shift: ${name}.`);
     // sample 20 across the constellation — each must execute
     const step = Math.floor(PERSONA_COUNT / 20);
     for (let i = 0; i < PERSONA_COUNT; i += step) {
       const p = allPersonas()[i];
-      const line = await c.execute(`persona:${p.name}`);
+      const line = await c.execute(`mode:${p.name}`);
       expect(line).toBeTruthy();
     }
   });
@@ -51,7 +51,7 @@ describe("the CORTEX registry", () => {
 
   it("the brain-facing summary declares the real counts", () => {
     const c = new Cortex();
-    c.registerPersonaShifts(allPersonas(), (name) => `Persona shift: ${name}.`);
+    c.registerModeShifts(allPersonas(), (name) => `Persona shift: ${name}.`);
     const s = c.summary();
     expect(s).toContain("system capabilities");
     expect(s).toContain("persona modes");

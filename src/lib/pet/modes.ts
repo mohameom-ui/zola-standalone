@@ -1,8 +1,9 @@
-// PERSONAS.TS — the Persona Constellation (v3.0)
-// 8 hand-crafted archetypes blended into 500 named personas as trait
-// vectors. Every trait drives real systems: mood arcs, LED hue, speech
-// style, spontaneous-movement cadence, chatter topics. The brain rotates
-// between personas smartly (by context, mood, and history) or by command.
+// MODES.TS (personas.ts) — ZOLA'S MODE CONSTELLATION (v3.2)
+// ONE persona (Zola), 500 operational modes. Each mode is a state SHE can
+// enter — a trait vector that drives her mood arcs, LED hue, speech style,
+// movement cadence, and chatter topics. The brain rotates between modes
+// smartly (by context, mood, and history) or on command. They are not
+// separate characters: every mode is still Zola — her name never changes.
 
 export interface Traits {
   warmth: number;      // 0..1 — affection vs distance
@@ -15,7 +16,7 @@ export interface Traits {
   discipline: number;  // 0..1 — soldier vs dreamer
 }
 
-export interface Persona {
+export interface ZolaMode {
   id: number;
   name: string;
   archetype: string;   // the dominant blend base
@@ -92,11 +93,11 @@ function catchphraseFor(name: string, arch: string, t: Traits): string {
   return pool[Math.floor(hash(name) * pool.length) % pool.length];
 }
 
-const _cache = new Map<number, Persona>();
+const _cache = new Map<number, ZolaMode>();
 
 /** The full constellation: 500 personas, deterministically derived. */
-export function allPersonas(): Persona[] {
-  const out: Persona[] = [];
+export function allPersonas(): ZolaMode[] {
+  const out: ZolaMode[] = [];
   const archs = Object.keys(ARCHETYPES);
   for (let i = 0; i < PERSONA_COUNT; i++) {
     const name = `${GIVEN[i % GIVEN.length]} ${EPITHET[Math.floor(i / GIVEN.length) % EPITHET.length]}`;
@@ -106,7 +107,7 @@ export function allPersonas(): Persona[] {
     // the next archetype in rotation — her blend source (she's never one note)
     const next = ARCHETYPES[archs[(i + 1) % archs.length]].traits;
     const traits = blend(base, next, r * 0.35); // mostly the archetype, a shade of the neighbor
-    const persona: Persona = {
+    const persona: ZolaMode = {
       id: i, name, archetype: arch, traits,
       ledColor: ledFromTraits(traits),
       catchphrase: catchphraseFor(name, arch, traits),
@@ -117,20 +118,20 @@ export function allPersonas(): Persona[] {
   return out;
 }
 
-export function personaById(id: number): Persona {
+export function personaById(id: number): ZolaMode {
   const hit = _cache.get(id);
   if (hit) return hit;
   const all = allPersonas();
   return all[id % all.length];
 }
 
-export function personaByName(name: string): Persona | undefined {
+export function modeByName(name: string): ZolaMode | undefined {
   return allPersonas().find((p) => p.name.toLowerCase() === name.toLowerCase());
 }
 
 /** Smart rotation: the constellation index the brain should shift to, given
  *  her current mood + the owner's last interaction tone. Deterministic. */
-export function rotatePersona(currentId: number, mood: string, warmthHint: number): number {
+export function rotateMode(currentId: number, mood: string, warmthHint: number): number {
   const all = allPersonas();
   const cur = all[currentId % all.length];
   // the mood → the trait axis she needs right now

@@ -171,14 +171,19 @@ export class LocalGenie {
 // Cached vision-brain pick — a 2.5s /api/tags round-trip on EVERY frame is
 // wasted motion; the installed set rarely changes, so remember it briefly.
 let visionBrainCache: { name: string; pickedAt: number } | null = null;
-const VISION_CACHE_TTL_MS = 5 * 60_000;
+const VISION_CACHE_TTL_MS = 5 * 60_000;   // a picked brain stays trusted 5 min
+const VISION_NEG_TTL_MS = 60_000;         // "no vision brain" is rechecked each minute
 
 export async function ollamaVision(imageDataUrl: string, question = "Identify the main object in this image in one short line. Be precise, include brand/type if visible."): Promise<string | null> {
   try {
-    // pick a vision-capable brain Ollama actually has installed (cached 5 min)
-    let model: string | null = visionBrainCache && (Date.now() - visionBrainCache.pickedAt < VISION_CACHE_TTL_MS)
-      ? visionBrainCache.name
-      : null;
+    // pick a vision-capable brain Ollama actually has installed (cached —
+    // positive and negative, so an empty model shelf costs no round-trip)
+    let model: string | null = null;
+    if (visionBrainCache) {
+      const age = Date.now() - visionBrainCache.pickedAt;
+      const fresh = visionBrainCache.name ? age < VISION_CACHE_TTL_MS : age < VISION_NEG_TTL_MS;
+      if (fresh) model = visionBrainCache.name || null;
+    }
     if (!model) {
       const list = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(2500) });
       if (!list.ok) return null;
@@ -188,7 +193,10 @@ export async function ollamaVision(imageDataUrl: string, question = "Identify th
         const hit = models.find((m) => p.test(m.name));
         if (hit) { model = hit.name; break; }
       }
-      if (!model) return null; // no vision brain installed — honest refusal
+      if (!model) {
+        visionBrainCache = { name: "", pickedAt: Date.now() }; // remember the refusal briefly
+        return null; // no vision brain installed — honest refusal
+      }
       visionBrainCache = { name: model, pickedAt: Date.now() };
     }
     const res = await fetch("http://localhost:11434/v1/chat/completions", {

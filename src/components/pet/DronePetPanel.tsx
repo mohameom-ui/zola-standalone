@@ -812,7 +812,7 @@ export default function DronePetPanel() {
     if (ok) {
       llm.enabled = true;
       setLlmOn(true);
-      pushLog("sys", `LLM brain online: ${llm.model} (${(8).toFixed(0)}B-class, via Ollama — runs locally, nothing leaves your machine)`);
+      pushLog("sys", `LLM brain online: ${llm.model} (via Ollama — runs locally, nothing leaves your machine)`);
       say(`Big brain connected. I am running on ${llm.model} now. Ask me anything at all.`);
     } else {
       pushLog("sys", "Ollama unreachable — install from ollama.com, run `ollama pull llama3.2`, start with OLLAMA_ORIGINS=* ollama serve. Reflex brain stays active meanwhile.");

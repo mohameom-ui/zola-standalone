@@ -30,23 +30,38 @@ export interface SelfBuildResult {
   error?: string;
 }
 
-// the FORBIDDEN patterns — any match rejects the generated code outright
+// The FORBIDDEN patterns — any match rejects the generated code outright.
+// HARDENED after a live red-team audit (proven escapes: aliasing Function,
+// bracket constructor chains, runtime-assembled keys). The rule that matters:
+// block MECHANISMS, not spellings — any route to the Function constructor must
+// pass through the word "Function" or "constructor" (identifier OR string),
+// and computed member access must be impossible so keys can't be assembled.
+// Honest limit: a keyword blocklist is not a formal sandbox. The code's ONLY
+// author is her own local brain (never raw user text), installs are logged in
+// the provenance ledger, and args arrive prototype-free — see installCapability.
 const FORBIDDEN = [
   /fetch\s*\(/,           // no network from generated code (recon handles web)
   /XMLHttpRequest/,        // no XHR
   /import\s*\(/,           // no dynamic imports (sandbox escape)
   /require\s*\(/,          // no require (sandbox escape)
   /eval\s*\(/,             // no eval inside eval
-  /Function\s*\(/,         // no Function constructor
+  /\bFunction\b/,          // the Function constructor in ANY form — aliasing it was an escape
+  /\bconstructor\b/,       // the word itself: identifier, dot chain, or string key
+  /\bprototype\b/,         // no prototype reach
+  /\b__proto__\b/,         // no prototype pollution
+  /\bgetPrototypeOf\b/,    // no Object.getPrototypeOf escape route
+  /\bsetPrototypeOf\b/,
+  /\bReflect\b/,           // Reflect.construct/apply reach
+  /\bProxy\b/,
+  /\bWebAssembly\b/,
   /localStorage/,          // no direct storage (the CORTEX handles persistence)
   /sessionStorage/,        // no session storage
   /document\./,            // no DOM manipulation
   /window\./,              // no window access
   /globalThis/,            // no global access
   /process\./,             // no process access
-  /__proto__/,             // no prototype pollution
-  /constructor\s*\[/,      // no constructor access
-  /\.constructor\b/,       // no constructor chain
+  /\[\s*["'`]/,            // no string-keyed member access — keys must be literal after the dot
+  /\[\s*[a-zA-Z_$]/,       // no variable-keyed access (o[k]) — computed keys are invisible to any blocklist
 ];
 
 /** Validate generated code against the safety lines. Returns errors or null. */
@@ -79,7 +94,10 @@ export function installCapability(
   if (errors) return false;
 
   try {
-    // build the function in a controlled scope
+    // build the function in a controlled scope. Args are passed with a NULL
+    // prototype: even if generated code computes a member key at runtime
+    // (e.g. ({}[assembledKey]), there is no prototype chain to climb to
+    // Object.prototype.constructor.
     const fn = new Function("args", `"use strict";\n${cap.code}`) as
       (args: Record<string, unknown>) => string;
 
@@ -90,7 +108,8 @@ export function installCapability(
       description: cap.description,
       run: (args: Record<string, unknown>) => {
         try {
-          const result = fn(args ?? {});
+          const cleanArgs: Record<string, unknown> = Object.assign(Object.create(null), args ?? {});
+          const result = fn(cleanArgs);
           return typeof result === "string" ? result : JSON.stringify(result);
         } catch (e) {
           return `Capability ${cap.label} failed: ${e instanceof Error ? e.message : "unknown"}`;

@@ -45,6 +45,43 @@ describe("the SAFETY LINES — every test is an attack", () => {
     expect(validateCapability("return this is not valid javascript !!!")).not.toBeNull();
   });
 
+  // --- RED-TEAM REGRESSIONS — four routes that BREACHED the old blocklist
+  // (proven live against the previous version; each must now be rejected) ---
+
+  it("rejects the bare Function alias", () => {
+    // old blocklist only matched "Function(" — aliasing it sailed through
+    expect(validateCapability("const F = Function; return F('return 6*7')()")).not.toBeNull();
+  });
+
+  it("rejects bracket constructor chains", () => {
+    // old blocklist only matched "constructor[" — [\"constructor\"] sailed through
+    expect(validateCapability("return args[\"constructor\"][\"constructor\"]('return 6*7')()")).not.toBeNull();
+  });
+
+  it("rejects runtime-assembled forbidden words", () => {
+    // no literal token appears — the words are built from pieces at runtime
+    expect(validateCapability(
+      `const F = Function; return F("return typeof " + ["pro","cess"].join("") + " !== 'undefined'")()`,
+    )).not.toBeNull();
+  });
+
+  it("rejects the getPrototypeOf escape route", () => {
+    expect(validateCapability(
+      `const O = Object.getPrototypeOf(function(){}); return O["const"+"ructor"]("return 'ESCAPED'")()`,
+    )).not.toBeNull();
+  });
+
+  it("rejects computed member access — keys must never be dynamic", () => {
+    // any bracket that is not a numeric literal is rejected: o[k], o["x"],
+    // args[0+i] — the only legal indexing is literal numbers (arr[0]) or dots
+    expect(validateCapability("const k = 'x'; return args[k]")).not.toBeNull();
+    expect(validateCapability("return args[\"constructor\"]")).not.toBeNull();
+  });
+
+  it("still accepts numeric indexing — arrays stay usable", () => {
+    expect(validateCapability("const a = [1, 2, 3]; return String(a[0] + a.at(1))")).toBeNull();
+  });
+
   it("accepts pure computation", () => {
     expect(validateCapability("return String((args.a || 0) + (args.b || 0))")).toBeNull();
   });

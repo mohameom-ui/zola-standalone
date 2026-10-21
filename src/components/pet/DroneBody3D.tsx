@@ -402,14 +402,18 @@ export default function DroneBody3D({
   onGestureChange?: (name: string | null) => void;
 }) {
   const [fpsLive, setFpsLive] = useState(fps);
-  // NEURAL_AURA_CACHE — her first scan target is always herself
-  const [scan] = useState<ScanResult | null>(() => {
+  // NEURAL_AURA_CACHE — her first scan target is always herself.
+  // scanAsset MUTATES the encounter ledger, so it must never run during
+  // render: the old useState initializer ran it on the server AND the client
+  // with different ledger states — the source of the hydration mismatch
+  const [scan, setScan] = useState<ScanResult | null>(null);
+  useEffect(() => {
     try {
-      return scanAsset("zola-body-v2");
+      setScan(scanAsset("zola-body-v2"));
     } catch {
-      return null;
+      setScan(null);
     }
-  });
+  }, []);
   // WORLD SCAN — the Optic-Rizz Array audits her whole domain on mount
   const [worldLine, setWorldLine] = useState<string | null>(null);
   useEffect(() => {

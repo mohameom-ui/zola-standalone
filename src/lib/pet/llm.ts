@@ -312,6 +312,43 @@ export class LlmConsultant {
     return { say: parsed.say ?? null, do: parsed.do ?? null };
   }
 
+  /** SELF-FORGE — a structured build request: Ollama constrained JSON out, so
+   * her drafts parse reliably (the freeform path needed three drafts to land
+   * one). feedback = the previous draft + the gate's rejection, for the
+   * self-correction loop. Returns {name, code} or null. */
+  async forge(task: string, feedback?: string): Promise<{ name: string; code: string } | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(90_000),
+        body: JSON.stringify({
+          model: this.model,
+          stream: false,
+          format: "json",
+          keep_alive: "30m",
+          options: { temperature: 0.4, num_predict: 400 },
+          messages: [
+            { role: "system", content:
+              `You are Zola, a drone pet that writes NEW capabilities for itself. Output strictly JSON: {"action":"build:<short-name>","code":"..."}. ` +
+              `The code is a JavaScript function BODY receiving an "args" object and returning a STRING. Plain JavaScript only: literals, variables, if/else, loops, Math, String/Number/Array methods. ` +
+              `Calling your own declared helper functions is fine. NO network, NO imports, NO eval, NO browser APIs — the sandbox is an AST allowlist and rejects anything else. Under 25 lines.` },
+            { role: "user", content: feedback
+              ? `Task: ${task}\nYour rejected draft and the sandbox's rejection:\n${feedback}\nReturn the corrected capability.`
+              : `Task: ${task}` },
+          ],
+        }),
+      });
+      if (!res.ok) return null;
+      const d = (await res.json()) as { message?: { content?: string } };
+      const p = JSON.parse((d.message?.content ?? "").trim()) as { action?: string; code?: string };
+      if (p.action && p.code) return { name: p.action, code: p.code };
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   /** WAVE 3 — freeform completion for creative work (storytelling). Plain text
    * in, plain text out; no JSON contract. Throws on failure. */
   async complete(prompt: string, maxTokens = 160): Promise<string> {

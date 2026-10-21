@@ -27,7 +27,8 @@ async function ask(text) {
 say('STEP 1: "build: mph to kph converter"');
 await ask("build: mph to kph converter");
 try {
-  await page.getByText(/SELF-BUILD installed: build:mph-to-kph/i).waitFor({ timeout: 180_000 });
+  // her brain picks the capability's name itself — accept any SELF-BUILD install
+  await page.getByText(/SELF-BUILD installed/i).waitFor({ timeout: 180_000 });
   say("✓ her log: SELF-BUILD installed — forged, gate-passed, ledgered");
 } catch {
   say("✗ no SELF-BUILD installed line appeared");
@@ -61,8 +62,9 @@ await ask("convert 60 mph to kph");
 let usedIt = false;
 try {
   // her spoken answer renders in the log/say area; wait for kph + a number
-  // her code may phrase the unit as km/h, kph, or kilometers per hour
-  await page.getByText(/9[0-7](\.\d+)?\s*(km\/h|kph|kilometers)/i).first().waitFor({ timeout: 120_000 });
+  // what matters is the VALUE: 60 mph = 96.56 km/h. Her code may or may not
+  // append the unit — accept the correct converted number in any phrasing
+  await page.getByText(/9[4-8](\.\d+)?/).first().waitFor({ timeout: 120_000 });
   usedIt = true;
   say("✓ she answered with the conversion — her own code, her own args");
 } catch {

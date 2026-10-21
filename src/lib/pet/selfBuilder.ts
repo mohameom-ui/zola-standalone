@@ -369,7 +369,9 @@ const FORBIDDEN = [
  */
 export function normalizeDraft(code: string): string {
   const t = code.trim();
-  let m = /^function\s*\(\s*args\s*\)\s*\{([\s\S]*)\}\s*;?\s*$/.exec(t);
+  // named declarations too: `function mphToKph(args) { ... }` — her live forge
+  // produced exactly this shape (a named declaration wraps the logic the same)
+  let m = /^function\s*[\w$]*\s*\(\s*args\s*\)\s*\{([\s\S]*)\}\s*;?\s*$/.exec(t);
   if (m) return m[1].trim();
   m = /^\(\s*args\s*\)\s*=>\s*\{([\s\S]*)\}\s*;?\s*$/.exec(t);
   if (m) return m[1].trim();

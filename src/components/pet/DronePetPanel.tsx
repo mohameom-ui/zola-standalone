@@ -42,7 +42,7 @@ import { AuraMemory } from "@/lib/pet/memory";
 import { SafetyGovernor, DEFAULT_LIMITS } from "@/lib/pet/safety";
 import { LlmConsultant, LocalGenie, type LlmDecision } from "@/lib/pet/llm";
 import { HealthMonitor } from "@/lib/pet/healthMonitor";
-import { SELF_BUILD_PROMPT, parseSelfBuild, installCapability, validateCapability, normalizeDraft, type GeneratedCapability } from "@/lib/pet/selfBuilder";
+import { parseSelfBuild, installCapability, validateCapability, normalizeDraft, type GeneratedCapability } from "@/lib/pet/selfBuilder";
 import { SoundWatch, PetChirps } from "@/lib/pet/sound";
 import { LocalEars } from "@/lib/pet/earsLocal";
 import { SfxFiles } from "@/lib/pet/sfxFiles";
@@ -666,29 +666,27 @@ export default function DronePetPanel() {
       if (!task) { say("Build what? Give me a capability name after the colon."); return; }
       say(`Forging a new capability: ${task}. Give me a moment — I am writing my own code.`);
       try {
-        const forge = async (extra?: string): Promise<string | null> => {
-          const raw = await llmRef.current.complete(SELF_BUILD_PROMPT + "\nTASK: " + task + (extra ? `\n${extra}` : ""), 300);
-          const code = raw.match(/\`\`\`(?:typescript|ts|javascript)?\n([\s\S]*?)\`\`\`/)?.[1] ?? raw;
-          return code.trim() || null;
-        };
-        let code = await forge();
-        if (!code) { say("I could not shape that into a capability. Ask me again with more detail."); return; }
-        // THE SELF-CORRECTION LOOP — propose, get judged by her own gate, fix
-        // from the gate's report (proven live: her brain's first drafts need it)
-        let errors = validateCapability(normalizeDraft(code));
+        // THE SELF-CORRECTION LOOP — structured drafts (constrained JSON),
+        // judged by her own gate, fixed from the gate's report (proven live)
+        let draft = await llmRef.current.forge(task);
+        let errors = draft ? validateCapability(normalizeDraft(draft.code)) : ["no draft arrived"];
         let attempt = 0;
-        while (errors && attempt < 2 && code) {
+        while (errors && draft && attempt < 2) {
           attempt += 1;
           pushLog("sys", `SELF-BUILD draft ${attempt} rejected: ${errors[0]}`);
-          code = await forge(`Your previous draft was rejected by your own sandbox:\n${code}\nRejection reason: ${errors.join("; ")}.\nReturn ONLY the corrected function body.`);
-          if (code) errors = validateCapability(normalizeDraft(code));
+          draft = await llmRef.current.forge(task, `${draft.code}\nRejection reason: ${errors.join("; ")}`);
+          errors = draft ? validateCapability(normalizeDraft(draft.code)) : ["no draft arrived"];
         }
-        if (errors || !code) {
-          say("My safety lines rejected that build — the code crossed a line I do not cross. Try a different capability.");
-          pushLog("sys", `SELF-BUILD rejected by the sandbox validator after ${attempt} draft${attempt === 1 ? "" : "s"}`);
+        if (!draft || errors) {
+          if (errors) {
+            say("My safety lines rejected that build — the code crossed a line I do not cross. Try a different capability.");
+            pushLog("sys", `SELF-BUILD rejected by the sandbox validator after ${attempt} draft${attempt === 1 ? "" : "s"}`);
+          } else {
+            say("My big brain is not reachable for forging right now. I will build it when the deep brain wakes.");
+          }
           return;
         }
-        const shaped = { ...parseSelfBuild("build:" + task, code)!, description: "Self-built capability: " + task, createdAt: new Date().toISOString(), task };
+        const shaped = { ...parseSelfBuild(draft.name, draft.code)!, description: "Self-built capability: " + task, createdAt: new Date().toISOString(), task };
         if (!shaped.id) { say("I could not shape that into a capability. Ask me again with more detail."); return; }
         const ok = installCapability(shaped, (cap) => {
           cortexRef.current.register({

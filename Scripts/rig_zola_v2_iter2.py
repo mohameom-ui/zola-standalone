@@ -12,7 +12,7 @@ import bpy, os, sys
 
 ANIMS_DIR = r"C:\Users\self_\ZOLA-standalone\public\assets\models\zola-anims"
 OUT_DIR = os.path.join(ANIMS_DIR, "v2")
-BODY = r"C:\Users\self_\.lmstudio\apps\bionic\projects\d49037d8-47f4-5808-9028-c707de117f8f\workspace\public\assets\models\gen-zola-humanoid-v2.glb"
+BODY = r"C:\Users\self_\.lmstudio\apps\bionic\projects\d49037d8-47f4-5808-9028-c707de117f8f\workspace\public\assets\models\gen-zola-humanoid-v2-final.glb"
 TARGET_HEIGHT = 0.45      # her true scale (the hangar card normalizes anyway)
 CLIP_EXPORT_HEIGHT = 1.775 # the legacy gesture-stage scale (legacy clips are 1.775 m in-file)
 MIN_VERTS = 12

@@ -376,6 +376,8 @@ export default function DronePetPanel() {
   const [voiceOn, setVoiceOn] = useState(true);
   const [visionError, setVisionError] = useState<string | null>(null);
   const [mood, setMood] = useState<Mood>("curious");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []); // the mount gate flips once the client owns the DOM
   const [activity, setActivity] = useState("hover");
   const [battery, setBattery] = useState(0.86);
   const [bond, setBond] = useState(0);
@@ -2156,6 +2158,18 @@ export default function DronePetPanel() {
   }, [memory, pushLog]);
 
   const people = memory.snapshot.people;
+
+  // THE MOUNT GATE — her panel reads a persisted life (memory, ledger,
+  // blackbox): server HTML for that is fiction, and fiction collides with
+  // reality at hydration. Until mount she renders the quiet shell; her real
+  // self appears the moment the client owns the DOM.
+  if (!mounted) {
+    return (
+      <ZolaShell title="SOVEREIGN · ZOLA" subtitle="waking — everything stays on this machine">
+        <div className="p-6 text-[10px] text-[#8b8f9c] animate-pulse">waking…</div>
+      </ZolaShell>
+    );
+  }
 
   return (
     <ZolaShell title="SOVEREIGN · ZOLA" subtitle="sees · hears · learns — everything stays on this machine">

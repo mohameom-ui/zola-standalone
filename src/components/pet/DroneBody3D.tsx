@@ -1,4 +1,4 @@
-// DRONE BODY 3D — v3: BRAIN-DRIVEN BODY CONTROL
+// DRONE BODY 3D — v5: THE HYBRID BODY (one body, brain-driven)
 // The hangar loads her RIGGED body (65-bone skeleton + generated mesh) and
 // runs two layers:
 //   1. The procedural balancer — she STANDS on the dock pad: weight-shift
@@ -15,7 +15,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { scanAsset, scanWorldManifest, GESTURE_REPERTOIRE, type ScanResult } from "@/lib/pet/auraCache";
 
-// ONE BODY — the v2.1 humanoid-drone hybrid is her ONLY body
+// ONE BODY — the humanoid-drone hybrid is her ONLY body
 // the quad (zola-drone-body.glb) is retired: she has legs, arms, and
 // a cranial halo now — the bipedal frame earns its keep
 // the RIGGED base: the textured mesh + 65-bone skeleton + skin (envelope
@@ -63,11 +63,21 @@ const MOOD_SWAY: Record<string, { amp: number; speed: number; wobble: number }> 
   sleeping: { amp: 0.3, speed: 0.5, wobble: 0.05 },
 };
 
+// her body-language brain bridge: inner state -> targeted movement
+const ACTIVITY_GESTURE: Record<string, string[]> = {
+  excited: ["dance_01", "dance_02", "spin_01"],
+  sleepy: ["mope_01", "stretch_01"],
+  sleeping: ["laydown_01"],
+  search: ["shrug_01", "crawl_01"],
+};
+
 function SceneRig({
   accentColor,
   fps,
   mood,
   flight,
+  activity,
+  stretchCue,
   onTelemetry,
   gestureApiRef,
   onGestureDone,
@@ -76,6 +86,8 @@ function SceneRig({
   fps: number;
   mood: string;
   flight?: { alt: number; rpm: number; flying?: boolean };
+  activity?: string;
+  stretchCue?: number;
   onTelemetry?: (fps: number) => void;
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
@@ -83,6 +95,42 @@ function SceneRig({
   const gl = useThree((s) => s.gl);
   const gltf = useLoader(GLTFLoader, RIGGED_URL);
   const scene = useMemo(() => gltf.scene, [gltf]);
+
+  // THE HYBRID BODY — she is human-shaped and machine-honest. Gold servo
+  // caps anchor to her REAL bones (they ride every gesture), and cyan
+  // trace nodes mark the spine bus her UART mapping runs along.
+  useEffect(() => {
+    const gold = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.35 });
+    const servoCap = (r: number) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.15, r * 0.8, 12), gold);
+      m.rotation.z = Math.PI / 2;
+      return m;
+    };
+    const servoJoints: [string, number][] = [
+      ["upperarm_l", 0.045], ["upperarm_r", 0.045],
+      ["lowerarm_l", 0.034], ["lowerarm_r", 0.034],
+      ["thigh_l", 0.05], ["thigh_r", 0.05],
+      ["calf_l", 0.04], ["calf_r", 0.04],
+    ];
+    const added: THREE.Object3D[] = [];
+    for (const [name, r] of servoJoints) {
+      const bone = scene.getObjectByName(name);
+      if (!bone) continue;
+      const cap = servoCap(r);
+      bone.add(cap);
+      added.push(cap);
+    }
+    const traceMat = new THREE.MeshStandardMaterial({ color: 0x35d0a5, emissive: 0x35d0a5, emissiveIntensity: 1.6, toneMapped: false });
+    for (const name of ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01"]) {
+      const bone = scene.getObjectByName(name);
+      if (!bone) continue;
+      const node = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 10), traceMat);
+      node.position.y = 0.01;
+      bone.add(node);
+      added.push(node);
+    }
+    return () => { for (const a of added) a.removeFromParent(); };
+  }, [scene]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const bones = useMemo(
     () => ({
@@ -98,6 +146,7 @@ function SceneRig({
 
   const activeAction = useRef<THREE.AnimationAction | null>(null);
   const activeName = useRef<string | null>(null);
+  const gestureQueue = useRef<string[]>([]); // the improv chain lives here
   const sway = useRef({ t: 0 });
   const ringRef = useRef<THREE.Mesh>(null);
   const bodyRef = useRef<THREE.Group>(null);
@@ -159,20 +208,30 @@ function SceneRig({
     sway.current.t += delta * cfg.speed;
 
     const t = sway.current.t;
+    // EXPONENTIAL SMOOTHING — every joint eases toward its target instead
+    // of snapping: after a gesture ends she flows back into her sway, no
+    // teleporting limbs, no glitch-pop between states
+    const k = 1 - Math.exp(-10 * delta);
+    type Axis = "x" | "y" | "z" | "rz" | "rx";
+    const ease = (obj: THREE.Object3D, prop: Axis, target: number) => {
+      if (prop === "rz") obj.rotation.z += (target - obj.rotation.z) * k;
+      else if (prop === "rx") obj.rotation.x += (target - obj.rotation.x) * k;
+      else obj.position[prop] += (target - obj.position[prop]) * k;
+    };
     // weight-shift: the pelvis drifts side to side, slight vertical bob
     if (bones.pelvis) {
-      bones.pelvis.position.x = Math.sin(t * 0.9) * 0.012 * cfg.amp;
-      bones.pelvis.position.y = Math.abs(Math.sin(t * 1.8)) * 0.006 * cfg.amp;
-      bones.pelvis.rotation.z = Math.sin(t * 0.9) * 0.045 * cfg.amp;
+      ease(bones.pelvis, "x", Math.sin(t * 0.9) * 0.012 * cfg.amp);
+      ease(bones.pelvis, "y", Math.abs(Math.sin(t * 1.8)) * 0.006 * cfg.amp);
+      ease(bones.pelvis, "rz", Math.sin(t * 0.9) * 0.045 * cfg.amp);
     }
     // the spine counter-rotates — she stays over her feet
-    if (bones.spine) bones.spine.rotation.z = -Math.sin(t * 0.9) * 0.03 * cfg.amp;
-    if (bones.spineTop) bones.spineTop.rotation.x = Math.sin(t * 1.4) * 0.02 * cfg.wobble;
+    if (bones.spine) ease(bones.spine, "rz", -Math.sin(t * 0.9) * 0.03 * cfg.amp);
+    if (bones.spineTop) ease(bones.spineTop, "rx", Math.sin(t * 1.4) * 0.02 * cfg.wobble);
     // the arms hang with a subtle pendulum
-    if (bones.upperArmL) bones.upperArmL.rotation.x = Math.sin(t * 1.8) * 0.05 * cfg.amp;
-    if (bones.upperArmR) bones.upperArmR.rotation.x = -Math.sin(t * 1.8) * 0.05 * cfg.amp;
+    if (bones.upperArmL) ease(bones.upperArmL, "rx", Math.sin(t * 1.8) * 0.05 * cfg.amp);
+    if (bones.upperArmR) ease(bones.upperArmR, "rx", -Math.sin(t * 1.8) * 0.05 * cfg.amp);
     // the head stabilizes — her gaze stays level (that's the balance)
-    if (bones.head) bones.head.rotation.z = -Math.sin(t * 0.9) * 0.02 * cfg.amp;
+    if (bones.head) ease(bones.head, "rz", -Math.sin(t * 0.9) * 0.02 * cfg.amp);
   });
 
   // the gesture playback: load the clip, fade in, report when done
@@ -180,6 +239,15 @@ function SceneRig({
   // (march, dance, spin, hover), dim to standby when grounded
   const flightClips = new Set(["march_01", "dance_01", "dance_02", "spin_01"]);
   const playGesture = (name: string) => {
+    if (name === "improv") {
+      // IMPROV — a fresh chain of 2-3 movements, back to back (ported from
+      // the retired GestureStage; there is one body, and it improvises)
+      const pool = [...GESTURE_REPERTOIRE].sort(() => Math.random() - 0.5);
+      gestureQueue.current = pool.slice(0, 2 + (Math.random() < 0.5 ? 1 : 0));
+      const first = gestureQueue.current.shift();
+      if (first) playGesture(first);
+      return;
+    }
     if (!GESTURE_REPERTOIRE.includes(name)) return;
     scanAsset(`movement:${name}`); // the aura ledger counts her movement repertoire
     const flying = flightClips.has(name);
@@ -200,10 +268,30 @@ function SceneRig({
         action.fadeOut(0.3);
         activeAction.current = null;
         activeName.current = null;
-        onGestureDone?.(name);
+        const next = gestureQueue.current.shift(); // the improv chain continues
+        if (next) playGesture(next);
+        else onGestureDone?.(name);
       }, ((dur - 0.3) * 1000) | 0);
     });
   };
+
+  // THE BRAIN BRIDGE — her body language follows her inner state (the
+  // retired GestureStage's last live feature, now on the ONE body)
+  const prevBridge = useRef<string | null>(null);
+  useEffect(() => {
+    const state = `${activity ?? ""}|${mood}`;
+    if (prevBridge.current === null) { prevBridge.current = state; return; } // settle first, perform later
+    if (prevBridge.current === state) return;
+    prevBridge.current = state;
+    const pool = ACTIVITY_GESTURE[activity ?? ""] ?? [];
+    const candidates = pool.filter((c) => c !== activeName.current);
+    const pick = candidates.length
+      ? candidates[Math.floor(Math.random() * candidates.length)]
+      : stretchCue
+        ? "stretch_01"
+        : null;
+    if (pick) playGesture(pick);
+  }, [activity, mood, stretchCue]);
 
   // the audit hook: a real window handle for headless rig verification
   // (bones bound, mixer alive, gesture triggering) — the provenance rule
@@ -277,6 +365,8 @@ export default function DroneBody3D({
   flight,
   speech,
   onPet,
+  activity,
+  stretchCue,
   onTelemetry,
   gestureApiRef,
   onGestureDone,
@@ -287,6 +377,8 @@ export default function DroneBody3D({
   flight?: { alt: number; rpm: number; flying?: boolean };
   speech?: string | null;
   onPet?: () => void;
+  activity?: string;
+  stretchCue?: number;
   onTelemetry?: (fps: number) => void;
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
@@ -333,6 +425,8 @@ export default function DroneBody3D({
             fps={fpsLive}
             mood={mood}
             flight={flight}
+            activity={activity}
+            stretchCue={stretchCue}
             onTelemetry={setFpsLive}
             gestureApiRef={gestureApiRef}
             onGestureDone={onGestureDone}

@@ -10,7 +10,6 @@
 // ============================================================================
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import GestureStage from "./GestureStage";
 import FlightReplay from "./FlightReplay";
 import { AmbientMusic } from "@/lib/pet/ambient";
 import { Blackbox } from "@/lib/pet/blackbox";
@@ -2072,6 +2071,8 @@ export default function DronePetPanel() {
               speech={bubble}
               onPet={petZola}
               mood={mood}
+              activity={activity}
+              stretchCue={stretchCue}
               gestureApiRef={gestureApiRef}
             />
           </div>
@@ -2140,8 +2141,30 @@ export default function DronePetPanel() {
           </div>
         </div>
 
-        {/* --- gesture stage ------------------------------------------------------ */}
-        <GestureStage activity={activity} mood={mood} stretchCue={stretchCue} />
+        {/* --- body language (merged into the ONE body) ---------------------------
+             the GestureStage's second canvas is retired: these chips drive
+             her actual rigged hangar body via the shared gesture API. IMPROV
+             chains 2-3 movements; her mood picks body language on its own. */}
+        <div className="glass-soft rounded-xl p-2">
+          <div className="hud-label px-1 pb-1">BODY LANGUAGE · ON THE ONE BODY (brain-driven, IMPROV chains 2-3 moves)</div>
+          <div className="flex flex-wrap gap-1.5 px-1">
+            {GESTURE_REPERTOIRE.map((g) => (
+              <button
+                key={g}
+                onClick={() => gestureApiRef.current?.playGesture(g)}
+                className="text-[9px] px-2 py-1 rounded border border-white/15 text-[#8b8f9c] hover:border-white/30 tracking-widest transition-colors"
+              >
+                {g.replace(/_0?1$/, "").toUpperCase()}
+              </button>
+            ))}
+            <button
+              onClick={() => gestureApiRef.current?.playGesture("improv")}
+              className="text-[9px] px-2 py-1 rounded border border-[#f0b90b] text-[#f0b90b] hover:bg-[rgba(240,185,11,0.12)] tracking-widest transition-colors"
+            >
+              IMPROV
+            </button>
+          </div>
+        </div>
 
         {/* --- flight replay (WAVE 9) ---------------------------------------------- */}
         <FlightReplay getEntries={() => blackboxRef.current.snapshot()} />

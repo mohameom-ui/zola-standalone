@@ -171,56 +171,56 @@ export class LocalGenie {
 // Cached vision-brain pick — a 2.5s /api/tags round-trip on EVERY frame is
 // wasted motion; the installed set rarely changes, so remember it briefly.
 let visionBrainCache: { name: string; pickedAt: number } | null = null;
-const VISION_CACHE_TTL_MS = 5 * 60_000;   // a picked brain stays trusted 5 min
+const VISION_CACHE_TTL_MS = 5 * 60_000;   // a WORKING brain stays trusted 5 min
 const VISION_NEG_TTL_MS = 60_000;         // "no vision brain" is rechecked each minute
 
 export async function ollamaVision(imageDataUrl: string, question = "Identify the main object in this image in one short line. Be precise, include brand/type if visible."): Promise<string | null> {
   try {
-    // pick a vision-capable brain Ollama actually has installed (cached —
-    // positive and negative, so an empty model shelf costs no round-trip)
-    let model: string | null = null;
-    if (visionBrainCache) {
-      const age = Date.now() - visionBrainCache.pickedAt;
-      const fresh = visionBrainCache.name ? age < VISION_CACHE_TTL_MS : age < VISION_NEG_TTL_MS;
-      if (fresh) model = visionBrainCache.name || null;
+    // candidate brains in preference order — a manifest can LIE (an installed
+    // model the runtime cannot load, e.g. an unsupported architecture), so a
+    // pick is only trusted after it actually ANSWERS (the SITL phantom-link
+    // lesson: verify the organ, not the inventory)
+    const list = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(2500) });
+    if (!list.ok) return null;
+    const models = ((await list.json()) as { models?: { name: string }[] }).models ?? [];
+    const prefs = [/llama3\.2-vision/i, /llava/i, /moondream/i, /minicpm-v/i, /qwen.*vl/i];
+    const candidates: string[] = [];
+    if (visionBrainCache?.name && models.some((m) => m.name === visionBrainCache!.name)) {
+      candidates.push(visionBrainCache.name); // a brain that answered before tries first
     }
-    if (!model) {
-      const list = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(2500) });
-      if (!list.ok) return null;
-      const models = ((await list.json()) as { models?: { name: string }[] }).models ?? [];
-      const prefs = [/llama3\.2-vision/i, /llava/i, /moondream/i, /minicpm-v/i, /qwen.*vl/i];
-      for (const p of prefs) {
-        const hit = models.find((m) => p.test(m.name));
-        if (hit) { model = hit.name; break; }
-      }
-      if (!model) {
-        visionBrainCache = { name: "", pickedAt: Date.now() }; // remember the refusal briefly
-        return null; // no vision brain installed — honest refusal
-      }
-      visionBrainCache = { name: model, pickedAt: Date.now() };
+    for (const p of prefs) {
+      const hit = models.find((m) => p.test(m.name));
+      if (hit && !candidates.includes(hit.name)) candidates.push(hit.name);
     }
-    const res = await fetch("http://localhost:11434/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(12_000),
-      body: JSON.stringify({
-        model,
-        stream: false,
-        keep_alive: "30m", // her optic cortex stays resident between glances
-        max_tokens: 80,
-        messages: [
-          { role: "system", content: "You are Zola's optical cortex. Answer in one short line, no preamble." },
-          { role: "user", content: [
-            { type: "text", text: question },
-            { type: "image_url", image_url: { url: imageDataUrl } },
-          ] },
-        ],
-      }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const line = (data.choices?.[0]?.message?.content ?? "").trim();
-    return line || null;
+    for (const model of candidates) {
+      const res = await fetch("http://localhost:11434/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(60_000), // first load of a big vision brain is slow
+        body: JSON.stringify({
+          model,
+          stream: false,
+          keep_alive: "30m", // her optic cortex stays resident between glances
+          max_tokens: 80,
+          messages: [
+            { role: "system", content: "You are Zola's optical cortex. Answer in one short line, no preamble." },
+            { role: "user", content: [
+              { type: "text", text: question },
+              { type: "image_url", image_url: { url: imageDataUrl } },
+            ] },
+          ],
+        }),
+      });
+      if (!res.ok) continue; // this brain lied about being loadable — next one
+      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      const line = (data.choices?.[0]?.message?.content ?? "").trim();
+      if (line) {
+        visionBrainCache = { name: model, pickedAt: Date.now() }; // proven, cached
+        return line;
+      }
+    }
+    visionBrainCache = { name: "", pickedAt: Date.now() }; // none answered — recheck soon
+    return null; // honest refusal: no working vision brain right now
   } catch {
     return null; // Ollama offline — her local classifier carries on
   }

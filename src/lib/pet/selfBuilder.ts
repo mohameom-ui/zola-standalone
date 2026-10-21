@@ -357,6 +357,24 @@ const FORBIDDEN = [
   /process\./,             // no process access
 ];
 
+/**
+ * Draft normalizer — brains don't always write what the prompt asks for.
+ * SELF_BUILD_PROMPT says "function BODY", but her brain (proven live) wraps
+ * the body in a function expression: `function(args){...}` or `args => ...`.
+ * The sandbox PROVIDES the wrapper (new Function("args", body)), so unwrap
+ * the draft to its body instead of rejecting a logically-correct capability.
+ */
+export function normalizeDraft(code: string): string {
+  const t = code.trim();
+  let m = /^function\s*\(\s*args\s*\)\s*\{([\s\S]*)\}\s*;?\s*$/.exec(t);
+  if (m) return m[1].trim();
+  m = /^\(\s*args\s*\)\s*=>\s*\{([\s\S]*)\}\s*;?\s*$/.exec(t);
+  if (m) return m[1].trim();
+  m = /^\(?\s*args\s*\)?\s*=>\s*([\s\S]+)$/.exec(t); // concise arrow: `args => expr`
+  if (m) return `return ${m[1].trim().replace(/;\s*$/, "")};`;
+  return t;
+}
+
 /** Validate generated code against the safety lines. Returns errors or null. */
 export function validateCapability(code: string): string[] | null {
   const errors: string[] = [];
@@ -390,11 +408,12 @@ export function installCapability(
   cap: GeneratedCapability,
   register: (cap: { id: string; kind: string; label: string; description: string; run: (args: Record<string, unknown>) => string }) => void,
 ): boolean {
-  const errors = validateCapability(cap.code);
+  const body = normalizeDraft(cap.code); // meet the draft where her brain actually is
+  const errors = validateCapability(body);
   if (errors) return false;
 
   try {
-    const fn = new Function("args", `"use strict";\n${cap.code}`) as
+    const fn = new Function("args", `"use strict";\n${body}`) as
       (args: Record<string, unknown>) => string;
 
     register({

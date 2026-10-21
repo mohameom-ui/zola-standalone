@@ -28,6 +28,7 @@ import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
 import { Cortex } from "@/lib/pet/cortex";
 import { allPersonas, modeByName } from "@/lib/pet/modes";
 import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
+import { buildActionCapabilities, parseReminder, parseTimeExpression, TaskList } from "@/lib/pet/capabilities";
 import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
 import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
 import ZolaShell from "@/components/pet/ZolaShell";
@@ -117,6 +118,9 @@ export default function DronePetPanel() {
   const gestureApiRef = useRef<GestureApi | null>(null);
   // SPONTANEA — her last interaction (commands reset it; idle accrues)
   const lastInteractionRef = useRef(performance.now());
+  // v3.5 — the action layer: reminders + tasks
+  const remindersRef = useRef<{ text: string; at: Date; fired: boolean }[]>([]);
+  const taskListRef = useRef(new TaskList());
   const lastVisionEventRef = useRef(0);
   const prevVisualHoldRef = useRef(false);
   const prevMoodRef = useRef<Mood>("curious");
@@ -524,6 +528,39 @@ export default function DronePetPanel() {
       return false;
     }
     else if (act.startsWith("mission:")) { canonical = act.slice(8).trim(); }
+    else if (act.startsWith("remind:")) {
+      const parsed = parseReminder(`remind me to ${act.slice(7).trim()}`);
+      if (parsed) {
+        remindersRef.current.push({ text: parsed.what, at: parsed.time.at, fired: false });
+        if (!d.say) say(`Reminder set: ${parsed.what} ${parsed.time.label}. I'll remind you.`);
+        refreshCounts();
+        return true;
+      }
+      return false;
+    }
+    else if (act.startsWith("task:")) {
+      const taskText = act.slice(5).trim();
+      if (taskText) {
+        taskListRef.current.add(taskText);
+        if (!d.say) say(`Task added: ${taskText}. ${taskListRef.current.open} open.`);
+        refreshCounts();
+        return true;
+      }
+      return false;
+    }
+    else if (act.startsWith("play:")) {
+      const q = act.slice(5).trim();
+      sfxFilesRef.current.playMood("happy");
+      say(q ? `Playing ${q}.` : "Playing.");
+      refreshCounts();
+      return true;
+    }
+    else if (act.startsWith("web:")) {
+      const q = act.slice(4).trim();
+      if (q) { window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, "_blank"); say(`Searching for ${q}.`); }
+      refreshCounts();
+      return true;
+    }
     else if (act.startsWith("body:")) { const mode = act.slice(5).trim(); if (mode === "sim" || mode === "real") { setBodyMode(mode); if (!d.say) say(`Body mode: ${mode}. ${mode === "real" ? "Talk to me through the link." : "Back in the simulation."}`); refreshCounts(); return true; } return false; }
     else if (act.startsWith("recon:")) {
       const term = act.slice(6).trim();
@@ -1923,6 +1960,34 @@ export default function DronePetPanel() {
     }, 5000);
     return () => clearInterval(iv);
   }, [persona, mood, say, pushLog]);
+
+  // the reminder scheduler: fires due reminders + speaks them
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const now = new Date();
+      for (const r of remindersRef.current) {
+        if (!r.fired && r.at <= now) {
+          r.fired = true;
+          say(`Reminder: ${r.text}`, { interrupt: false });
+          pushLog("aura", `⏰ REMINDER: ${r.text}`);
+        }
+      }
+    }, 10_000);
+    return () => clearInterval(iv);
+  }, [say, pushLog]);
+
+  // the action layer: the reminders, the tasks, the music, the web —
+  // every capability in the CORTEX, registered with the real handlers
+  useEffect(() => {
+    const actionCaps = buildActionCapabilities({
+      speak: (t) => say(t),
+      playMusic: () => { sfxFilesRef.current.playMood("happy"); say("Music on."); },
+      openWeb: (url) => window.open(url, "_blank"),
+      searchWeb: (q) => { void handleCommand(`recon:${q}`); },
+    });
+    cortexRef.current.registerMany(actionCaps);
+  }, [say, handleCommand]);
+
   useEffect(() => {
     const le = localEarsRef.current;
     le.onTranscript = (t) => cmdRef.current(t);

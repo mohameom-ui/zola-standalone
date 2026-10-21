@@ -25,6 +25,7 @@ import { webRecon } from "@/lib/pet/recon";
 import { emotionFromTrack } from "@/lib/pet/advancedSensors";
 import { checkForUpdates, installPack } from "@/lib/pet/updates";
 import { pickSpontaneous, shouldSelfMove, chooseGesture } from "@/lib/pet/spontanea";
+import { drain, drainState, shouldAutoReturn } from "@/lib/pet/batteryPolicy";
 import { Cortex } from "@/lib/pet/cortex";
 import { allPersonas, modeByName } from "@/lib/pet/modes";
 import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
@@ -133,6 +134,7 @@ export default function DronePetPanel() {
   const lastTickRef = useRef(0);
   const batterySyncAtRef = useRef(0);
   const lastGestureRef = useRef<string | null>(null);
+  const autoReturnSaidRef = useRef(false);
   const autoScanTried = useRef(false);
   const uncertainAnnouncedRef = useRef<Set<string>>(new Set());
   const movedAnnouncedRef = useRef<Set<string>>(new Set());
@@ -823,11 +825,21 @@ export default function DronePetPanel() {
       } else {
         const perched = actName === "sleep" || (actName === "dock" && poseRef.current.z < 0.06);
         if (perched) {
-          batteryRef.current = Math.min(1, batteryRef.current + dt * 0.012); // charging on the pad
+          batteryRef.current = Math.min(1, batteryRef.current + dt * 0.004); // pad charge (sim-friendly; real 1C ≈ 45 min)
           memory.noteBatteryPhase("charge", batteryRef.current);
         } else {
-          batteryRef.current = Math.max(0.02, batteryRef.current - dt * 0.0016);
+          // the HONEST energy model: hover is expensive, walking is cheap,
+          // standing is nearly free — she does NOT need the charger every
+          // two minutes unless she actually flies (v4.0 battery policy)
+          const state = drainState(actName, poseRef.current.z);
+          batteryRef.current = drain(batteryRef.current, dt, state);
           memory.noteBatteryPhase("discharge", batteryRef.current);
+          if (shouldAutoReturn(batteryRef.current) && poseRef.current.z > 0.06 && !autoReturnSaidRef.current) {
+            autoReturnSaidRef.current = true;
+            say("Battery's at the force-return line. Flying home to the dock — walk with me.");
+            pushLog("sys", "battery policy: force-return threshold — auto-dock engaged");
+          }
+          if (poseRef.current.z < 0.06) autoReturnSaidRef.current = false;
         }
       }
 

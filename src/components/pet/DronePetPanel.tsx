@@ -1995,7 +1995,7 @@ export default function DronePetPanel() {
   const people = memory.snapshot.people;
 
   return (
-    <ZolaShell title="DRONE PET · ZOLA" subtitle="Vision · Voice · Learning · Safety — all processing local">
+    <ZolaShell title="SOVEREIGN · ZOLA" subtitle="sees · hears · learns — everything stays on this machine">
       <style>{`
         @font-face { font-family: 'Rajdhani'; src: url('/fonts/Rajdhani-Bold.ttf'); font-weight: 700; }
         @font-face { font-family: 'Cairo'; src: url('/fonts/Cairo-Variable.ttf'); }

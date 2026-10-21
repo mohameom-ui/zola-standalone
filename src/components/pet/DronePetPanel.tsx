@@ -43,6 +43,7 @@ import { SafetyGovernor, DEFAULT_LIMITS } from "@/lib/pet/safety";
 import { LlmConsultant, LocalGenie, type LlmDecision } from "@/lib/pet/llm";
 import { HealthMonitor } from "@/lib/pet/healthMonitor";
 import { parseSelfBuild, installCapability, validateCapability, normalizeDraft, type GeneratedCapability } from "@/lib/pet/selfBuilder";
+import { loadTheme, saveTheme, themeVars, THEME_PRESETS, type ZolaTheme } from "@/lib/pet/theme";
 import { SoundWatch, PetChirps } from "@/lib/pet/sound";
 import { LocalEars } from "@/lib/pet/earsLocal";
 import { SfxFiles } from "@/lib/pet/sfxFiles";
@@ -378,6 +379,11 @@ export default function DronePetPanel() {
   const [mood, setMood] = useState<Mood>("curious");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []); // the mount gate flips once the client owns the DOM
+  // APPEARANCE — her theme loads with her life (after the mount gate, so the
+  // server never guesses her colors)
+  const [theme, setThemeState] = useState<ZolaTheme>(() => ({ ...THEME_PRESETS.AURORA, glow: 33, calm: false }));
+  useEffect(() => { setThemeState(loadTheme()); }, []); // rides the mount gate
+  const setTheme = useCallback((t: ZolaTheme) => { setThemeState(t); saveTheme(t); }, []);
   const [activity, setActivity] = useState("hover");
   const [battery, setBattery] = useState(0.86);
   const [bond, setBond] = useState(0);
@@ -2187,12 +2193,13 @@ export default function DronePetPanel() {
         @font-face { font-family: 'Cairo'; src: url('/fonts/Cairo-Variable.ttf'); }
       `}</style>
       <div
-        className="p-4 space-y-4 text-xs"
+        className={`p-4 space-y-4 text-xs ${theme.calm ? "zola-calm" : ""}`}
         style={{
           fontFamily: "'Rajdhani', 'Cairo', monospace",
-          // WAVE 5 — theme sync: the panel breathes in her LED color; dim at night
-          boxShadow: `0 0 48px ${LED_FOR_PERSONA[persona] ?? "#35d0a5"}${sunReport().phase === "night" ? "18" : "33"}`,
-          transition: "box-shadow 1.2s ease",
+          ...themeVars(theme), // the whole panel speaks the theme's color language
+          // WAVE 5 — theme sync: the panel breathes in her accent; dim at night
+          boxShadow: `0 0 48px ${theme.a}${sunReport().phase === "night" ? "18" : String(theme.glow).padStart(2, "0")}`,
+          transition: theme.calm ? "none" : "box-shadow 1.2s ease",
         }}
       >
         {/* --- tab bar ---------------------------------------------------------- */}
@@ -2210,15 +2217,15 @@ export default function DronePetPanel() {
 
         {/* --- consent gate ---------------------------------------------------- */}
         {consentTopic && (
-          <div className="glass-soft rounded-xl p-3 border border-[#f0b90b]/40 space-y-2">
-            <div className="text-[#f0b90b] tracking-[0.2em] text-[10px]">CONSENT REQUIRED — {consentTopic.toUpperCase()}</div>
+          <div className="glass-soft rounded-xl p-3 border border-[var(--z-a)]/40 space-y-2">
+            <div className="text-[var(--z-a)] tracking-[0.2em] text-[10px]">CONSENT REQUIRED — {consentTopic.toUpperCase()}</div>
             <p className="text-[#c8ccd6] leading-relaxed text-[11px]">
               {consentTopic === "camera"
                 ? "Zola will use the camera to see you. Frames are processed live in your browser and NEVER stored, recorded, or uploaded. If you allow face indexing, only a non-reversible geometric signature is kept locally so Zola can recognize you."
                 : "Zola will listen for voice commands. Speech is processed live by the browser and NEVER recorded or uploaded. Only command transcripts appear in the log, and you can wipe them anytime."}
             </p>
             <div className="flex gap-2">
-              <button onClick={() => grantConsent(true)} className="flex-1 px-3 py-1.5 rounded-lg border border-[#f0b90b] text-[#f0b90b] hover:bg-[rgba(240,185,11,0.12)] transition-colors tracking-widest">
+              <button onClick={() => grantConsent(true)} className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--z-a)] text-[var(--z-a)] hover:bg-[rgba(240,185,11,0.12)] transition-colors tracking-widest">
                 GRANT
               </button>
               <button onClick={() => grantConsent(false)} className="flex-1 px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-white/30 transition-colors tracking-widest">
@@ -2235,19 +2242,19 @@ export default function DronePetPanel() {
           <canvas ref={camCanvasRef} width={640} height={360} className="absolute inset-0 w-full h-full" />
           {!camOn && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
-              <div className="text-[#f0b90b] tracking-[0.3em] text-[10px]">OPTICAL SENSOR OFFLINE</div>
-              <button onClick={toggleCamera} className="mt-1 px-4 py-1.5 rounded-lg border border-[#f0b90b] text-[#f0b90b] hover:bg-[rgba(240,185,11,0.12)] transition-colors">
+              <div className="text-[var(--z-a)] tracking-[0.3em] text-[10px]">OPTICAL SENSOR OFFLINE</div>
+              <button onClick={toggleCamera} className="mt-1 px-4 py-1.5 rounded-lg border border-[var(--z-a)] text-[var(--z-a)] hover:bg-[rgba(240,185,11,0.12)] transition-colors">
                 ATTACH CAMERA EYE
               </button>
               <div className="hud-label">consent required · local processing only</div>
             </div>
           )}
           {camOn && visionError && (
-            <div className="absolute top-2 left-2 px-2 py-1 rounded bg-[rgba(255,77,79,0.2)] text-[#ff4d4f] text-[9px]">{visionError}</div>
+            <div className="absolute top-2 left-2 px-2 py-1 rounded bg-[rgba(255,77,79,0.2)] text-[var(--z-danger)] text-[9px]">{visionError}</div>
           )}
           {camOn && (
             <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded bg-black/50">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#35d0a5] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--z-b)] animate-pulse" />
               <span className="hud-label">EYE LIVE · LOCAL</span>
             </div>
           )}
@@ -2261,7 +2268,7 @@ export default function DronePetPanel() {
           <div className="hud-label px-1 pb-1">FLIGHT BODY · ONE BODY, GROUNDED &amp; AIRBORNE (MAVLink HAL for real hardware)</div>
           <div className="mt-2">
             <DroneBody3D
-              accentColor={LED_FOR_PERSONA[persona] ?? "#35d0a5"}
+              accentColor={theme.b}
               flight={flightStats}
               speech={bubble}
               onPet={petZola}
@@ -2273,10 +2280,10 @@ export default function DronePetPanel() {
             />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-2 px-1">
-            <Stat label="MOOD" value={MOOD_LABEL[mood]} tone="#f0b90b" />
-            <Stat label="ACTIVITY" value={activity.toUpperCase()} tone="#5ac8fa" />
+            <Stat label="MOOD" value={MOOD_LABEL[mood]} tone="var(--z-a)" />
+            <Stat label="ACTIVITY" value={activity.toUpperCase()} tone="var(--z-info)" />
             <Stat label="BATTERY" value={`${Math.round(battery * 100)}%`} tone={battery < 0.2 ? "#ff4d4f" : "#35d0a5"} />
-            <Stat label="BOND" value={`${Math.round(bond * 100)}%`} tone="#ff9f43" />
+            <Stat label="BOND" value={`${Math.round(bond * 100)}%`} tone="var(--z-warn)" />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-1 px-1">
             <Stat label="ALTITUDE" value={flightStats.alt.toFixed(2)} tone="#c8ccd6" />
@@ -2293,9 +2300,9 @@ export default function DronePetPanel() {
                 ? (estimatorRef.current.remainingFlightMinutes(battery * 100) !== null
                   ? `${Math.round(estimatorRef.current.remainingFlightMinutes(battery * 100)!)}m`
                   : estimatorRef.current.confidence === "learning" ? "LEARN…" : "—")
-                : "SIM"} tone="#5ac8fa" />
+                : "SIM"} tone="var(--z-info)" />
               <Stat label="FLIGHT HRS" value={memory.getLogbook().hours.toFixed(1)} tone="#c8ccd6" />
-              <Stat label="SUN" value={sunReport().phase.toUpperCase()} tone="#f0b90b" />
+              <Stat label="SUN" value={sunReport().phase.toUpperCase()} tone="var(--z-a)" />
             </div>
           </details>
           <div className="mt-2 px-1 flex items-center gap-2 flex-wrap">
@@ -2324,18 +2331,18 @@ export default function DronePetPanel() {
             <div className="w-20 h-1.5 rounded bg-white/10 overflow-hidden">
               <div className="h-full transition-all duration-300" style={{ width: `${(1 - resent) * 100}%`, background: resent > 0.5 ? "#ff4d4f" : "#35d0a5" }} />
             </div>
-            {resent >= 0.99 && <span className="text-[9px] text-[#ff4d4f] tracking-wider">say “sorry” to be forgiven</span>}
+            {resent >= 0.99 && <span className="text-[9px] text-[var(--z-danger)] tracking-wider">say “sorry” to be forgiven</span>}
           </div>
           <div className="mt-1 px-1 flex items-center gap-2 flex-wrap">
             <span className="hud-label">SAFETY:</span>
             {killed ? (
-              <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[#ff4d4f] tracking-widest">KILL ENGAGED</span>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[var(--z-danger)] tracking-widest">KILL ENGAGED</span>
             ) : (
-              <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.15)] text-[#35d0a5] tracking-widest">LIMITS ACTIVE</span>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.15)] text-[var(--z-b)] tracking-widest">LIMITS ACTIVE</span>
             )}
-            {safetyFlags && <span className="text-[9px] text-[#ff9f43] tracking-wider">{safetyFlags}</span>}
-            {integrity === "OK" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.12)] text-[#35d0a5] tracking-widest" title="SHA-256 of all local models/runtimes verified against baseline">AIR-GAP VERIFIED</span>}
-            {integrity === "DRIFT" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[#ff4d4f] tracking-widest" title="A local asset changed since baseline — investigate">INTEGRITY DRIFT</span>}
+            {safetyFlags && <span className="text-[9px] text-[var(--z-warn)] tracking-wider">{safetyFlags}</span>}
+            {integrity === "OK" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.12)] text-[var(--z-b)] tracking-widest" title="SHA-256 of all local models/runtimes verified against baseline">AIR-GAP VERIFIED</span>}
+            {integrity === "DRIFT" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[var(--z-danger)] tracking-widest" title="A local asset changed since baseline — investigate">INTEGRITY DRIFT</span>}
             {(integrity === "" || integrity === "BASELINE_CREATED") && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(139,143,156,0.15)] text-[#8b8f9c] tracking-widest">AIR-GAP {integrity === "BASELINE_CREATED" ? "BASELINE SET" : "CHECKING…"}</span>}
           </div>
         </div>
@@ -2352,7 +2359,7 @@ export default function DronePetPanel() {
                 key={g}
                 onClick={() => gestureApiRef.current?.playGesture(g)}
                 className={`text-[9px] px-2 py-1 rounded border tracking-widest transition-colors ${
-                  nowPlaying === g ? "border-[#f0b90b] text-[#f0b90b]" : "border-white/15 text-[#8b8f9c] hover:border-white/30"
+                  nowPlaying === g ? "border-[var(--z-a)] text-[var(--z-a)]" : "border-white/15 text-[#8b8f9c] hover:border-white/30"
                 }`}
               >
                 {g.replace(/_0?1$/, "").toUpperCase()}
@@ -2360,12 +2367,12 @@ export default function DronePetPanel() {
             ))}
             <button
               onClick={() => gestureApiRef.current?.playGesture("improv")}
-              className="text-[9px] px-2 py-1 rounded border border-[#f0b90b] text-[#f0b90b] hover:bg-[rgba(240,185,11,0.12)] tracking-widest transition-colors"
+              className="text-[9px] px-2 py-1 rounded border border-[var(--z-a)] text-[var(--z-a)] hover:bg-[rgba(240,185,11,0.12)] tracking-widest transition-colors"
             >
               IMPROV
             </button>
             {nowPlaying && (
-              <span className="text-[9px] text-[#f0b90b] tracking-wider ml-auto self-center">
+              <span className="text-[9px] text-[var(--z-a)] tracking-wider ml-auto self-center">
                 NOW PLAYING · {nowPlaying.replace(/_0?1$/, "").toUpperCase()}
               </span>
             )}
@@ -2399,7 +2406,7 @@ export default function DronePetPanel() {
             </label>
             <button
               onClick={() => setMissionWps((w) => [...w, { ...wp }] as Waypoint[])}
-              className="px-2 py-1 rounded border border-[#35d0a5]/60 text-[#35d0a5] text-[9px] tracking-widest hover:bg-[rgba(53,208,165,0.12)]"
+              className="px-2 py-1 rounded border border-[var(--z-b)]/60 text-[var(--z-b)] text-[9px] tracking-widest hover:bg-[rgba(53,208,165,0.12)]"
             >
               + ADD WP
             </button>
@@ -2409,7 +2416,7 @@ export default function DronePetPanel() {
               {missionWps.map((w, i) => (
                 <span key={i} className="mr-3">
                   WP{i + 1} ({w.x.toFixed(1)}, {w.y.toFixed(1)}, {w.z.toFixed(1)}) h{w.holdMs}ms
-                  <button onClick={() => setMissionWps((list) => list.filter((_, j) => j !== i))} className="ml-1 text-[#ff4d4f]">×</button>
+                  <button onClick={() => setMissionWps((list) => list.filter((_, j) => j !== i))} className="ml-1 text-[var(--z-danger)]">×</button>
                 </span>
               ))}
             </div>
@@ -2422,7 +2429,7 @@ export default function DronePetPanel() {
                 say(line, { interrupt: false });
                 setMissionWps([]);
               }}
-              className="px-2 py-1 rounded border border-[#35d0a5]/60 text-[#35d0a5] text-[9px] tracking-widest hover:bg-[rgba(53,208,165,0.12)] disabled:opacity-40"
+              className="px-2 py-1 rounded border border-[var(--z-b)]/60 text-[var(--z-b)] text-[9px] tracking-widest hover:bg-[rgba(53,208,165,0.12)] disabled:opacity-40"
             >
               ▶ START MISSION
             </button>
@@ -2432,14 +2439,14 @@ export default function DronePetPanel() {
                 const line = missionRef.current.orbit(0, 0, p.z, 0.8, 1, 2);
                 say(line, { interrupt: false });
               }}
-              className="px-2 py-1 rounded border border-[#5ac8fa]/60 text-[#5ac8fa] text-[9px] tracking-widest hover:bg-[rgba(90,200,250,0.12)]"
+              className="px-2 py-1 rounded border border-[var(--z-info)]/60 text-[var(--z-info)] text-[9px] tracking-widest hover:bg-[rgba(90,200,250,0.12)]"
               title="Orbit-POI around home at 0.8 m standoff, 2 laps, camera locked inward"
             >
               ◎ ORBIT HOME
             </button>
             <button
               onClick={() => say(missionRef.current.abort("manual override"), { interrupt: false })}
-              className="px-2 py-1 rounded border border-[#ff4d4f]/60 text-[#ff4d4f] text-[9px] tracking-widest hover:bg-[rgba(255,77,79,0.12)]"
+              className="px-2 py-1 rounded border border-[var(--z-danger)]/60 text-[var(--z-danger)] text-[9px] tracking-widest hover:bg-[rgba(255,77,79,0.12)]"
             >
               ✕ ABORT
             </button>
@@ -2456,7 +2463,7 @@ export default function DronePetPanel() {
           {(<>
           <button
             onClick={enableSenses}
-            className="w-full px-4 py-2 rounded-lg border border-[#f0b90b] text-[#f0b90b] bg-[rgba(240,185,11,0.08)] hover:bg-[rgba(240,185,11,0.18)] tracking-[0.2em] transition-colors"
+            className="w-full px-4 py-2 rounded-lg border border-[var(--z-a)] text-[var(--z-a)] bg-[rgba(240,185,11,0.08)] hover:bg-[rgba(240,185,11,0.18)] tracking-[0.2em] transition-colors"
           >
             ⚡ WAKE HER SENSES · EYE + MIC + SOUND
           </button>
@@ -2470,8 +2477,8 @@ export default function DronePetPanel() {
             onClick={toggleLocalMic}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
               localEarsOn
-                ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.12)]"
-                : "border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60"
+                ? "border-[var(--z-b)] text-[var(--z-b)] bg-[rgba(53,208,165,0.12)]"
+                : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-b)]/60"
             }`}
             title="On-device Whisper speech recognition — works in any browser, offline after first load"
           >
@@ -2484,7 +2491,7 @@ export default function DronePetPanel() {
               await localEarsRef.current.setQuality(q);
               pushLog("sys", q === "deep" ? "ears upgraded: DEEP — better understanding, a bit slower" : "ears: FAST — snappier replies");
             }}
-            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60 tracking-widest transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[var(--z-info)]/60 tracking-widest transition-colors"
             title="DEEP = whisper-base (better understanding) · FAST = whisper-tiny (snappier)"
           >
             EARS · {earQuality.toUpperCase()}
@@ -2502,7 +2509,7 @@ export default function DronePetPanel() {
           </button>
           <button
             onClick={() => { setStretchCue((c) => c + 1); say("Stretch with me — arms up, breathe. Good."); }}
-            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60 tracking-widest transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[var(--z-b)]/60 tracking-widest transition-colors"
             title="Energy pacing — she demonstrates a stretch"
           >
             PACE
@@ -2517,7 +2524,7 @@ export default function DronePetPanel() {
               URL.revokeObjectURL(a.href);
               pushLog("sys", `black-box exported — ${blackboxRef.current.size} telemetry samples (local file, never uploaded)`);
             }}
-            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60 tracking-widest transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-white/15 text-[#8b8f9c] hover:border-[var(--z-info)]/60 tracking-widest transition-colors"
             title="Telemetry black-box — download her last ~20 min of flight + cognition vectors"
           >
             BLACKBOX ↓
@@ -2535,8 +2542,8 @@ export default function DronePetPanel() {
             onClick={toggleNeural}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
               neuralOn
-                ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.12)]"
-                : "border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60"
+                ? "border-[var(--z-b)] text-[var(--z-b)] bg-[rgba(53,208,165,0.12)]"
+                : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-b)]/60"
             }`}
             title="Kokoro-82M neural TTS — a real neural voice, loaded entirely from local model files."
           >
@@ -2551,7 +2558,7 @@ export default function DronePetPanel() {
                 try { localStorage.setItem("aura.neuralVoiceId", e.target.value); } catch { /* noop */ }
                 say("Testing my new voice. Do you like it?");
               }}
-              className="bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-[#e9e7dc] outline-none focus:border-[#35d0a5]/60"
+              className="bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-[#e9e7dc] outline-none focus:border-[var(--z-b)]/60"
             >
               {KOKORO_VOICES.map((v) => (
                 <option key={v.id} value={v.id}>{v.label}</option>
@@ -2569,28 +2576,28 @@ export default function DronePetPanel() {
           />
           </>)}
           {(<>
-          <button onClick={dock} className="px-3 py-1.5 rounded-lg border border-[#35d0a5]/50 text-[#35d0a5] hover:bg-[rgba(53,208,165,0.1)] transition-colors tracking-widest">
+          <button onClick={dock} className="px-3 py-1.5 rounded-lg border border-[var(--z-b)]/50 text-[var(--z-b)] hover:bg-[rgba(53,208,165,0.1)] transition-colors tracking-widest">
             DOCK · RECHARGE
           </button>
-          <button onClick={kill} disabled={killed} className={`px-3 py-1.5 rounded-lg border transition-colors tracking-widest ${killed ? "border-[#ff4d4f] text-[#ff4d4f] bg-[rgba(255,77,79,0.2)]" : "border-[#ff4d4f]/60 text-[#ff4d4f] hover:bg-[rgba(255,77,79,0.1)]"}`}>
+          <button onClick={kill} disabled={killed} className={`px-3 py-1.5 rounded-lg border transition-colors tracking-widest ${killed ? "border-[var(--z-danger)] text-[var(--z-danger)] bg-[rgba(255,77,79,0.2)]" : "border-[var(--z-danger)]/60 text-[var(--z-danger)] hover:bg-[rgba(255,77,79,0.1)]"}`}>
             {killed ? "KILLED" : "KILL SWITCH"}
           </button>
           </>)}
           {(<>
-          <button onClick={toggleScanner} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${scannerOn ? "border-[#5ac8fa] text-[#5ac8fa] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60"}`}>
+          <button onClick={toggleScanner} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${scannerOn ? "border-[var(--z-info)] text-[var(--z-info)] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-info)]/60"}`}>
             SCANNER {scannerOn ? "ON" : "OFF"}
           </button>
           </>)}
           {(<>
-          <button onClick={toggleLlm} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${llmOn ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60"}`}>
+          <button onClick={toggleLlm} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${llmOn ? "border-[var(--z-b)] text-[var(--z-b)] bg-[rgba(53,208,165,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-b)]/60"}`}>
             BRAIN {llmOn ? "· LLM" : "· REFLEX"}
           </button>
           <button
             onClick={toggleGenius}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
               geniusOn
-                ? "border-[#ff9f43] text-[#ff9f43] bg-[rgba(255,159,67,0.12)]"
-                : "border-white/15 text-[#8b8f9c] hover:border-[#ff9f43]/60"
+                ? "border-[var(--z-warn)] text-[var(--z-warn)] bg-[rgba(255,159,67,0.12)]"
+                : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-warn)]/60"
             }`}
             title="Her thinking brain — an on-device language model. One-time ~350 MB download, then fully offline."
           >
@@ -2611,8 +2618,8 @@ export default function DronePetPanel() {
             }}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
               deepEyesOn
-                ? "border-[#5ac8fa] text-[#5ac8fa] bg-[rgba(90,200,250,0.12)]"
-                : "border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60"
+                ? "border-[var(--z-info)] text-[var(--z-info)] bg-[rgba(90,200,250,0.12)]"
+                : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-info)]/60"
             }`}
             title="Vision-language model (SmolVLM) — she describes ANYTHING in view. One-time ~300 MB download."
           >
@@ -2621,7 +2628,7 @@ export default function DronePetPanel() {
           {geniusOn && (
             <button
               onClick={upgradeBrain}
-              className="px-3 py-1.5 rounded-lg border border-[#5ac8fa]/60 text-[#5ac8fa] hover:bg-[rgba(90,200,250,0.12)] tracking-widest transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-[var(--z-info)]/60 text-[var(--z-info)] hover:bg-[rgba(90,200,250,0.12)] tracking-widest transition-colors"
               title="SMART = Qwen 0.5B (fast) · GENIUS = Qwen 1.5B (~3x smarter, ~1 GB)"
             >
               BRAIN SIZE · {brainTier.toUpperCase()}
@@ -2629,13 +2636,13 @@ export default function DronePetPanel() {
           )}
           </>)}
           {(<>
-          <button onClick={toggleSoundWatch} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${soundOn ? "border-[#5ac8fa] text-[#5ac8fa] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60"}`}>
+          <button onClick={toggleSoundWatch} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${soundOn ? "border-[var(--z-info)] text-[var(--z-info)] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-info)]/60"}`}>
             SOUND WATCH {soundOn ? "ON" : "OFF"}
           </button>
-          <button onClick={toggleGestures} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${gestOn ? "border-[#5ac8fa] text-[#5ac8fa] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60"}`}>
+          <button onClick={toggleGestures} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${gestOn ? "border-[var(--z-info)] text-[var(--z-info)] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-info)]/60"}`}>
             WAVE {gestOn ? "ON" : "OFF"}
           </button>
-          <button onClick={toggleChirps} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${chirpsOn ? "border-[#ff9f43] text-[#ff9f43] bg-[rgba(255,159,67,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#ff9f43]/60"}`}>
+          <button onClick={toggleChirps} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${chirpsOn ? "border-[var(--z-warn)] text-[var(--z-warn)] bg-[rgba(255,159,67,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-warn)]/60"}`}>
             CHIRPS {chirpsOn ? "ON" : "MUTED"}
           </button>
           </>)}
@@ -2644,8 +2651,8 @@ export default function DronePetPanel() {
             onClick={toggleBody}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
               bodyMode === "real"
-                ? "border-[#ff4d4f] text-[#ff4d4f] bg-[rgba(255,77,79,0.12)]"
-                : "border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60"
+                ? "border-[var(--z-danger)] text-[var(--z-danger)] bg-[rgba(255,77,79,0.12)]"
+                : "border-white/15 text-[#8b8f9c] hover:border-[var(--z-b)]/60"
             }`}
           >
             BODY · {bodyMode === "real" ? "REAL ⚠" : "SIM"}
@@ -2660,7 +2667,7 @@ export default function DronePetPanel() {
             onChange={(e) => setWsUrl(e.target.value)}
             placeholder="ws://localhost:8765"
             title="relay address — edits reconnect automatically while in REAL mode"
-            className="w-44 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-mono text-[#e9e7dc] outline-none focus:border-[#35d0a5]/60"
+            className="w-44 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-mono text-[#e9e7dc] outline-none focus:border-[var(--z-b)]/60"
           />
           </>)}
         </div></div>
@@ -2671,10 +2678,10 @@ export default function DronePetPanel() {
         <div className="flex items-center gap-2 px-1">
           <span className="hud-label">AUDIO</span>
           <div className="flex-1 h-1.5 rounded bg-white/10 overflow-hidden">
-            <div className="h-full bg-[#5ac8fa]" style={{ width: `${Math.min(100, micLevel * 100)}%` }} />
+            <div className="h-full bg-[var(--z-info)]" style={{ width: `${Math.min(100, micLevel * 100)}%` }} />
           </div>
-          {soundEvent && <span className="text-[9px] text-[#ff9f43] tracking-wider">{soundEvent}</span>}
-          {hearing && <span className="text-[9px] text-[#35d0a5] tracking-wider">👂 HEARING YOU…</span>}
+          {soundEvent && <span className="text-[9px] text-[var(--z-warn)] tracking-wider">{soundEvent}</span>}
+          {hearing && <span className="text-[9px] text-[var(--z-b)] tracking-wider">👂 HEARING YOU…</span>}
         </div>
 
         </>)}
@@ -2684,7 +2691,7 @@ export default function DronePetPanel() {
         <div className="glass-soft rounded-xl p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="hud-label">WHAT ZOLA HAS LEARNED · STORED LOCALLY ONLY</span>
-            <span className="text-[9px] text-[#35d0a5] tracking-widest">PRIVACY: 100% LOCAL</span>
+            <span className="text-[9px] text-[var(--z-b)] tracking-widest">PRIVACY: 100% LOCAL</span>
           </div>
           <div className="text-[10px] text-[#c8ccd6]">
             {people.length === 0 && factsCount === 0 && itemsCount === 0 ? (
@@ -2693,14 +2700,14 @@ export default function DronePetPanel() {
               <div className="space-y-1">
                 {memory.snapshot.items.slice(-6).reverse().map((it) => (
                   <div key={it.id} className="flex justify-between items-center">
-                    <span>📦 <span className="text-[#5ac8fa]">{memory.displayName(it)}</span>{it.customName ? <span> → <span className="text-[#f0b90b]">{it.customName}</span></span> : null} · {it.sightings} sightings</span>
-                    <button onClick={() => { memory.forgetItem(it.id); setItemsCount(memory.itemCount()); pushLog("sys", `forgot item ${it.label}`); }} className="text-[9px] text-[#8b8f9c] hover:text-[#ff4d4f]">FORGET</button>
+                    <span>📦 <span className="text-[var(--z-info)]">{memory.displayName(it)}</span>{it.customName ? <span> → <span className="text-[var(--z-a)]">{it.customName}</span></span> : null} · {it.sightings} sightings</span>
+                    <button onClick={() => { memory.forgetItem(it.id); setItemsCount(memory.itemCount()); pushLog("sys", `forgot item ${it.label}`); }} className="text-[9px] text-[#8b8f9c] hover:text-[var(--z-danger)]">FORGET</button>
                   </div>
                 ))}
                 {people.map((p) => (
                   <div key={p.id} className="flex justify-between items-center">
-                    <span>👤 <span className="text-[#f0b90b]">{p.name}</span> · {p.encounters} encounters · face signature kept</span>
-                    <button onClick={() => { memory.forgetPerson(p.id); setPeopleCount(memory.snapshot.people.length); pushLog("sys", `forgot ${p.name}`); }} className="text-[9px] text-[#8b8f9c] hover:text-[#ff4d4f]">FORGET</button>
+                    <span>👤 <span className="text-[var(--z-a)]">{p.name}</span> · {p.encounters} encounters · face signature kept</span>
+                    <button onClick={() => { memory.forgetPerson(p.id); setPeopleCount(memory.snapshot.people.length); pushLog("sys", `forgot ${p.name}`); }} className="text-[9px] text-[#8b8f9c] hover:text-[var(--z-danger)]">FORGET</button>
                   </div>
                 ))}
                 {memory.snapshot.facts.slice(-4).map((f, i) => (
@@ -2710,10 +2717,10 @@ export default function DronePetPanel() {
             )}
           </div>
           <div className="flex gap-2 pt-1 items-center">
-            <button onClick={exportLife} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#f0b90b]/60 hover:text-[#f0b90b] transition-colors">
+            <button onClick={exportLife} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[var(--z-a)]/60 hover:text-[var(--z-a)] transition-colors">
               EXPORT LIFE (memory + built capabilities + learned facts)
             </button>
-            <label className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#35d0a5]/60 hover:text-[#35d0a5] transition-colors cursor-pointer">
+            <label className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[var(--z-b)]/60 hover:text-[var(--z-b)] transition-colors cursor-pointer">
               RESTORE LIFE (adopt a backup)
               <input
                 type="file"
@@ -2743,7 +2750,7 @@ export default function DronePetPanel() {
                 }}
               />
             </label>
-            <button onClick={wipeMemory} className="px-2.5 py-1 rounded-md border border-[#ff4d4f]/40 text-[10px] text-[#ff4d4f] hover:bg-[rgba(255,77,79,0.1)] transition-colors">
+            <button onClick={wipeMemory} className="px-2.5 py-1 rounded-md border border-[var(--z-danger)]/40 text-[10px] text-[var(--z-danger)] hover:bg-[rgba(255,77,79,0.1)] transition-colors">
               WIPE ALL MEMORY
             </button>
           </div>
@@ -2774,15 +2781,15 @@ export default function DronePetPanel() {
 
         {/* --- active task HUD -------------------------------------------------------- */}
         {taskInfo && (
-          <div className="glass-soft rounded-xl p-3 border border-[#5ac8fa]/30 space-y-1.5">
+          <div className="glass-soft rounded-xl p-3 border border-[var(--z-info)]/30 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="hud-label">ACTIVE TASK · AUTONOMOUS</span>
-              <button onClick={() => handleCommand("cancel task")} className="text-[9px] text-[#ff9f43] hover:text-[#ff4d4f] tracking-widest">CANCEL</button>
+              <button onClick={() => handleCommand("cancel task")} className="text-[9px] text-[var(--z-warn)] hover:text-[var(--z-danger)] tracking-widest">CANCEL</button>
             </div>
-            <div className="text-[#5ac8fa] text-[11px]">{taskInfo.desc}</div>
+            <div className="text-[var(--z-info)] text-[11px]">{taskInfo.desc}</div>
             <div className="text-[10px] text-[#8b8f9c]">step {Math.min(taskInfo.done + 1, taskInfo.total)}/{taskInfo.total}: {taskInfo.step}</div>
             <div className="h-1 rounded bg-white/10 overflow-hidden">
-              <div className="h-full bg-[#5ac8fa] transition-all duration-300" style={{ width: `${(taskInfo.done / taskInfo.total) * 100}%` }} />
+              <div className="h-full bg-[var(--z-info)] transition-all duration-300" style={{ width: `${(taskInfo.done / taskInfo.total) * 100}%` }} />
             </div>
           </div>
         )}
@@ -2798,7 +2805,7 @@ export default function DronePetPanel() {
           ) : (
             memory.getDiary().map((d) => (
               <div key={d.day} className="text-[10px] text-[#c8ccd6]">
-                <span className="text-[#f0b90b] font-mono">{d.day}</span> — {d.summary}
+                <span className="text-[var(--z-a)] font-mono">{d.day}</span> — {d.summary}
               </div>
             ))
           )}
@@ -2808,7 +2815,7 @@ export default function DronePetPanel() {
         <div className="glass-soft rounded-xl p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="hud-label">ROUTINES · SHE RUNS THESE HERSELF</span>
-            <span className="text-[9px] text-[#5ac8fa] tracking-widest">{routinesCount} ACTIVE</span>
+            <span className="text-[9px] text-[var(--z-info)] tracking-widest">{routinesCount} ACTIVE</span>
           </div>
           {memory.listRoutines().length === 0 ? (
             <div className="text-[10px] text-[#8b8f9c]">None yet. Say: &quot;check on me every 5 minutes&quot;.</div>
@@ -2816,7 +2823,7 @@ export default function DronePetPanel() {
             memory.listRoutines().map((r) => (
               <div key={r.id} className="flex justify-between items-center text-[10px]">
                 <span className="text-[#c8ccd6]">⏰ {r.label} · every {r.everyMin >= 60 ? `${r.everyMin / 60}h` : `${r.everyMin}m`}</span>
-                <button onClick={() => { memory.removeRoutine(r.id); setRoutinesCount(memory.listRoutines().length); pushLog("sys", `routine cancelled: ${r.label}`); }} className="text-[9px] text-[#8b8f9c] hover:text-[#ff4d4f]">CANCEL</button>
+                <button onClick={() => { memory.removeRoutine(r.id); setRoutinesCount(memory.listRoutines().length); pushLog("sys", `routine cancelled: ${r.label}`); }} className="text-[9px] text-[#8b8f9c] hover:text-[var(--z-danger)]">CANCEL</button>
               </div>
             ))
           )}
@@ -2832,7 +2839,7 @@ export default function DronePetPanel() {
           {/* neural voices (kokoro) */}
           {neuralOn && (
             <div className="space-y-1.5">
-              <div className="text-[10px] text-[#35d0a5] tracking-widest">NEURAL VOICES (best quality — on-device)</div>
+              <div className="text-[10px] text-[var(--z-b)] tracking-widest">NEURAL VOICES (best quality — on-device)</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {KOKORO_VOICES.map((v) => (
                   <button
@@ -2845,8 +2852,8 @@ export default function DronePetPanel() {
                     }}
                     className={`px-2 py-1.5 rounded-lg border text-[9px] text-left transition-colors ${
                       neuralVoiceId === v.id
-                        ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.1)]"
-                        : "border-white/10 text-[#c8ccd6] hover:border-[#35d0a5]/50"
+                        ? "border-[var(--z-b)] text-[var(--z-b)] bg-[rgba(53,208,165,0.1)]"
+                        : "border-white/10 text-[#c8ccd6] hover:border-[var(--z-b)]/50"
                     }`}
                   >
                     {v.label}
@@ -2868,16 +2875,61 @@ export default function DronePetPanel() {
                 // WAVE 6 — user slider is master; circadian model rides on top
                 neuralRef.current.setRate(v * circadianVoice().rate);
               }}
-              className="flex-1 accent-[#f0b90b]"
+              className="flex-1 accent-[var(--z-a)]"
             />
-            <span className="font-mono text-[10px] text-[#f0b90b]">{voiceSpeed.toFixed(2)}×</span>
+            <span className="font-mono text-[10px] text-[var(--z-a)]">{voiceSpeed.toFixed(2)}×</span>
           </div>
         </div>
+
+        {/* --- appearance (theme settings) ------------------------------------------ */}
+        <details className="glass-soft rounded-xl p-3">
+          <summary className="hud-label cursor-pointer opacity-80">APPEARANCE · theme, glow, motion</summary>
+          <div className="space-y-2 pt-2">
+            <div>
+              <div className="hud-label pb-1 opacity-70">COLOR THEME</div>
+              <div className="flex gap-2 flex-wrap">
+                {Object.entries(THEME_PRESETS).map(([name, p]) => (
+                  <button
+                    key={name}
+                    onClick={() => setTheme({ ...theme, ...p })}
+                    title={`${name} — primary ${p.a}, secondary ${p.b}`}
+                    className={`px-2 py-1 rounded-md border text-[9px] tracking-widest transition-colors ${theme.a === p.a ? "border-white/40" : "border-white/10 hover:border-white/25"}`}
+                    style={{ color: p.a }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: p.a, boxShadow: `0 0 6px ${p.a}` }} />
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: p.b }} />
+                      {name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="hud-label opacity-70">GLOW</span>
+              {([0, 22, 33, 51] as const).map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setTheme({ ...theme, glow: g })}
+                  className={`px-2 py-0.5 rounded border text-[9px] tracking-widest transition-colors ${theme.glow === g ? "border-[var(--z-a)]/60 text-[var(--z-a)]" : "border-white/10 text-[#8b8f9c] hover:border-white/25"}`}
+                >
+                  {g === 0 ? "OFF" : g <= 22 ? "SOFT" : g <= 33 ? "MID" : "LOUD"}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setTheme({ ...theme, calm: !theme.calm })}
+              className={`px-2 py-1 rounded-md border text-[9px] tracking-widest transition-colors ${theme.calm ? "border-[var(--z-b)]/60 text-[var(--z-b)]" : "border-white/10 text-[#8b8f9c] hover:border-white/25"}`}
+            >
+              {theme.calm ? "✓ CALM MODE — the interface holds still" : "CALM MODE — reduce all motion"}
+            </button>
+          </div>
+        </details>
 
         {/* --- about her ---------------------------------------------------------------- */}
         <div className="glass-soft rounded-xl p-3 space-y-1">
           <div className="hud-label">ABOUT ZOLA</div>
-          <div className="flex justify-between text-[10px] text-[#c8ccd6]"><span>personality</span><span className="text-[#f0b90b]">{memory.describeProfile()}</span></div>
+          <div className="flex justify-between text-[10px] text-[#c8ccd6]"><span>personality</span><span className="text-[var(--z-a)]">{memory.describeProfile()}</span></div>
           <div className="flex justify-between text-[10px] text-[#c8ccd6]"><span>sessions alive</span><span className="font-mono">{memory.snapshot.stats.sessions}</span></div>
           <div className="flex justify-between text-[10px] text-[#c8ccd6]"><span>commands taken</span><span className="font-mono">{memory.snapshot.stats.commands}</span></div>
           <div className="flex justify-between text-[10px] text-[#c8ccd6]"><span>flight hours</span><span className="font-mono">{memory.getLogbook().hours.toFixed(2)} h · {memory.getLogbook().flights} flights</span></div>
@@ -2893,7 +2945,7 @@ export default function DronePetPanel() {
         <div className="glass-soft rounded-xl p-3 h-40 overflow-y-auto space-y-1.5">
           {log.slice(-10).map((e, i) => (
             <div key={i} className="leading-relaxed">
-              <span className={e.who === "you" ? "text-[#5ac8fa]" : e.who === "aura" ? "text-[#f0b90b]" : "text-[#8b8f9c]"}>
+              <span className={e.who === "you" ? "text-[var(--z-info)]" : e.who === "aura" ? "text-[var(--z-a)]" : "text-[#8b8f9c]"}>
                 {e.who === "you" ? "you:" : e.who === "aura" ? "aura:" : "sys:"}
               </span>{" "}
               <span className={e.who === "sys" ? "text-[#8b8f9c]" : "text-[#e9e7dc]"}>{e.text}</span>
@@ -2903,12 +2955,12 @@ export default function DronePetPanel() {
 
         {/* --- the brain is the interface — manual chips collapsed ------------------- */}
         <details className="group">
-          <summary className="hud-label text-[9px] text-[#8b8f9c] hover:text-[#f0b90b] cursor-pointer select-none">
+          <summary className="hud-label text-[9px] text-[#8b8f9c] hover:text-[var(--z-a)] cursor-pointer select-none">
             MANUAL OVERRIDE · {CHIPS.length} QUICK COMMANDS (the brain handles these verbally)
           </summary>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {CHIPS.map(([cmd, label]) => (
-              <button key={cmd} onClick={() => handleCommand(cmd)} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#f0b90b]/60 hover:text-[#f0b90b] transition-colors">
+              <button key={cmd} onClick={() => handleCommand(cmd)} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[var(--z-a)]/60 hover:text-[var(--z-a)] transition-colors">
                 {label}
               </button>
             ))}
@@ -2925,9 +2977,9 @@ export default function DronePetPanel() {
           <input
             name="cmd"
             placeholder={micOn ? "speak, or type a command…" : "type a command, or attach the MIC…"}
-            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-[#e9e7dc] outline-none focus:border-[#f0b90b]/60"
+            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-[#e9e7dc] outline-none focus:border-[var(--z-a)]/60"
           />
-          <button type="submit" className="px-3 rounded-lg border border-[#f0b90b]/60 text-[#f0b90b] hover:bg-[rgba(240,185,11,0.12)] transition-colors">
+          <button type="submit" className="px-3 rounded-lg border border-[var(--z-a)]/60 text-[var(--z-a)] hover:bg-[rgba(240,185,11,0.12)] transition-colors">
             SEND
           </button>
         </form>
@@ -2951,7 +3003,7 @@ function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: (
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
         on
-          ? "border-[#f0b90b] text-[#f0b90b] bg-[rgba(240,185,11,0.12)]"
+          ? "border-[var(--z-a)] text-[var(--z-a)] bg-[rgba(240,185,11,0.12)]"
           : "border-white/15 text-[#8b8f9c] hover:border-white/30"
       }`}
     >

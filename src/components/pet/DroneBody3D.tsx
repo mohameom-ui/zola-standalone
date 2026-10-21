@@ -438,12 +438,20 @@ export default function DroneBody3D({
     >
       <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}
         onCreated={({ gl }) => { gl.toneMappingExposure = 1.55; }}>
-        {/* the studio: she deserves a photo shoot, not an interrogation */}
-        <ambientLight intensity={0.9} />
-        <directionalLight position={[3, 5, 4]} intensity={2.6} color="#f4f6fb" />
-        <directionalLight position={[-4, 2, -3]} intensity={1.2} color={accentColor} />
-        <directionalLight position={[0, 2, -5]} intensity={1.8} color="#8ecfff" />
+        {/* THE STUDIO — a photographic three-point rig: warm key, HER color as
+          the rim (she is lit by her own theme), cool fill; fog for depth; a
+          contact shadow so she stands ON the floor, not above it */}
+        <fog attach="fog" args={["#10141f", 7, 15]} />
+        <hemisphereLight args={["#3a4a6b", "#0a0c12", 0.55]} />
+        <directionalLight position={[2.5, 4.5, 3.5]} intensity={2.4} color="#fff2dc" />
+        <directionalLight position={[-3.5, 1.6, -4]} intensity={2.2} color={accentColor} />
+        <directionalLight position={[0, 1.2, 4.5]} intensity={0.55} color="#8ecfff" />
         <gridHelper args={[6, 24, "#1c2230", "#141a26"]} position={[0, -1.05, 0]} />
+        {/* contact shadow — grounds her silhouette */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.049, 0]}>
+          <circleGeometry args={[0.55, 48]} />
+          <meshBasicMaterial color="#000000" transparent opacity={0.5} depthWrite={false} />
+        </mesh>
         <Suspense fallback={null}>
           <SceneRig
             accentColor={accentColor}

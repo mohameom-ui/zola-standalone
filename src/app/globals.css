@@ -2,6 +2,23 @@
 
 body { background: #040507; color: #e9e7dc; }
 
+/* her color language — defaults; the theme settings override per session.
+   Every accent in her panel and her 3D halo reads from these tokens. */
+:root {
+  --z-a: #f0b90b;      /* primary accent (her gold) */
+  --z-b: #35d0a5;      /* secondary accent (her sovereign green) */
+  --z-warn: #ff9f43;
+  --z-info: #5ac8fa;
+  --z-danger: #ff4d4f;
+}
+
+/* CALM MODE — her settings can ask the interface to hold still:
+   no pings, no pulses, no slow glows. Same information, zero motion. */
+.zola-calm *, .zola-calm *::before, .zola-calm *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+}
+
 .glass-soft { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(8px); }
 .glass-panel { background: rgba(10,13,22,0.85); border: 1px solid rgba(240,185,11,0.15); backdrop-filter: blur(14px); }
 .hud-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #8b8f9c; }

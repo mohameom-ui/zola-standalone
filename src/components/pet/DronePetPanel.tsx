@@ -21,6 +21,7 @@ import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
+import { lmStudioVision } from "@/lib/pet/llm";
 import { emotionFromTrack } from "@/lib/pet/advancedSensors";
 import { checkForUpdates, installPack } from "@/lib/pet/updates";
 import { pickSpontaneous, shouldSelfMove, chooseGesture } from "@/lib/pet/spontanea";
@@ -1216,9 +1217,19 @@ export default function DronePetPanel() {
             chirpsRef.current.chirp("curious");
             flash(`${memory.displayName(item).toUpperCase()} MOVED`);
           } else if (!d.certain && !uncertainAnnouncedRef.current.has(d.label)) {
-            // weak sighting: honest uncertainty instead of silence
+            // weak sighting: honest uncertainty instead of silence —
+            // then the DEEP SENSE: her frame goes to the Brain Studio's
+            // vision model (if LM Studio is serving one) before she gives up
             uncertainAnnouncedRef.current.add(d.label);
             say(`I think I see a ${d.label}? Show me closer so I can be sure.`, { interrupt: false });
+            const frame = camCanvasRef.current?.toDataURL("image/jpeg", 0.6);
+            if (frame) {
+              void lmStudioVision(frame).then((id) => {
+                if (!id) return;
+                say(`Deep sense: ${id}. The big brain resolved my doubt.`, { interrupt: false });
+                pushLog("aura", `VISION-STUDIO: ${id} (deep-sense identification)`);
+              });
+            }
           }
         }
         // WAVE 5 — SEMANTIC STACKING: two certain detections where one's bottom

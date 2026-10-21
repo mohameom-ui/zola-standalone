@@ -161,6 +161,39 @@ export class LocalGenie {
   }
 }
 
+/**
+ * LM STUDIO VISION — her Optic-Rizz Array's deep-sense mode. Sends a
+ * camera frame to a vision-capable model served by the Brain Studio
+ * (any model with an mmproj: gemma-4, Qwen3.5, Bonsai). Returns a
+ * one-line identification, or null when the studio is offline.
+ */
+export async function lmStudioVision(imageDataUrl: string, question = "Identify the main object in this image in one short line. Be precise, include brand/type if visible."): Promise<string | null> {
+  try {
+    const res = await fetch("http://localhost:1234/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify({
+        stream: false,
+        max_tokens: 80,
+        messages: [
+          { role: "system", content: "You are Zola's optical cortex. Answer in one short line, no preamble." },
+          { role: "user", content: [
+            { type: "text", text: question },
+            { type: "image_url", image_url: { data: imageDataUrl } },
+          ] },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const line = (data.choices?.[0]?.message?.content ?? "").trim();
+    return line || null;
+  } catch {
+    return null; // the studio is offline — her local classifier carries on
+  }
+}
+
 export class LlmConsultant {
   enabled = false;
   model = "llama3.1:8b";

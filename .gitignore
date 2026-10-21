@@ -1,6 +1,12 @@
 node_modules/
 .next/
 *.log
+
+# build/IDE artifacts — not project code
+tsconfig.tsbuildinfo
+
+# scratch screenshots from canvas captures
+Saved/
 __pycache__/
 public/models/
 public/sfx/zola/animal/

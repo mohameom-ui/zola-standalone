@@ -168,19 +168,29 @@ export class LocalGenie {
  * identification, or null when no vision brain is available — she
  * never fakes a sight she doesn't have.
  */
+// Cached vision-brain pick — a 2.5s /api/tags round-trip on EVERY frame is
+// wasted motion; the installed set rarely changes, so remember it briefly.
+let visionBrainCache: { name: string; pickedAt: number } | null = null;
+const VISION_CACHE_TTL_MS = 5 * 60_000;
+
 export async function ollamaVision(imageDataUrl: string, question = "Identify the main object in this image in one short line. Be precise, include brand/type if visible."): Promise<string | null> {
   try {
-    // pick a vision-capable brain Ollama actually has installed
-    const list = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(2500) });
-    if (!list.ok) return null;
-    const models = ((await list.json()) as { models?: { name: string }[] }).models ?? [];
-    const prefs = [/llama3\.2-vision/i, /llava/i, /moondream/i, /minicpm-v/i, /qwen.*vl/i];
-    let model: string | null = null;
-    for (const p of prefs) {
-      const hit = models.find((m) => p.test(m.name));
-      if (hit) { model = hit.name; break; }
+    // pick a vision-capable brain Ollama actually has installed (cached 5 min)
+    let model: string | null = visionBrainCache && (Date.now() - visionBrainCache.pickedAt < VISION_CACHE_TTL_MS)
+      ? visionBrainCache.name
+      : null;
+    if (!model) {
+      const list = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(2500) });
+      if (!list.ok) return null;
+      const models = ((await list.json()) as { models?: { name: string }[] }).models ?? [];
+      const prefs = [/llama3\.2-vision/i, /llava/i, /moondream/i, /minicpm-v/i, /qwen.*vl/i];
+      for (const p of prefs) {
+        const hit = models.find((m) => p.test(m.name));
+        if (hit) { model = hit.name; break; }
+      }
+      if (!model) return null; // no vision brain installed — honest refusal
+      visionBrainCache = { name: model, pickedAt: Date.now() };
     }
-    if (!model) return null; // no vision brain installed — honest refusal
     const res = await fetch("http://localhost:11434/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -188,6 +198,7 @@ export async function ollamaVision(imageDataUrl: string, question = "Identify th
       body: JSON.stringify({
         model,
         stream: false,
+        keep_alive: "30m", // her optic cortex stays resident between glances
         max_tokens: 80,
         messages: [
           { role: "system", content: "You are Zola's optical cortex. Answer in one short line, no preamble." },
@@ -215,6 +226,23 @@ export class LlmConsultant {
   get isOnline() { return this.online; }
   get brainSource() { return "ollama" as const; }
 
+  /** Keep her brain HOT — Ollama unloads idle models after ~5 minutes, and a
+   * cold load costs seconds of first-word latency. An empty-prompt generate
+   * with keep_alive pins the weights in RAM. */
+  private async warmUp(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: this.model, keep_alive: "30m" }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   /** SOVEREIGN BRAIN — she consults only her own Ollama server (:11434).
    * No external studio dependency; her mind is entirely hers. */
   async checkAvailable(): Promise<boolean> {
@@ -234,6 +262,7 @@ export class LlmConsultant {
           const fits = models.find((t) => (t.size ?? 0) < 9_500_000_000);
           if (fits) this.model = fits.name;
         }
+        void this.warmUp(); // preload the chosen brain in the background
       }
     } catch {
       this.online = false;
@@ -256,6 +285,7 @@ export class LlmConsultant {
       body: JSON.stringify({
         model: this.model,
         stream: false,
+        keep_alive: "30m", // never pay the cold-load tax mid-conversation
         format: "json", // Ollama constrained decoding → reliable JSON
         options: { temperature: 0.7, num_predict: 400 },
         messages: [
@@ -283,6 +313,7 @@ export class LlmConsultant {
       body: JSON.stringify({
         model: this.model,
         stream: false,
+        keep_alive: "30m",
         options: { temperature: 0.9, num_predict: maxTokens },
         messages: [{ role: "user", content: prompt }],
       }),

@@ -4,7 +4,7 @@
   "private": true,
   "description": "ZOLA — Drone AI Pet (standalone web brain)",
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "next dev --turbopack -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
     "test": "vitest run"

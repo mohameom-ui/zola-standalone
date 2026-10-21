@@ -16,3 +16,6 @@ public/assets/ui/icons/
 public/assets/ui/prompts/
 public/assets/ui/rpg-expansion/
 public/assets/textures/
+
+# the restored Blender portable — a tool, not project code
+Tools/blender-5.2.2-windows-x64/

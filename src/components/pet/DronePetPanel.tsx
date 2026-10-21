@@ -42,7 +42,7 @@ import { AuraMemory } from "@/lib/pet/memory";
 import { SafetyGovernor, DEFAULT_LIMITS } from "@/lib/pet/safety";
 import { LlmConsultant, LocalGenie, type LlmDecision } from "@/lib/pet/llm";
 import { HealthMonitor } from "@/lib/pet/healthMonitor";
-import { SELF_BUILD_PROMPT, parseSelfBuild, installCapability } from "@/lib/pet/selfBuilder";
+import { SELF_BUILD_PROMPT, parseSelfBuild, installCapability, validateCapability, normalizeDraft, type GeneratedCapability } from "@/lib/pet/selfBuilder";
 import { SoundWatch, PetChirps } from "@/lib/pet/sound";
 import { LocalEars } from "@/lib/pet/earsLocal";
 import { SfxFiles } from "@/lib/pet/sfxFiles";
@@ -72,6 +72,20 @@ const MOOD_LABEL: Record<Mood, string> = {
 };
 
 interface LogEntry { who: "you" | "aura" | "sys"; text: string; at: number }
+
+// THE SELF-BUILD LEDGER — capabilities she forged in past sessions. The
+// SELF_BUILD_PROMPT promises "the capability persists"; this makes it true.
+const SELF_BUILDS_KEY = "zola_self_builds_v1";
+function loadSelfBuilds(): GeneratedCapability[] {
+  try { return JSON.parse(localStorage.getItem(SELF_BUILDS_KEY) ?? "[]") as GeneratedCapability[]; } catch { return []; }
+}
+function rememberSelfBuild(cap: GeneratedCapability): void {
+  try {
+    const all = loadSelfBuilds().filter((c) => c.id !== cap.id);
+    all.push(cap);
+    localStorage.setItem(SELF_BUILDS_KEY, JSON.stringify(all.slice(-40))); // the ledger stays lean
+  } catch { /* best-effort */ }
+}
 
 const CHIPS = [
   ["come here", "COME"], ["follow me", "FOLLOW"], ["do a trick", "TRICK"],
@@ -470,7 +484,8 @@ export default function DronePetPanel() {
     const voice = t
       ? `Your current mode: ${cur.name} (${cur.archetype}). Voice now: warmth ${Math.round(t.warmth * 100)}%, energy ${Math.round(t.energy * 100)}%, sass ${Math.round(t.sass * 100)}%, formality ${Math.round(t.formality * 100)}%. Speak from this mode's character — a ${t.sass > 0.7 ? "sharp-tongued" : t.warmth > 0.7 ? "warm" : "cool"} ${t.energy > 0.7 ? "energetic" : "measured"} presence.`
       : "";
-    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${emoLine} ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.`;
+    const selfBuilds = loadSelfBuilds();
+    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${emoLine} ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>, build:<capability to write>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.${selfBuilds.length ? `\nCapabilities you BUILT yourself: ${selfBuilds.map((b) => `${b.id} — ${b.description}`).join("; ")}. To USE one: ACTION: run:<id> args:<json of its inputs>.` : ""}`;
   }, [memory, brain, persona]);
 
   // v2.4 CORTEX — manual dream cycle (the auto-wrap runs at 17-19h; the
@@ -616,26 +631,48 @@ export default function DronePetPanel() {
       content: h.text,
     }));
 
-    // THE SELF-BUILDER: "build:<capability>" — she writes, validates, and
-    // installs her own capability (the sandbox safety lines enforce the rest)
+    // THE SELF-BUILDER: "build:<capability>" — she writes, her own gate judges,
+    // she FIXES her draft from the gate's report, then the REAL code installs
+    // (no stubs — Rule 2) into her CORTEX and her permanent ledger.
     if (text.startsWith("build:")) {
       const task = text.slice(6).trim();
       if (!task) { say("Build what? Give me a capability name after the colon."); return; }
       say(`Forging a new capability: ${task}. Give me a moment — I am writing my own code.`);
       try {
-        const raw = await llmRef.current.complete(SELF_BUILD_PROMPT + "\nTASK: " + task, 300);
-        const code = raw.match(/\`\`\`(?:typescript|ts|javascript)?\n([\s\S]*?)\`\`\`/)?.[1] ?? raw;
+        const forge = async (extra?: string): Promise<string | null> => {
+          const raw = await llmRef.current.complete(SELF_BUILD_PROMPT + "\nTASK: " + task + (extra ? `\n${extra}` : ""), 300);
+          const code = raw.match(/\`\`\`(?:typescript|ts|javascript)?\n([\s\S]*?)\`\`\`/)?.[1] ?? raw;
+          return code.trim() || null;
+        };
+        let code = await forge();
+        if (!code) { say("I could not shape that into a capability. Ask me again with more detail."); return; }
+        // THE SELF-CORRECTION LOOP — propose, get judged by her own gate, fix
+        // from the gate's report (proven live: her brain's first drafts need it)
+        let errors = validateCapability(normalizeDraft(code));
+        let attempt = 0;
+        while (errors && attempt < 2 && code) {
+          attempt += 1;
+          pushLog("sys", `SELF-BUILD draft ${attempt} rejected: ${errors[0]}`);
+          code = await forge(`Your previous draft was rejected by your own sandbox:\n${code}\nRejection reason: ${errors.join("; ")}.\nReturn ONLY the corrected function body.`);
+          if (code) errors = validateCapability(normalizeDraft(code));
+        }
+        if (errors || !code) {
+          say("My safety lines rejected that build — the code crossed a line I do not cross. Try a different capability.");
+          pushLog("sys", `SELF-BUILD rejected by the sandbox validator after ${attempt} draft${attempt === 1 ? "" : "s"}`);
+          return;
+        }
         const shaped = { ...parseSelfBuild("build:" + task, code)!, description: "Self-built capability: " + task, createdAt: new Date().toISOString(), task };
         if (!shaped.id) { say("I could not shape that into a capability. Ask me again with more detail."); return; }
         const ok = installCapability(shaped, (cap) => {
           cortexRef.current.register({
             id: cap.id, kind: "system", label: cap.label, description: cap.description,
-            run: () => `Capability ${cap.label} — executed.`,
+            run: (args) => cap.run(args ?? {}), // HER REAL CODE — no canned lines
           });
+          rememberSelfBuild(shaped); // the ledger — "persists" becomes true
         });
         if (ok) {
           say(`Done. ${shaped.label} is part of me now — permanently. Ask for it anytime.`);
-          pushLog("sys", `SELF-BUILD installed: ${shaped.id} (sandbox-validated)`);
+          pushLog("sys", `SELF-BUILD installed: ${shaped.id} (sandbox-validated, ledgered)`);
         } else {
           say("My safety lines rejected that build — the code crossed a line I do not cross. Try a different capability.");
           pushLog("sys", "SELF-BUILD rejected by the sandbox validator");
@@ -644,6 +681,20 @@ export default function DronePetPanel() {
         say("My big brain is not reachable for forging right now. I will build it when the deep brain wakes.");
       }
       return;
+    }
+    // USING a self-built capability: run:<id> args:<json> — her brain extracts
+    // the arguments from the request and invokes her own code
+    if (text.startsWith("run:")) {
+      const rest = text.slice(4);
+      const sp = rest.indexOf(" args:");
+      const id = (sp === -1 ? rest : rest.slice(0, sp)).trim();
+      let args: Record<string, unknown> = {};
+      if (sp !== -1) { try { args = JSON.parse(rest.slice(sp + 6).trim()); } catch { /* args optional */ } }
+      if (cortexRef.current.has(id)) {
+        void cortexRef.current.execute(id, undefined, args).then((line) => { if (line) say(line); refreshCounts(); });
+        return true;
+      }
+      return false;
     }
 
     // Tier 1: Ollama (if installed) — strongest local brain
@@ -1936,6 +1987,15 @@ export default function DronePetPanel() {
       return `Persona shift: ${name}.`;
     });
     c.onLog((who, text) => pushLog(who, text));
+    // SELF-BUILDS REINCARNATE — capabilities she forged in past sessions
+    // reinstall from her ledger through the same gate as the day she wrote them
+    const saved = loadSelfBuilds();
+    for (const b of saved) {
+      installCapability(b, (cap) => {
+        c.register({ id: cap.id, kind: "system", label: cap.label, description: cap.description, run: (args) => cap.run(args ?? {}) });
+      });
+    }
+    if (saved.length) pushLog("sys", `[CORTEX] ${saved.length} self-built capabilit${saved.length === 1 ? "y" : "ies"} reincarnated from her ledger`);
     pushLog("sys", `[CORTEX] ${c.size} capabilities registered`);
   }, [runIntegrity, exportVlog, triggerDream, handleCommand, memory, pushLog]);
 

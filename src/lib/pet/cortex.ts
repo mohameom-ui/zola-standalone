@@ -11,7 +11,7 @@ export interface Capability {
   kind: "system" | "mode";
   label: string;        // the human-readable name
   description: string;  // what it does — the brain reads this
-  run: () => string | Promise<string>; // executes; returns her spoken line
+  run: (args?: Record<string, unknown>) => string | Promise<string>; // executes; returns her spoken line
 }
 
 export interface CortexState {
@@ -71,12 +71,14 @@ export class Cortex {
     };
   }
 
-  /** Execute a capability by id. Returns her spoken line, or null if unknown. */
-  async execute(id: string, state?: CortexState): Promise<string | null> {
+  /** Execute a capability by id. Returns her spoken line, or null if unknown.
+   *  args: for self-built computation capabilities — the brain extracts them
+   *  from the request and passes them through. */
+  async execute(id: string, state?: CortexState, args?: Record<string, unknown>): Promise<string | null> {
     const cap = this.systemCaps.get(id) ?? this.modeShifts.get(id);
     if (!cap) return null;
     this.log("aura", `[CORTEX] ${cap.label}`);
-    const line = await cap.run();
+    const line = await cap.run(args);
     if (line) this.log("aura", line);
     return line ?? `${cap.label} — done.`;
   }

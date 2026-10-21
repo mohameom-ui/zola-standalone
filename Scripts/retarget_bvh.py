@@ -13,6 +13,11 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = dict(zip(argv[0::2], argv[1::2]))
 LIST, RIG = opts.get("--list", ""), opts.get("--rig", "")
 OUT, RENDER = os.path.abspath(opts.get("--out", "zola-anims")), opts.get("--render", "0") == "1"
+# --stride N: keyframe every Nth source frame. A BVH at 120 fps baked at the
+# scene's 24 fps plays ~5x slow — acceptable for expressive gestures (the
+# whole library is deliberately graceful), WRONG for locomotion: a walk must
+# move at true gait speed. --stride 5 on a 120 fps BVH => real-time gait.
+STRIDE = max(1, int(opts.get("--stride", "1")))
 
 # CMU BVH joint  ->  Quaternius Universal rig bone (verified from both files)
 BONE_MAP = {
@@ -104,8 +109,10 @@ def retarget(src, dst, frame_end):
     action = bpy.data.actions.new("zola_tmp")
     dst.animation_data_create()
     dst.animation_data.action = action
-    for f in range(1, frame_end + 1):
+    for f in range(1, frame_end + 1, STRIDE):
         scene.frame_set(f)
+        out_frame = (f - 1) // STRIDE + 1   # resampled timeline: stride 5 on a
+                                            # 120 fps BVH = real-time at 24 fps
         for sb, db, offset, parent_rest, bone_rest, _ in pairs:
             src_world = (src.matrix_world @ sb.matrix).to_quaternion()
             desired_arm = W_dst_inv @ (offset @ src_world)     # dst armature space
@@ -116,7 +123,7 @@ def retarget(src, dst, frame_end):
             else:
                 local = bone_rest.inverted() @ desired_arm
             db.rotation_quaternion = local
-            db.keyframe_insert("rotation_quaternion", frame=f)
+            db.keyframe_insert("rotation_quaternion", frame=out_frame)
     scene.frame_set(1)
     return len(pairs)
 
@@ -172,7 +179,12 @@ if __name__ == "__main__":
         if src is None:
             print(f"[retarget] SKIP {name}: no armature in {rel}")
             continue
-        frame_end = max(int(bpy.context.scene.frame_end), 2)
+        # the BVH's own action knows its true length — the scene may still be
+        # sitting at Blender's default frame_end (250), which silently TRUNCATED
+        # every earlier bake to its first 250 source frames
+        src_action_probe = src.animation_data.action if src.animation_data else None
+        true_end = int(src_action_probe.frame_range[1]) if src_action_probe else 0
+        frame_end = max(true_end, int(bpy.context.scene.frame_end), 2)
         dst = import_rig(RIG)
         if dst is None:
             print(f"[retarget] SKIP {name}: no rig armature found")

@@ -107,7 +107,7 @@ export const GESTURE_REPERTOIRE: readonly string[] = [
   "bow_01", "bow_02", "curtsey_01", "dance_01", "dance_02", "march_01",
   "wave_01", "wave_02", "shrug_01", "spin_01", "stretch_01", "throw_01",
   "peekaboo_01", "pickup_01", "rollover_01", "crawl_01", "getup_01",
-  "laydown_01", "mope_01",
+  "laydown_01", "mope_01", "walk_01",
 ];
 
 export function worldManifest(): ManifestEntry[] {

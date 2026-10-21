@@ -79,3 +79,54 @@ export function shouldSelfMove(persona: string, mood: string, idleSeconds: numbe
   const factor = gate === "still" ? 2.5 : mood === "excited" ? 0.7 : 1;
   return idleSeconds >= base * factor && rand < 0.8;
 }
+
+// ---- v2.7: the mood → gesture chooser -------------------------------------
+// She picks movement that FITS how she feels. Events bias the pool; her
+// mood gates it; the last clip never repeats back-to-back (a pet who
+// bowes twice in a row is a broken record, not a personality).
+
+const MOOD_GESTURE_POOLS: Record<string, string[]> = {
+  happy: ["wave_01", "wave_02", "spin_01", "dance_01", "peekaboo_01"],
+  curious: ["peekaboo_01", "stretch_01", "shrug_01", "pickup_01"],
+  excited: ["dance_01", "dance_02", "spin_01", "throw_01", "march_01"],
+  idle: ["stretch_01", "shrug_01"],
+  sleepy: ["stretch_01", "mope_01"],
+  alarmed: ["getup_01", "crawl_01"],
+  sleeping: [], // she is asleep — she does not perform on command
+};
+
+const EVENT_BIAS: Record<string, string[]> = {
+  pet: ["peekaboo_01", "wave_01", "spin_01"],
+  greet: ["wave_01", "bow_02", "curtsey_01"],
+  praise: ["bow_01", "curtsey_01", "spin_01"],
+  task_done: ["throw_01", "dance_01", "march_01"],
+  confused: ["shrug_01"],
+};
+
+export interface GestureChoice {
+  clip: string;
+  reason: string;
+}
+
+/**
+ * Pick a gesture that fits her mood and the moment's event. Returns null
+ * when nothing fits (sleeping mood, unknown event with no pool). The
+ * `lastClip` guard keeps her from repeating herself back-to-back.
+ */
+export function chooseGesture(
+  mood: string,
+  event: string | null,
+  rand: number, // 0..1, caller-supplied for determinism/testability
+  lastClip?: string | null,
+): GestureChoice | null {
+  const bias = event ? EVENT_BIAS[event] : undefined;
+  const pool = bias ?? MOOD_GESTURE_POOLS[mood] ?? [];
+  if (pool.length === 0) return null;
+  // the anti-repeat filter applies to ANY pool size — a one-clip pool that
+  // just played means she holds still rather than become a broken record
+  const candidates = lastClip ? pool.filter((c) => c !== lastClip) : pool;
+  if (candidates.length === 0) return null;
+  const clip = candidates[Math.floor(rand * candidates.length) % candidates.length];
+  const reason = bias ? `event:${event}` : `mood:${mood}`;
+  return { clip, reason };
+}

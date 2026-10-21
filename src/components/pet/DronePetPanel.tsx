@@ -24,7 +24,7 @@ import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
 import { emotionFromTrack } from "@/lib/pet/advancedSensors";
 import { checkForUpdates, installPack } from "@/lib/pet/updates";
-import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
+import { pickSpontaneous, shouldSelfMove, chooseGesture } from "@/lib/pet/spontanea";
 import { Cortex } from "@/lib/pet/cortex";
 import { allPersonas, modeByName } from "@/lib/pet/modes";
 import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
@@ -132,6 +132,7 @@ export default function DronePetPanel() {
   const batteryRef = useRef(0.86);
   const lastTickRef = useRef(0);
   const batterySyncAtRef = useRef(0);
+  const lastGestureRef = useRef<string | null>(null);
   const autoScanTried = useRef(false);
   const uncertainAnnouncedRef = useRef<Set<string>>(new Set());
   const movedAnnouncedRef = useRef<Set<string>>(new Set());
@@ -1650,10 +1651,16 @@ export default function DronePetPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // petting: click her in the hangar — she reacts with body and voice
+  // petting: click her in the hangar — she reacts with body and voice,
+  // and the movement she chooses fits her mood (never the same twice in a row)
   const petZola = useCallback(() => {
     const line = brainRef.current?.pet();
     if (line) { say(line); chirpsRef.current.chirp("happy"); }
+    const pick = chooseGesture(brainRef.current?.getMood() ?? "curious", "pet", Math.random(), lastGestureRef.current);
+    if (pick && GESTURE_REPERTOIRE.includes(pick.clip)) {
+      lastGestureRef.current = pick.clip;
+      gestureApiRef.current?.playGesture(pick.clip);
+    }
   }, [say]);
 
   // TRAINING: apply her self-tuned gains + accumulate flight hours (REAL mode)

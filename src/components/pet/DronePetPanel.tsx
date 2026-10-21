@@ -22,6 +22,7 @@ import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
+import { emotionFromTrack } from "@/lib/pet/advancedSensors";
 import { checkForUpdates, installPack } from "@/lib/pet/updates";
 import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
 import { Cortex } from "@/lib/pet/cortex";
@@ -437,6 +438,12 @@ export default function DronePetPanel() {
     const items = snap.items.slice(-8).map((i) => `${i.customName ?? i.label}(${i.sightings})`).join(", ") || "none yet";
     const facts = snap.facts.slice(-6).map((f) => f.text).join("; ") || "none yet";
     const visible = (visionRef.current?.objects ?? []).map((o) => o.label).join(", ") || "nothing";
+    // the emotional intelligence: she READS their face and responds to the
+    // feeling — not just the words (the advanced sensors feed this)
+    const emo = emotionFromTrack(trackRef.current);
+    const emoLine = emo && emo.confidence > 0.35
+      ? `Their expression right now: ${emo.emotion} (confidence ${(emo.confidence * 100).toFixed(0)}%${emo.stress > 0.4 ? `, stress ${(emo.stress * 100).toFixed(0)}%` : ""}). Respond to HOW THEY FEEL first — the words are secondary.`
+      : "";
     const today = memory.dailyReport() ?? "nothing happened yet today";
     const profile = memory.describeProfile();
     // the mode voice: her current mode's trait vector shapes HOW she speaks
@@ -445,7 +452,7 @@ export default function DronePetPanel() {
     const voice = t
       ? `Your current mode: ${cur.name} (${cur.archetype}). Voice now: warmth ${Math.round(t.warmth * 100)}%, energy ${Math.round(t.energy * 100)}%, sass ${Math.round(t.sass * 100)}%, formality ${Math.round(t.formality * 100)}%. Speak from this mode's character — a ${t.sass > 0.7 ? "sharp-tongued" : t.warmth > 0.7 ? "warm" : "cool"} ${t.energy > 0.7 ? "energetic" : "measured"} presence.`
       : "";
-    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.`;
+    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${emoLine} ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.`;
   }, [memory, brain, persona]);
 
   // v2.4 CORTEX — manual dream cycle (the auto-wrap runs at 17-19h; the

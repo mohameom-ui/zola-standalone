@@ -25,6 +25,11 @@ export interface ZolaMode {
   catchphrase: string;
 }
 
+// the 500 mode names — generated per the owner's directive
+// 250 mood-flavored + 250 identity-flavored, all unique
+import MODE_NAMES_DATA from "./mode-names.json";
+const MODE_NAMES: { name: string; kind: string }[] = MODE_NAMES_DATA;
+
 // the 8 hand-crafted archetypes (the existing personas, canonized)
 export const ARCHETYPES: Record<string, { traits: Traits; led: string }> = {
   SWEET:      { traits: { warmth: 0.95, energy: 0.45, sass: 0.1,  curiosity: 0.5,  formality: 0.2, loyalty: 0.95, humor: 0.4,  discipline: 0.5  }, led: "#35d0a5" },
@@ -158,3 +163,39 @@ export function rotateMode(currentId: number, mood: string, warmthHint: number):
   if (warmthHint > 0.5 && best < 0) bestId = (currentId + 1) % all.length;
   return bestId;
 }
+
+// ---------- THE BREVITY GATE ----------
+// Before any long task (reading an article, summarizing, writing a report,
+// analyzing code, compiling a vlog), she ASKS the user:
+//   "Main points brief, or the full detail?"
+// The answer sets the output format. The brain knows which tasks are
+// "long enough to ask" — it decides contextually, not on a timer.
+
+export type Brevity = "brief" | "full" | "unset";
+let brevityPreference: Brevity = "unset";
+export function getBrevity(): Brevity { return brevityPreference; }
+export function setBrevity(b: Brevity): void { brevityPreference = b; }
+
+export const LONG_TASK_PATTERNS = [
+  /read(?:ing)?\s+(?:an?\s+)?(?:article|file|document|page|report|paper|book)/i,
+  /summar[iy]z?e/i,
+  /write\s+(?:a|an|the)?\s*(?:report|essay|article|summary|analysis|review)/i,
+  /analy[zs]e\s+(?:the|this|a|an)/i,
+  /explain\s+(?:everything|all|the full|in detail)/i,
+  /compile\s+(?:a|the)?\s*(?:report|vlog|summary|digest)/i,
+  /break\s*down\s+(?:the|this|a)/i,
+  /deep\s*dive/i,
+  /full\s*(?:report|analysis|detail|breakdown)/i,
+  /research\s+(?:the|this|a)/i,
+  /compare\s+(?:and|&)?\s*contrast/i,
+];
+
+export function shouldAskBrevity(task: string): boolean {
+  return LONG_TASK_PATTERNS.some((p) => p.test(task));
+}
+
+export const BREVITY_QUESTION = "Main points brief, or the full detail? I'll match the depth to what you need.";
+export const BREVITY_ACK = {
+  brief: "Main points coming up. Lean and sharp.",
+  full: "Full detail engaged. Everything I've got.",
+};

@@ -66,6 +66,12 @@ export async function webRecon(term: string): Promise<ReconResult | null> {
     };
     const store = reconStore();
     store[norm] = entry;
+    // the ledger stays lean — at most 200 learned entries, oldest evicted first
+    const all = Object.entries(store);
+    if (all.length > 200) {
+      all.sort((a, b) => (a[1].at < b[1].at ? -1 : 1));
+      for (const [stale] of all.slice(0, all.length - 200)) delete store[stale];
+    }
     saveReconStore(store);
     return {
       term: clean,

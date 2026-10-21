@@ -97,6 +97,7 @@ export default function DronePetPanel() {
   const petMapRef = useRef<PetMap>(new PetMap());
   const mapCanvasRef = useRef<HTMLCanvasElement>(null);
   const llmRef = useRef<LlmConsultant>(new LlmConsultant());
+  const pairRef = useRef<string | null>(null);
   const healthRef = useRef<HealthMonitor>(new HealthMonitor());
   const genieRef = useRef<LocalGenie>(new LocalGenie());
   const deepEyesRef = useRef<DeepEyes>(new DeepEyes());
@@ -1765,7 +1766,7 @@ export default function DronePetPanel() {
       if (brain) {
         void fetch("/api/zola", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-zola-pair": pairRef.current ?? "" },
           body: JSON.stringify({
             mood: brain.getMood(),
             persona: brain.getPersona(),
@@ -1789,6 +1790,23 @@ export default function DronePetPanel() {
   // wire deep eyes diagnostics once
   useEffect(() => {
     deepEyesRef.current.onDiag = (m) => pushLog("sys", m);
+  }, [pushLog]);
+
+  // PAIRING — the companion relay only answers requests carrying the pair
+  // token. The token is disclosed to THIS machine only (localhost check on
+  // the server); the ready-made phone link is announced once in her log.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await fetch("/api/zola/pair");
+        if (!r.ok) { pushLog("sys", "companion relay: pairing disclosure unreachable — remote viewing stays locked"); return; }
+        const d = (await r.json()) as { ok: boolean; token?: string; companionUrl?: string | null };
+        if (!d.ok || !d.token) return;
+        pairRef.current = d.token;
+        try { localStorage.setItem("zola_pair_token", d.token); } catch { /* best-effort */ }
+        if (d.companionUrl) pushLog("sys", `companion view PAIRED — open her live view on a phone: ${d.companionUrl}`);
+      } catch { /* offline-safe */ }
+    })();
   }, [pushLog]);
 
   /** Deep Eyes: VLM description of the live frame (falls back gracefully). */

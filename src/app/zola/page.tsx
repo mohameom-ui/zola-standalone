@@ -20,10 +20,19 @@ export default function ZolaCompanionPage() {
   const [status, setStatus] = useState("connecting…");
 
   useEffect(() => {
+    // PAIRING — the relay only answers paired requests. The desktop panel
+    // prints a link ending in ?pair=<token>; carrying that once is enough,
+    // then the token persists in this device's localStorage.
+    const urlPair = new URLSearchParams(window.location.search).get("pair");
+    if (urlPair) { try { localStorage.setItem("zola_pair_token", urlPair); } catch { /* private mode */ } }
+    let pair = "";
+    try { pair = localStorage.getItem("zola_pair_token") ?? ""; } catch { pair = ""; }
+
     let alive = true;
     const pull = async () => {
       try {
-        const r = await fetch("/api/zola", { cache: "no-store" });
+        const r = await fetch("/api/zola", { cache: "no-store", headers: { "x-zola-pair": pair } });
+        if (r.status === 401) { if (alive) setStatus("unpaired — open the ?pair= link printed in Zola's panel log"); return; }
         const d = (await r.json()) as { ok: boolean; reason?: string; state?: ZolaState };
         if (!alive) return;
         if (d.ok && d.state) { setS(d.state); setStatus("live"); }

@@ -105,18 +105,15 @@ describe("the SAFETY LINES — every test is an attack", () => {
   });
 
   it("the installed capability is sandboxed — no access to the outer scope", () => {
-    // this test proves the sandbox: the generated code CANNOT see
-    // the module's variables — only the args parameter
+    // the generated code CANNOT see the module's variables — only args.
+    // Since the AST gate, this is enforced at VALIDATION time: any identifier
+    // that is not declared locally, not `args`, and not on the safe-globals
+    // list is rejected outright — there is nothing to leak at runtime.
     const secret = "THIS_SHOULD_NOT_LEAK";
-    // even if the code tries to access the parent scope, the Function
-    // constructor creates a new scope — only globalThis is reachable,
-    // and we block globalThis access via the validation
     const code = "return typeof secret !== 'undefined' ? 'LEAKED' : 'sandboxed'";
     const errors = validateCapability(code);
-    // the code itself doesn't trigger the FORBIDDEN patterns, but the
-    // runtime sandbox ensures the variable isn't visible
-    expect(errors).toBeNull(); // it passes validation
-    // the runtime isolation is guaranteed by the Function constructor
+    expect(errors).not.toBeNull(); // unknown identifier rejected before it ever runs
+    expect(errors![0]).toMatch(/identifier not allowed: secret/);
   });
 });
 

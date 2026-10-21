@@ -5,6 +5,9 @@ node_modules/
 # build/IDE artifacts — not project code
 tsconfig.tsbuildinfo
 
+# the companion relay's pair token — a door key, never committed
+.zola-pair
+
 # scratch screenshots from canvas captures
 Saved/
 __pycache__/

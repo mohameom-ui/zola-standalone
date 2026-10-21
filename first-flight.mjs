@@ -1,5 +1,5 @@
 // Zola's first flight — an automated brain: connect, take off, fly, land.
-const URL = process.argv[2] ?? "ws://172.29.1.125:8765";
+const URL = process.argv[2] ?? "ws://localhost:8765"; // WSL2 localhost forwarding reaches the relay
 const ws = new WebSocket(URL);
 let last = null;
 let armed = false;

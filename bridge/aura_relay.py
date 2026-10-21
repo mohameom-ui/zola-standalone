@@ -92,6 +92,10 @@ def connect_with_retry(connection: str, retries: int = 8, baud: int = 57600):
                 0, 0, 0, 0,
             )
             m.wait_heartbeat(timeout=5)
+            if m.target_system == 0:
+                # wait_heartbeat can time out SILENTLY — a phantom link (sys 0)
+                # must count as failure, or the relay flies into nowhere
+                raise RuntimeError("no heartbeat received (phantom link)")
             MASTER = m
             return
         except Exception as e:

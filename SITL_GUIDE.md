@@ -98,21 +98,27 @@ EOF
 ```bash
 cd ~/aura-bridge          # copy the repo's bridge/ folder here
 python3 -m venv aura-venv && source aura-venv/bin/activate
-pip install mavsdk websockets
+pip install pymavlink websockets
 
-# Option A (ArduPilot):
-python aura_relay.py --connection udp://:14551
-# Option B (PX4):
-python aura_relay.py --connection udp://:14540
+# ArduPilot — VERIFIED end-to-end on this machine: the relay talks STRAIGHT to
+# SITL's TCP master port. MAVProxy is not needed — and important: without it,
+# `--out`/`udpin:...:14551` carries NO stream (sim_vehicle's --out only takes
+# effect through MAVProxy). Direct TCP is simpler and proven:
+python aura_relay.py --connection tcp:127.0.0.1:5760
+# PX4:
+python aura_relay.py --connection tcp:127.0.0.1:4560
 ```
 
 You should see:
 ```
-[relay] FC connected
-[relay] position OK
+[relay] FC connected (sys 1)          <- a REAL sys id, never sys 0
 [relay] WebSocket listening on ws://0.0.0.0:8765
-[relay] READY. The browser brain can now connect.
+[relay] READY. The browser brain can now connect (BODY · REAL).
 ```
+
+> **Phantom-link warning:** if the log ever says `FC connected (sys 0)`, the
+> relay is talking to nobody — `wait_heartbeat` can time out silently, so the
+> relay now rejects a sys-0 link and retries (fixed in `aura_relay.py`).
 
 ## Step 5 — Give Her the Sticks (in this app, F7 panel)
 
@@ -142,13 +148,32 @@ You should see:
 
 | Symptom | Fix |
 | --- | --- |
-| Relay stuck at "waiting for flight controller" | SITL not up yet — check the sim terminal; ArduPilot: `udp://:14551`, PX4: `udp://:14540` |
+| Relay stuck at "waiting for flight controller" | SITL not up yet — check the sim terminal; ArduPilot: `tcp:127.0.0.1:5760`, PX4: `tcp:127.0.0.1:4560` |
 | `sim_vehicle.py` not found | `source ~/.bashrc` after install-prereqs; or run from `ardupilot/Tools/autotest/` |
 | Browser can't reach ws://8765 | Relay not running in WSL; `sudo ufw allow 8765` if ufw is on |
 | Offboard refuses to start | Sim needs a moment after boot; retry — the relay retries automatically once |
 | `arm denied: mode not GUIDED/OFFBOARD` | MAVSDK sets the mode itself; if it still refuses, land (BODY·SIM) and reconnect |
 | She drifts/oscillates | Normal for velocity-only control in SITL — governor clamps keep it sane |
 | mavsdk fails on Windows-native Python | Run the relay inside WSL (as above); only the browser runs on Windows |
+
+## Flight log — first verified round trip (2026-10-21)
+
+Automated brain: `first-flight.mjs` (Node ≥ 21, native WebSocket).
+
+```
+[relay] FC connected (sys 1)
+[relay] EKF ready -> mode: GUIDED -> armed — taking off
+[relay] AURA IS FLYING — the browser brain has the sticks
+
+browser:  hover 12s -> drift loop -> hover -> land
+max alt : 0.90 m (takeoff target 0.8 m)   battery: 100% -> 91%
+drift   : pos (0,0) -> (1.82, 0.57) -> back home
+finish  : landed — safe (alt 0.00, disarmed)
+```
+
+The full chain — browser velocity protocol -> WebSocket -> pymavlink relay ->
+MAVLink -> ArduPilot SITL -> physics -> telemetry back to the browser — ran
+end-to-end with the same code that will drive the physical quad.
 
 ## Why this matters
 Every line of brain code exercised here — perception, personality, task

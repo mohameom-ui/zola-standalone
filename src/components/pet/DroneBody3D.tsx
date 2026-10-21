@@ -96,7 +96,20 @@ function SceneRig({
 }) {
   const gl = useThree((s) => s.gl);
   const gltf = useLoader(GLTFLoader, RIGGED_URL);
-  const scene = useMemo(() => gltf.scene, [gltf]);
+  const scene = useMemo(() => {
+    // texture sampling: max anisotropy on every map — her 1024px bake
+    // stops smearing at glancing angles (the real fix for texture murk
+    // until the forge honors a 2048 re-bake)
+    const maxAniso = gl.capabilities.getMaxAnisotropy();
+    gltf.scene.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+      if (!m) return;
+      for (const map of [m.map, m.normalMap, m.roughnessMap, m.emissiveMap]) {
+        if (map) { map.anisotropy = maxAniso; map.minFilter = THREE.LinearMipmapLinearFilter; map.needsUpdate = true; }
+      }
+    });
+    return gltf.scene;
+  }, [gltf, gl]);
 
   // THE HYBRID BODY — she is human-shaped and machine-honest. Gold servo
   // caps anchor to her REAL bones (they ride every gesture), and cyan
@@ -409,7 +422,7 @@ export default function DroneBody3D({
       title="pet her — she responds with body and voice"
     >
       <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}
-        onCreated={({ gl }) => { gl.toneMappingExposure = 1.35; }}>
+        onCreated={({ gl }) => { gl.toneMappingExposure = 1.55; }}>
         {/* the studio: she deserves a photo shoot, not an interrogation */}
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 5, 4]} intensity={2.6} color="#f4f6fb" />

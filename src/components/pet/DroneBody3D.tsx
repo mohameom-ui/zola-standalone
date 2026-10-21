@@ -100,6 +100,7 @@ function SceneRig({
   const sway = useRef({ t: 0 });
   const ringRef = useRef<THREE.Mesh>(null);
   const bodyRef = useRef<THREE.Group>(null);
+  const propsRef = useRef<THREE.Group>(null);
   // the HAL streams at state-change cadence — mirror it so useFrame reads
   // the latest flight state without re-binding the frame callback
   const flightRef = useRef(flight);
@@ -122,9 +123,17 @@ function SceneRig({
           const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
           mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 2.5 + spin * 2.5);
         }
+        // the Quad-Halo's four rotor discs — visible ONLY airborne, spin
+        // rate follows the real HAL RPM (her motors, made visible)
+        if (propsRef.current) {
+          propsRef.current.visible = true;
+          const discSpin = f.rpm * delta * 0.004;
+          for (const disc of propsRef.current.children) disc.rotation.y += discSpin;
+        }
       } else {
         bodyRef.current.position.y = 0;
         bodyRef.current.rotation.z = 0;
+        if (propsRef.current) propsRef.current.visible = false; // her fans STOP when she is not flying (owner directive)
       }
     }
     if (activeAction.current) return; // a gesture owns her body right now
@@ -215,6 +224,17 @@ function SceneRig({
     <group position={[0, GROUND_OFFSET, 0]}>
       <group ref={bodyRef}>
         <primitive object={scene} />
+        {/* the four 2.5-inch folding props at the Quad-Halo corners — the
+            visual proxy for her real 1204/1303.5 motors, spinning with the
+            live HAL RPM when she flies */}
+        <group ref={propsRef} visible={false}>
+          {[[-0.17, 0.17], [0.17, 0.17], [-0.17, -0.17], [0.17, -0.17]].map(([x, z], i) => (
+            <mesh key={i} position={[x, 0.88, z]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.11, 0.012, 8, 24]} />
+              <meshStandardMaterial color="#9fb2c8" emissive={accentColor} emissiveIntensity={0.25} transparent opacity={0.55} toneMapped={false} />
+            </mesh>
+          ))}
+        </group>
       </group>
       {/* the Aura-Telemetry ring — her cranial halo LEDs, emissive glow
           synced to her persona + motor state (she spans y -0.905..0.87

@@ -2019,19 +2019,7 @@ export default function DronePetPanel() {
               boxShadow: `0 0 10px ${LED_FOR_PERSONA[persona] ?? "#35d0a5"}`,
             }}
           />
-          {(["senses", "flight", "mind", "memory"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 px-2 py-1.5 rounded-lg text-[9px] tracking-widest border transition-colors ${
-                tab === t
-                  ? "border-[#f0b90b] text-[#f0b90b] bg-[rgba(240,185,11,0.1)]"
-                  : "border-white/10 text-[#8b8f9c] hover:border-white/30"
-              }`}
-            >
-              {t.toUpperCase()}
-            </button>
-          ))}
+          <span className="hud-label tracking-[0.3em]">ONE VIEW · HER WHOLE SELF, SCROLL BY SCROLL</span>
         </div>
 
         {/* --- consent gate ---------------------------------------------------- */}
@@ -2054,7 +2042,7 @@ export default function DronePetPanel() {
           </div>
         )}
 
-        {tab === "senses" && (<>
+        {(<>
         {/* --- optical feed ------------------------------------------------------ */}
         <div className="relative glass-soft rounded-xl overflow-hidden aspect-video bg-black">
           <video ref={videoRef} muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-80" />
@@ -2081,7 +2069,7 @@ export default function DronePetPanel() {
 
         </>)}
 
-        {tab === "flight" && (<>
+        {(<>
         {/* --- flight body + safety HUD ------------------------------------------ */}
         <div className="glass-soft rounded-xl p-2">
           <div className="hud-label px-1 pb-1">FLIGHT BODY · ONE BODY, GROUNDED &amp; AIRBORNE (MAVLink HAL for real hardware)</div>
@@ -2272,9 +2260,11 @@ export default function DronePetPanel() {
 
         </>)}
 
-        {/* --- controls ------------------------------------------------------------ */}
-        <div className="flex flex-wrap gap-2">
-          {tab === "senses" && (<>
+        {/* --- senses drawer: the brain runs her sensors; override folded away --- */}
+        <details className="glass-soft rounded-xl">
+          <summary className="px-3 py-2 hud-label cursor-pointer">HER SENSES · BRAIN-MANAGED <span className="text-[#8b8f9c]">(open to override)</span></summary>
+          <div className="flex flex-wrap gap-2 px-2 pb-2"><div className="flex flex-wrap gap-2">
+          {(<>
           <button
             onClick={enableSenses}
             className="w-full px-4 py-2 rounded-lg border border-[#f0b90b] text-[#f0b90b] bg-[rgba(240,185,11,0.08)] hover:bg-[rgba(240,185,11,0.18)] tracking-[0.2em] transition-colors"
@@ -2351,7 +2341,7 @@ export default function DronePetPanel() {
             VLOG ↓
           </button>
           </>)}
-          {tab === "mind" && (<>
+          {(<>
           <button
             onClick={toggleNeural}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
@@ -2389,7 +2379,7 @@ export default function DronePetPanel() {
             }}
           />
           </>)}
-          {tab === "flight" && (<>
+          {(<>
           <button onClick={dock} className="px-3 py-1.5 rounded-lg border border-[#35d0a5]/50 text-[#35d0a5] hover:bg-[rgba(53,208,165,0.1)] transition-colors tracking-widest">
             DOCK · RECHARGE
           </button>
@@ -2397,12 +2387,12 @@ export default function DronePetPanel() {
             {killed ? "KILLED" : "KILL SWITCH"}
           </button>
           </>)}
-          {tab === "senses" && (<>
+          {(<>
           <button onClick={toggleScanner} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${scannerOn ? "border-[#5ac8fa] text-[#5ac8fa] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60"}`}>
             SCANNER {scannerOn ? "ON" : "OFF"}
           </button>
           </>)}
-          {tab === "mind" && (<>
+          {(<>
           <button onClick={toggleLlm} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${llmOn ? "border-[#35d0a5] text-[#35d0a5] bg-[rgba(53,208,165,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#35d0a5]/60"}`}>
             BRAIN {llmOn ? "· LLM" : "· REFLEX"}
           </button>
@@ -2449,7 +2439,7 @@ export default function DronePetPanel() {
             </button>
           )}
           </>)}
-          {tab === "senses" && (<>
+          {(<>
           <button onClick={toggleSoundWatch} className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${soundOn ? "border-[#5ac8fa] text-[#5ac8fa] bg-[rgba(90,200,250,0.12)]" : "border-white/15 text-[#8b8f9c] hover:border-[#5ac8fa]/60"}`}>
             SOUND WATCH {soundOn ? "ON" : "OFF"}
           </button>
@@ -2460,7 +2450,7 @@ export default function DronePetPanel() {
             CHIRPS {chirpsOn ? "ON" : "MUTED"}
           </button>
           </>)}
-          {tab === "flight" && (<>
+          {(<>
           <button
             onClick={toggleBody}
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
@@ -2484,9 +2474,10 @@ export default function DronePetPanel() {
             className="w-44 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-mono text-[#e9e7dc] outline-none focus:border-[#35d0a5]/60"
           />
           </>)}
-        </div>
+        </div></div>
+        </details>
 
-        {tab === "senses" && (<>
+        {(<>
         {/* --- live audio meter ------------------------------------------------------- */}
         <div className="flex items-center gap-2 px-1">
           <span className="hud-label">AUDIO</span>
@@ -2499,7 +2490,7 @@ export default function DronePetPanel() {
 
         </>)}
 
-        {tab === "memory" && (<>
+        {(<>
         {/* --- memory (what Zola has learned) -------------------------------------- */}
         <div className="glass-soft rounded-xl p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -2560,7 +2551,7 @@ export default function DronePetPanel() {
 
         </>)}
 
-        {tab === "flight" && (<>
+        {(<>
         {/* --- mental map (top-down) ---------------------------------------------------- */}
         <div className="glass-soft rounded-xl p-2">
           <div className="hud-label px-1 pb-1">MENTAL MAP · click to place/remove obstacles (she steers around them)</div>
@@ -2598,7 +2589,7 @@ export default function DronePetPanel() {
 
         </>)}
 
-        {tab === "memory" && (<>
+        {(<>
         {/* --- her diary ----------------------------------------------------------------- */}
         <div className="glass-soft rounded-xl p-3 space-y-1">
           <div className="hud-label">HER DIARY · every day, archived</div>
@@ -2633,7 +2624,7 @@ export default function DronePetPanel() {
 
         </>)}
 
-        {tab === "mind" && (<>
+        {(<>
         {/* --- VOICE STUDIO ------------------------------------------------------------ */}
         <div className="glass-soft rounded-xl p-3 space-y-3">
           <div className="hud-label">VOICE STUDIO · hear every voice, pick yours</div>

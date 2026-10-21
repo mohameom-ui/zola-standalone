@@ -180,3 +180,25 @@ consolidation (the 2D quad sim retired; her speech bubble, petting, and
 flight state now live on her rigged body), the sovereign manifest
 cleanup, and the purge of every superseded artifact (~145 MB). Dead
 code is gone; git history preserves the lineage.
+
+## v5.x lineage — the hybrid-body era (2026-10-21)
+
+- **v5.0** THE HYBRID BODY: GestureStage (a second 3D body) retired; improv
+  chains + the brain bridge live on the ONE rigged body; gold servo caps
+  anchored to real bones + cyan spine trace nodes; exponential smoothing
+  ends the post-gesture snap.
+- **v5.1** The Greeter: known faces greeted by name with mood-fitting
+  body language (consent-gated, once per appearance).
+- **v5.2** NOW PLAYING: her current movement rides the body-language HUD,
+  live through improv chains.
+- **v5.3** The battery gate in her brain: flight-shaped commands refused
+  under the policy line, in her own words.
+- **v5.4** Charge-time estimate. Provenance note: the first push carried
+  a red test (missing import); caught on the immediate verification pass,
+  fixed, and the correction is recorded here and in the commit ledger.
+- **v5.5** flightReadiness: one call — can she fly now, and if not,
+  exactly how many seconds to ready.
+
+Standing: 112/112 tests, tsc clean, both sovereign remotes in sync.
+Next hook: v5.6 — the SITL round-trip (her MAVLink frames into a real
+ArduPilot simulator, attitude telemetry back).

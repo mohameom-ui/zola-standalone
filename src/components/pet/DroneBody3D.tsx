@@ -119,9 +119,17 @@ function SceneRig({
   });
 
   // the gesture playback: load the clip, fade in, report when done
+  // the MOTOR STATE: the props spin bright during flight-adjacent gestures
+  // (march, dance, spin, hover), dim to standby when grounded
+  const flightClips = new Set(["march_01", "dance_01", "dance_02", "spin_01"]);
   const playGesture = (name: string) => {
     if (!GESTURE_REPERTOIRE.includes(name)) return;
     scanAsset(`movement:${name}`); // the aura ledger counts her movement repertoire
+    const flying = flightClips.has(name);
+    if (ringRef.current) {
+      const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = flying ? 4.5 : 0.3; // the halo dims when grounded
+    }
     void loadGestureClip(name).then((clip) => {
       if (!clip) return;
       activeAction.current?.fadeOut(0.25);

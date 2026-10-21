@@ -2109,17 +2109,20 @@ export default function DronePetPanel() {
             <Stat label="ROLL" value={`${flightStats.roll.toFixed(0)}°`} tone="#c8ccd6" />
             <Stat label="PROPS" value={`${Math.round(flightStats.rpm)}`} tone="#c8ccd6" />
           </div>
-          <div className="grid grid-cols-5 gap-2 mt-1 px-1">
-            <Stat label="CELL HEALTH" value={`${memory.batteryHealth().health}%`} tone={memory.batteryHealth().health > 90 ? "#35d0a5" : "#f0b90b"} />
-            <Stat label="CYCLES" value={`${memory.batteryHealth().cycles}`} tone="#c8ccd6" />
-            <Stat label="EST AIR" value={bodyMode === "real"
-              ? (estimatorRef.current.remainingFlightMinutes(battery * 100) !== null
-                ? `${Math.round(estimatorRef.current.remainingFlightMinutes(battery * 100)!)}m`
-                : estimatorRef.current.confidence === "learning" ? "LEARN…" : "—")
-              : "SIM"} tone="#5ac8fa" />
-            <Stat label="FLIGHT HRS" value={memory.getLogbook().hours.toFixed(1)} tone="#c8ccd6" />
-            <Stat label="SUN" value={sunReport().phase.toUpperCase()} tone="#f0b90b" />
-          </div>
+          <details className="mt-1 px-1">
+            <summary className="hud-label cursor-pointer opacity-70">DEEPER TELEMETRY · battery health, est. air, logbook, sun</summary>
+            <div className="grid grid-cols-5 gap-2 mt-1">
+              <Stat label="CELL HEALTH" value={`${memory.batteryHealth().health}%`} tone={memory.batteryHealth().health > 90 ? "#35d0a5" : "#f0b90b"} />
+              <Stat label="CYCLES" value={`${memory.batteryHealth().cycles}`} tone="#c8ccd6" />
+              <Stat label="EST AIR" value={bodyMode === "real"
+                ? (estimatorRef.current.remainingFlightMinutes(battery * 100) !== null
+                  ? `${Math.round(estimatorRef.current.remainingFlightMinutes(battery * 100)!)}m`
+                  : estimatorRef.current.confidence === "learning" ? "LEARN…" : "—")
+                : "SIM"} tone="#5ac8fa" />
+              <Stat label="FLIGHT HRS" value={memory.getLogbook().hours.toFixed(1)} tone="#c8ccd6" />
+              <Stat label="SUN" value={sunReport().phase.toUpperCase()} tone="#f0b90b" />
+            </div>
+          </details>
           <div className="mt-2 px-1 flex items-center gap-2 flex-wrap">
             <span className="hud-label">PERSONA:</span>
             <span

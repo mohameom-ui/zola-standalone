@@ -15,6 +15,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { scanAsset, scanWorldManifest, type ScanResult } from "@/lib/pet/auraCache";
 
+// ONE BODY — the v2.1 humanoid-drone hybrid is her ONLY body
+// the quad (zola-drone-body.glb) is retired: she has legs, arms, and
+// a cranial halo now — the bipedal frame earns its keep
 const RIGGED_URL = "/assets/models/zola-anims/v2/rigged_base.glb";
 
 // her movement vocabulary — the CORTEX knows every one of these

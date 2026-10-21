@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { drain, drainState, canTakeOff, shouldAutoReturn, DRAIN_PER_SECOND, chargeTimeEstimate, PAD_CHARGE_PER_SECOND } from "./batteryPolicy";
+import { drain, drainState, canTakeOff, shouldAutoReturn, DRAIN_PER_SECOND, chargeTimeEstimate, PAD_CHARGE_PER_SECOND, REFUSE_TAKEOFF_BELOW } from "./batteryPolicy";
 
 describe("battery policy — she does NOT need the charger every 2 minutes", () => {
   it("hovering is expensive, standing is nearly free", () => {

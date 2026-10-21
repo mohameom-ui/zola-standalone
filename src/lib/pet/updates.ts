@@ -8,7 +8,11 @@ import type { Capability } from "./cortex";
 // the forge's capability-pack endpoint (GitHub raw — swap for a release
 // channel when the ecosystem scales)
 const PACK_URLS = [
-  "https://raw.githubusercontent.com/mohameom-ui/zola-pipeline-home/main/capabilities.json",
+  // local-first: the forge is sovereign and its remote is PRIVATE — the
+  // pack is served from the local forge home via her own API route.
+  "/api/zola/pack",
+  // the remote channel activates when the forge repo goes public
+  "https://raw.githubusercontent.com/mohameom-ui/zola-pipeline-home/master/capabilities.json",
 ];
 
 interface CapabilityPack {

@@ -361,7 +361,7 @@ export class TaskRunner {
       case "walk_item": {
         // GROUND NAVIGATION — like goto_item but on her legs: slower approach,
         // longer patience, arrival means standing at the spot
-        const target = step.target ?? "it";
+        const target = (step.target ?? "it").replace(/^the\s+/i, ""); // no "the the"
         const hit = ctx.visibleItems.find((i) => i === target || target.includes(i) || i.includes(target));
         if (hit) {
           if (!this.announced.has(step.label)) {

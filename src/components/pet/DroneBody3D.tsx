@@ -13,20 +13,21 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
-import { scanAsset, scanWorldManifest, type ScanResult } from "@/lib/pet/auraCache";
+import { scanAsset, scanWorldManifest, GESTURE_REPERTOIRE, type ScanResult } from "@/lib/pet/auraCache";
 
 // ONE BODY — the v2.1 humanoid-drone hybrid is her ONLY body
 // the quad (zola-drone-body.glb) is retired: she has legs, arms, and
 // a cranial halo now — the bipedal frame earns its keep
-const RIGGED_URL = "/assets/models/zola-body-v2.glb";
+// the RIGGED base: the textured mesh + 65-bone skeleton + skin (envelope
+// weights, exported by Scripts/rig_zola_v2_fixed.py --base). The gesture
+// clips bind to it by bone name at runtime.
+const RIGGED_URL = "/assets/models/zola-anims/v2/rigged_base.glb";
+// her feet rest at y=-0.905 in-file; the hangar grid sits at y=-1.05
+const GROUND_OFFSET = -0.145;
 
-// her movement vocabulary — the CORTEX knows every one of these
-export const GESTURE_REPERTOIRE = [
-  "bow_01", "bow_02", "curtsey_01", "dance_01", "dance_02", "march_01",
-  "wave_01", "wave_02", "shrug_01", "spin_01", "stretch_01", "throw_01",
-  "peekaboo_01", "pickup_01", "rollover_01", "crawl_01", "getup_01",
-  "laydown_01", "mope_01",
-];
+// her movement vocabulary lives in the aura ledger (the single source of
+// truth) — re-exported here for the CORTEX and the gesture stage
+export { GESTURE_REPERTOIRE };
 
 export interface GestureApi {
   playGesture: (name: string) => void;
@@ -152,6 +153,20 @@ function SceneRig({
     });
   };
 
+  // the audit hook: a real window handle for headless rig verification
+  // (bones bound, mixer alive, gesture triggering) — the provenance rule
+  // demands verifiable claims, this makes the rig's state inspectable
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as unknown as Record<string, unknown>).__ZOLA_RIG = {
+        bones: Object.fromEntries(Object.entries(bones).map(([k, v]) => [k, !!v])),
+        hasMixer: !!mixer,
+        playGesture: (name: string) => playGesture(name),
+        mixerTime: () => mixer.time,
+      };
+    }
+  });
+
   // expose the CORTEX handle
   useEffect(() => {
     if (!gestureApiRef) return;
@@ -171,11 +186,13 @@ function SceneRig({
   const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
 
   return (
-    <group>
+    <group position={[0, GROUND_OFFSET, 0]}>
       <primitive object={scene} />
-      {/* the LED ring — emissive glow synced to her persona + motor state */}
-      <mesh ref={ringRef} position={[0, -0.55, 0.55]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.45, 0.045, 16, 48]} />
+      {/* the Aura-Telemetry ring — her cranial halo LEDs, emissive glow
+          synced to her persona + motor state (she spans y -0.905..0.87
+          in-file, so the cranium sits at ~0.87; the ring wraps her halo) */}
+      <mesh ref={ringRef} position={[0, 0.87, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.26, 0.02, 16, 48]} />
         <meshStandardMaterial
           color={ringColor}
           emissive={ringColor}

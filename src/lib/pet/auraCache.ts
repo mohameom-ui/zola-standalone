@@ -91,29 +91,36 @@ export function dumpAura(): AuraEntry[] {
 }
 
 // ---- the world manifest: everything in Zola's domain, by asset id -------
+// SOVEREIGN DOMAIN ONLY (Rule 1): her world is her hangar — her bodies and
+// her gesture clips. No district assets, no other repo's geometry. The old
+// manifest audited Aetheria's 21 district buildings; that was cross-repo
+// contamination from before the split and it 404'd 21 times per hangar load.
 
 export interface ManifestEntry {
   id: string;
   url: string;
 }
 
+// her movement vocabulary — the single source of truth (the hangar card
+// re-exports this for the CORTEX and the gesture stage)
+export const GESTURE_REPERTOIRE: readonly string[] = [
+  "bow_01", "bow_02", "curtsey_01", "dance_01", "dance_02", "march_01",
+  "wave_01", "wave_02", "shrug_01", "spin_01", "stretch_01", "throw_01",
+  "peekaboo_01", "pickup_01", "rollover_01", "crawl_01", "getup_01",
+  "laydown_01", "mope_01",
+];
+
 export function worldManifest(): ManifestEntry[] {
-  const district = [
-    "lowrise-a", "lowrise-b", "lowrise-c", "lowrise-d",
-    "midrise-a", "midrise-b", "midrise-c", "midrise-d",
-    "midrise-e", "midrise-f", "midrise-g",
-    "highrise-a", "highrise-b", "highrise-c",
-    "skyscraper-a", "skyscraper-b", "skyscraper-c",
-    "civic-dome-a", "civic-dome-b",
-  ];
-  const manifest: ManifestEntry[] = district.map((n) => ({
-    id: `b2026-${n}`,
-    url: `/assets/models/gen-b2026-${n}.glb`,
-  }));
-  manifest.push(
-    { id: "zola-drone-body", url: "/assets/models/zola-drone-body.glb" },
+  const manifest: ManifestEntry[] = [
     { id: "zola-body-v2", url: "/assets/models/zola-body-v2.glb" },
-  );
+    { id: "zola-rigged-base", url: "/assets/models/zola-anims/v2/rigged_base.glb" },
+  ];
+  for (const g of GESTURE_REPERTOIRE) {
+    manifest.push({
+      id: `gesture:${g}`,
+      url: `/assets/models/zola-anims/v2/v2_${g}.glb`,
+    });
+  }
   return manifest;
 }
 

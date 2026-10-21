@@ -132,6 +132,7 @@ export default function DronePetPanel() {
   const identityListRef = useRef<FaceIdentity[]>([]);
   const batteryRef = useRef(0.86);
   const lastTickRef = useRef(0);
+  const batterySyncAtRef = useRef(0);
   const autoScanTried = useRef(false);
   const uncertainAnnouncedRef = useRef<Set<string>>(new Set());
   const movedAnnouncedRef = useRef<Set<string>>(new Set());
@@ -902,9 +903,16 @@ export default function DronePetPanel() {
       const { act: safeAct, flags } = governorRef.current.gate(act, percept);
       halRef.current.apply(safeAct, dt);
       if (act.say) say(act.say);
-      setMood(safeAct.mood);
-      setActivity(safeAct.activity);
-      setBattery(batteryRef.current);
+      // UI sync with bail-outs: the 60 Hz physics loop must not re-render
+      // the whole panel every frame. setMood/setActivity bail on identity;
+      // battery syncs at 2 Hz, quantized to the whole percent the HUD shows.
+      setMood((m) => (m === safeAct.mood ? m : safeAct.mood));
+      setActivity((a) => (a === safeAct.activity ? a : safeAct.activity));
+      if (now - batterySyncAtRef.current > 500) {
+        batterySyncAtRef.current = now;
+        const bq = Math.round(batteryRef.current * 100) / 100;
+        setBattery((b) => (b === bq ? b : bq));
+      }
       // WAVE 2 — theory-of-mood: focused human shown in the safety row
       const focusFlag = brain.humanFocused ? "HUMAN FOCUSED · HOLDING CHATTER" : "";
       const flagStr = [flags.join(" · "), focusFlag].filter(Boolean).join(" · ");

@@ -52,3 +52,10 @@ export function chargeTimeEstimate(battery: number, target = REFUSE_TAKEOFF_BELO
   if (battery >= target) return 0;
   return Math.ceil((target - battery) / PAD_CHARGE_PER_SECOND);
 }
+
+/** One call, the whole answer: can she fly, and if not, when? */
+export function flightReadiness(battery: number): { ready: boolean; secondsToReady: number; refusal?: string } {
+  const gate = canTakeOff(battery);
+  if (gate.ok) return { ready: true, secondsToReady: 0 };
+  return { ready: false, secondsToReady: chargeTimeEstimate(battery), refusal: gate.refusal };
+}

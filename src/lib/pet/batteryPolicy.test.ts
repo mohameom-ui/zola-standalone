@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { drain, drainState, canTakeOff, shouldAutoReturn, DRAIN_PER_SECOND, chargeTimeEstimate, PAD_CHARGE_PER_SECOND, REFUSE_TAKEOFF_BELOW } from "./batteryPolicy";
+import { drain, drainState, canTakeOff, shouldAutoReturn, DRAIN_PER_SECOND, chargeTimeEstimate, PAD_CHARGE_PER_SECOND, REFUSE_TAKEOFF_BELOW, flightReadiness } from "./batteryPolicy";
 
 describe("battery policy — she does NOT need the charger every 2 minutes", () => {
   it("hovering is expensive, standing is nearly free", () => {
@@ -52,5 +52,20 @@ describe("chargeTimeEstimate — she knows when she'll be ready", () => {
   it("counts real seconds to reach the takeoff line", () => {
     // from 10%: 5 points to go at 0.004/s = 1250 s
     expect(chargeTimeEstimate(0.10)).toBe(Math.ceil(0.05 / PAD_CHARGE_PER_SECOND));
+  });
+});
+
+describe("flightReadiness — the one-call answer", () => {
+  it("ready now: no refusal, zero seconds", () => {
+    const r = flightReadiness(0.9);
+    expect(r.ready).toBe(true);
+    expect(r.secondsToReady).toBe(0);
+    expect(r.refusal).toBeUndefined();
+  });
+  it("not ready: refusal line plus real seconds to the takeoff line", () => {
+    const r = flightReadiness(0.1);
+    expect(r.ready).toBe(false);
+    expect(r.refusal).toMatch(/walk/i);
+    expect(r.secondsToReady).toBeGreaterThan(0);
   });
 });

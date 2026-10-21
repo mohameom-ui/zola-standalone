@@ -67,6 +67,7 @@ function SceneRig({
   accentColor,
   fps,
   mood,
+  flight,
   onTelemetry,
   gestureApiRef,
   onGestureDone,
@@ -74,6 +75,7 @@ function SceneRig({
   accentColor: string;
   fps: number;
   mood: string;
+  flight?: { alt: number; rpm: number; flying?: boolean };
   onTelemetry?: (fps: number) => void;
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
@@ -97,10 +99,34 @@ function SceneRig({
   const activeName = useRef<string | null>(null);
   const sway = useRef({ t: 0 });
   const ringRef = useRef<THREE.Mesh>(null);
+  const bodyRef = useRef<THREE.Group>(null);
+  // the HAL streams at state-change cadence — mirror it so useFrame reads
+  // the latest flight state without re-binding the frame callback
+  const flightRef = useRef(flight);
+  flightRef.current = flight;
 
   // the procedural balancer — runs whenever no gesture owns her body
   useFrame((_, delta) => {
     mixer.update(delta);
+    // FLIGHT: one body, grounded and airborne — she lifts off her pad with
+    // real altitude (cm resolution from the HAL) and her cranial halo —
+    // her actual propulsion array — brightens as the motors spool up.
+    if (bodyRef.current) {
+      const f = flightRef.current;
+      if (f && f.alt > 0.02) {
+        const lift = Math.min(f.alt, 1.2) * 0.8;
+        const spin = Math.min(f.rpm / 12000, 1);
+        bodyRef.current.position.y = lift + Math.sin(sway.current.t * 3.1) * 0.012 * (0.3 + spin);
+        bodyRef.current.rotation.z = Math.sin(sway.current.t * 1.7) * 0.02 * spin; // gentle hover drift
+        if (ringRef.current) {
+          const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 2.5 + spin * 2.5);
+        }
+      } else {
+        bodyRef.current.position.y = 0;
+        bodyRef.current.rotation.z = 0;
+      }
+    }
     if (activeAction.current) return; // a gesture owns her body right now
 
     const cfg = MOOD_SWAY[mood] ?? MOOD_SWAY.curious;
@@ -187,7 +213,9 @@ function SceneRig({
 
   return (
     <group position={[0, GROUND_OFFSET, 0]}>
-      <primitive object={scene} />
+      <group ref={bodyRef}>
+        <primitive object={scene} />
+      </group>
       {/* the Aura-Telemetry ring — her cranial halo LEDs, emissive glow
           synced to her persona + motor state (she spans y -0.905..0.87
           in-file, so the cranium sits at ~0.87; the ring wraps her halo) */}
@@ -209,6 +237,9 @@ export default function DroneBody3D({
   accentColor = "#35d0a5",
   mood = "curious",
   fps = 60,
+  flight,
+  speech,
+  onPet,
   onTelemetry,
   gestureApiRef,
   onGestureDone,
@@ -216,6 +247,9 @@ export default function DroneBody3D({
   accentColor?: string;
   mood?: string;
   fps?: number;
+  flight?: { alt: number; rpm: number; flying?: boolean };
+  speech?: string | null;
+  onPet?: () => void;
   onTelemetry?: (fps: number) => void;
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
@@ -246,7 +280,11 @@ export default function DroneBody3D({
   const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
 
   return (
-    <div className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#0b0e17]">
+    <div
+      className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#0b0e17] cursor-pointer"
+      onClick={onPet}
+      title="pet her — she responds with body and voice"
+    >
       <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}>
         <ambientLight intensity={0.35} />
         <directionalLight position={[3, 5, 4]} intensity={1.4} color="#dfe6f2" />
@@ -257,13 +295,25 @@ export default function DroneBody3D({
             accentColor={accentColor}
             fps={fpsLive}
             mood={mood}
+            flight={flight}
             onTelemetry={setFpsLive}
             gestureApiRef={gestureApiRef}
             onGestureDone={onGestureDone}
           />
         </Suspense>
       </Canvas>
-      <span className="hud-label absolute left-2 top-2 text-[9px] opacity-60">3D HANGAR · BRAIN-DRIVEN BODY</span>
+      <span className="hud-label absolute left-2 top-2 text-[9px] opacity-60">3D HANGAR · ONE BODY · BRAIN-DRIVEN</span>
+      {flight && flight.alt > 0.02 && (
+        <span className="hud-label absolute left-2 top-7 text-[9px] text-[#35d0a5]">
+          AIRBORNE · {flight.alt.toFixed(2)} m · {Math.round(flight.rpm)} RPM
+        </span>
+      )}
+      {speech && (
+        <div className="absolute left-1/2 top-6 -translate-x-1/2 max-w-[92%] px-2 py-1 rounded-md border text-[10px] leading-snug bg-[rgba(10,13,22,0.88)] text-[#e9e7dc] whitespace-pre-wrap text-center"
+          style={{ borderColor: accentColor }}>
+          {speech}
+        </div>
+      )}
       <span className="hud-label absolute right-2 top-2 text-[9px] opacity-70">
         AURA-TELEMETRY · {Math.round(fpsLive)} FPS · {tierLabel}
       </span>

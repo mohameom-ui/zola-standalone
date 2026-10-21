@@ -85,7 +85,6 @@ const CHIPS = [
 export default function DronePetPanel() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const camCanvasRef = useRef<HTMLCanvasElement>(null);
-  const droneCanvasRef = useRef<HTMLCanvasElement>(null);
   const visionRef = useRef<DroneVision | null>(null);
   const earsRef = useRef<DroneEars>(new DroneEars());
   const neuralRef = useRef<NeuralVoice>(new NeuralVoice());
@@ -336,6 +335,7 @@ export default function DronePetPanel() {
   const [safetyFlags, setSafetyFlags] = useState("");
   const [taskInfo, setTaskInfo] = useState<{ desc: string; step: string; done: number; total: number } | null>(null);
   const [flightStats, setFlightStats] = useState({ alt: 0, pitch: 0, roll: 0, rpm: 0 });
+  const [bubble, setBubble] = useState<string | null>(null); // what she's saying, drawn on her body
   const lastTaskKeyRef = useRef("");
   const poseRef = useRef<DronePose>({ x: 0, y: 0, z: 0, yaw: 0, bob: 0, pitch: 0, roll: 0 });
   const flightStatsKeyRef = useRef("");
@@ -426,7 +426,11 @@ export default function DronePetPanel() {
       }
     })();
     pushLog("aura", text);
-    lastSayRef.current = { text, until: performance.now() + 3200 + Math.min(3000, text.length * 45) };
+    const until = performance.now() + 3200 + Math.min(3000, text.length * 45);
+    lastSayRef.current = { text, until };
+    // her speech rides on her body now (the 2D sim's bubble is retired)
+    setBubble(text);
+    window.setTimeout(() => setBubble((b) => (b === text ? null : b)), until - performance.now());
     brainRef.current?.addBond(0.015); // every exchange deepens the friendship (persisted)
   }, [pushLog, neuralRef]);
 
@@ -834,6 +838,7 @@ export default function DronePetPanel() {
 
       const t = trackRef.current;
       const poseNow = halRef.current.pose();
+      poseRef.current = poseNow; // her body IS the flight body (the 2D quad sim is retired)
       // WAVE 11 — MEASURED velocity: pose deltas over the real frame interval
       // (no model, no assumption — the derivative of where she actually was)
       const prevP = prevPoseRef.current;
@@ -1016,7 +1021,7 @@ export default function DronePetPanel() {
           : null);
       }
 
-      renderDrone(safeAct.led);
+
       renderCamOverlay(safeAct.led);
       renderMiniMap();
 
@@ -1068,12 +1073,6 @@ export default function DronePetPanel() {
     let lastProactiveCheck = 0;
     let speakTailUntil = 0; // she can't hear herself speak
     let lastEngineState: boolean | null = null;
-    // library ground texture for her flight room (ambientCG Ground077)
-    const groundImg = new Image();
-    let groundReady = false;
-    groundImg.onload = () => { groundReady = true; };
-    groundImg.src = "/textures/ground077.jpg";
-    const trail: { x: number; y: number }[] = [];
 
     /** Top-down mental map: room bounds, dock, obstacles, remembered items, her. */
     const renderMiniMap = () => {
@@ -1127,117 +1126,6 @@ export default function DronePetPanel() {
       ctx.fillStyle = "#35d0a5";
       ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -5); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill();
       ctx.restore();
-    };
-
-    const renderDrone = (led: string) => {
-      const cv = droneCanvasRef.current;
-      if (!cv) return;
-      const ctx = cv.getContext("2d");
-      if (!ctx) return;
-      const w = cv.width, h = cv.height;
-      ctx.clearRect(0, 0, w, h);
-
-      // library ground texture (ambientCG Ground077) under everything
-      if (groundReady) {
-        ctx.globalAlpha = 0.15;
-        ctx.drawImage(groundImg, 0, 0, w, h);
-        ctx.globalAlpha = 1;
-      }
-
-      ctx.strokeStyle = "rgba(240,185,11,0.08)";
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 8; i++) {
-        const y = (h / 8) * i;
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-      }
-      for (let i = 0; i <= 12; i++) {
-        const x = (w / 12) * i;
-        ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(w / 2 + (x - w / 2) * 0.4, h * 0.45); ctx.stroke();
-      }
-
-      // geofence ceiling line — the governor's hard limit, made visible
-      const ceilingY = h * 0.62 - DEFAULT_LIMITS.maxAltitude * (h * 0.5);
-      ctx.strokeStyle = "rgba(255,77,79,0.35)";
-      ctx.setLineDash([6, 6]);
-      ctx.beginPath(); ctx.moveTo(0, ceilingY); ctx.lineTo(w, ceilingY); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = "rgba(255,77,79,0.5)";
-      ctx.font = "8px monospace";
-      ctx.fillText("GEOFENCE CEILING", 6, ceilingY - 4);
-
-      const pose: DronePose = halRef.current.pose();
-      poseRef.current = pose;
-      const dx = w / 2 + (pose.y / 1.6) * (w * 0.36);
-      const dy = h * 0.62 - (pose.z + pose.bob) * (h * 0.5);
-      const scale = 0.75 + pose.z * 0.45;
-      const rpm = halRef.current.propsRpm();
-
-      // motion trail — she paints her flight path
-      trail.push({ x: dx, y: dy });
-      if (trail.length > 34) trail.shift();
-      if (trail.length > 2) {
-        for (let i = 1; i < trail.length; i++) {
-          const alpha = (i / trail.length) * 0.28;
-          ctx.strokeStyle = hexA(led, alpha);
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
-          ctx.lineTo(trail[i].x, trail[i].y);
-          ctx.stroke();
-        }
-      }
-
-      ctx.save();
-      ctx.translate(dx, dy);
-      ctx.rotate(pose.roll * 0.55); // she banks into her own motion
-
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.beginPath();
-      ctx.ellipse(0, (h * 0.62 - dy) + h * 0.3, 26 * scale, 6 * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.shadowColor = led;
-      ctx.shadowBlur = 14;
-      ctx.fillStyle = led;
-      ctx.beginPath(); ctx.arc(-7 * scale, 0, 3.4 * scale, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(7 * scale, 0, 3.4 * scale, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.fillStyle = "#1c2130";
-      ctx.strokeStyle = "#3a4258";
-      ctx.lineWidth = 1.5;
-      roundRect(ctx, -14 * scale, -5 * scale, 28 * scale, 10 * scale, 4 * scale);
-      ctx.fill(); ctx.stroke();
-
-      const spin = Math.atan(performance.now() / (rpm > 800 ? 6 : 40));
-      const arm = 20 * scale;
-      const props: [number, number][] = [[-arm, -arm * 0.5], [arm, -arm * 0.5], [-arm, arm * 0.5], [arm, arm * 0.5]];
-      ctx.strokeStyle = "#59627a";
-      for (const [px, py] of props) {
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(px, py); ctx.stroke();
-        ctx.strokeStyle = "rgba(240,185,11,0.55)";
-        ctx.beginPath();
-        ctx.ellipse(px, py, 11 * scale, 2.6 * scale, spin, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.strokeStyle = "#59627a";
-      }
-      ctx.restore();
-
-      // speech bubble — visual output for everything AURA says
-      const s = lastSayRef.current;
-      if (s.text && s.until > performance.now()) {
-        ctx.font = "10px monospace";
-        const tw = ctx.measureText(s.text).width;
-        const bx = Math.min(w - tw - 24, Math.max(8, dx - tw / 2 - 8));
-        const by = Math.max(10, dy - 46 * scale - 14);
-        ctx.fillStyle = "rgba(10,13,22,0.88)";
-        ctx.strokeStyle = led;
-        ctx.lineWidth = 1;
-        roundRect(ctx, bx, by, tw + 16, 20, 6);
-        ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#e9e7dc";
-        ctx.fillText(s.text, bx + 8, by + 13);
-      }
     };
 
     const renderCamOverlay = (led: string) => {
@@ -1762,24 +1650,10 @@ export default function DronePetPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // petting: click her in the flight sim — she leans into it
-  useEffect(() => {
-    const cv = droneCanvasRef.current;
-    if (!cv) return;
-    const onPet = (e: MouseEvent) => {
-      const rect = cv.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      const pose = poseRef.current;
-      const dx = cv.width / 2 + (pose.y / 1.6) * (cv.width * 0.36);
-      const dy = cv.height * 0.62 - (pose.z + pose.bob) * (cv.height * 0.5);
-      if (Math.hypot(px - dx, py - dy) < 40) {
-        const line = brainRef.current?.pet();
-        if (line) { say(line); chirpsRef.current.chirp("happy"); }
-      }
-    };
-    cv.addEventListener("click", onPet);
-    return () => cv.removeEventListener("click", onPet);
+  // petting: click her in the hangar — she reacts with body and voice
+  const petZola = useCallback(() => {
+    const line = brainRef.current?.pet();
+    if (line) { say(line); chirpsRef.current.chirp("happy"); }
   }, [say]);
 
   // TRAINING: apply her self-tuned gains + accumulate flight hours (REAL mode)
@@ -2171,11 +2045,13 @@ export default function DronePetPanel() {
         {tab === "flight" && (<>
         {/* --- flight body + safety HUD ------------------------------------------ */}
         <div className="glass-soft rounded-xl p-2">
-          <div className="hud-label px-1 pb-1">FLIGHT BODY · SIMULATOR (swap in MAVLink HAL for real quad)</div>
-          <canvas ref={droneCanvasRef} width={640} height={240} className="w-full rounded-lg bg-[#0b0e17]" />
+          <div className="hud-label px-1 pb-1">FLIGHT BODY · ONE BODY, GROUNDED &amp; AIRBORNE (MAVLink HAL for real hardware)</div>
           <div className="mt-2">
             <DroneBody3D
               accentColor={LED_FOR_PERSONA[persona] ?? "#35d0a5"}
+              flight={flightStats}
+              speech={bubble}
+              onPet={petZola}
               mood={mood}
               gestureApiRef={gestureApiRef}
             />

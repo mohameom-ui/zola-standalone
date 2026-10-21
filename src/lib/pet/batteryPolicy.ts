@@ -43,3 +43,12 @@ export function canTakeOff(battery: number): { ok: boolean; refusal?: string } {
 export function shouldAutoReturn(battery: number): boolean {
   return battery < FORCE_RETURN_BELOW;
 }
+
+/** How long until she is flight-ready again? Seconds at the pad (sim charge
+ * rate 0.004/s), rounded to whole seconds — she can tell you herself. */
+export const PAD_CHARGE_PER_SECOND = 0.004;
+
+export function chargeTimeEstimate(battery: number, target = REFUSE_TAKEOFF_BELOW): number {
+  if (battery >= target) return 0;
+  return Math.ceil((target - battery) / PAD_CHARGE_PER_SECOND);
+}

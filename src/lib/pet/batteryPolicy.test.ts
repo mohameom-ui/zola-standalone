@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { drain, drainState, canTakeOff, shouldAutoReturn, DRAIN_PER_SECOND } from "./batteryPolicy";
+import { drain, drainState, canTakeOff, shouldAutoReturn, DRAIN_PER_SECOND, chargeTimeEstimate, PAD_CHARGE_PER_SECOND } from "./batteryPolicy";
 
 describe("battery policy — she does NOT need the charger every 2 minutes", () => {
   it("hovering is expensive, standing is nearly free", () => {
@@ -41,5 +41,16 @@ describe("battery policy — she does NOT need the charger every 2 minutes", () 
   it("auto-return triggers under the force-return threshold", () => {
     expect(shouldAutoReturn(0.07)).toBe(true);
     expect(shouldAutoReturn(0.5)).toBe(false);
+  });
+});
+
+describe("chargeTimeEstimate — she knows when she'll be ready", () => {
+  it("already flight-ready returns zero", () => {
+    expect(chargeTimeEstimate(0.5)).toBe(0);
+    expect(chargeTimeEstimate(REFUSE_TAKEOFF_BELOW)).toBe(0);
+  });
+  it("counts real seconds to reach the takeoff line", () => {
+    // from 10%: 5 points to go at 0.004/s = 1250 s
+    expect(chargeTimeEstimate(0.10)).toBe(Math.ceil(0.05 / PAD_CHARGE_PER_SECOND));
   });
 });

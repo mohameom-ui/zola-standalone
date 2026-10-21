@@ -325,6 +325,13 @@ export class PetBrain {
             return this.runner.start(this.runner.planWalkGoto(target, null, { x: pos.x, y: pos.y, z: 0 }), performance.now());
           }
         }
+        // a refused patrol becomes a GROUND patrol — the perimeter is the same
+        if (has("patrol", "guard", "watch over")) {
+          this.setActivity("walk");
+          this.walkUntil = performance.now() + 30_000;
+          this.setMood("curious");
+          return "Can't fly on this charge — ground patrol instead. Walking the perimeter, same watchfulness, slower feet.";
+        }
         return gate.refusal ?? null; // the panel speaks her refusal
       }
     }

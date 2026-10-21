@@ -251,6 +251,14 @@ export class MavLinkBridgeHAL implements PetHAL {
         this.hbTimer = setInterval(() => {
           this.sendMav(encodeHeartbeat({ seq: this.seq++ & 0xff, sysid: 1, compid: 1 }));
         }, 1000);
+        // telemetry comes back as JSON {t:"pose", x,y,z,yaw,rpm}
+        this.ws!.onmessage = (ev) => {
+          try {
+            const d = JSON.parse(ev.data as string) as Partial<DronePose> & { rpm?: number };
+            this.lastPose = { ...this.lastPose, ...d, bob: this.lastPose.bob };
+            if (typeof d.rpm === "number") this.lastRpm = d.rpm;
+          } catch { /* ignore bad frames */ }
+        };
         onOpen?.();
       };
       this.ws.onclose = () => {
@@ -275,19 +283,16 @@ export class MavLinkBridgeHAL implements PetHAL {
 
   apply(act: Actuation, _dt: number) {
     if (!this.connected) return;
+    // GROUND HONESTY — a quad cannot stroll. If her brain is in walk mode on
+    // the REAL frame, the HAL refuses to translate walking into thrust: she
+    // holds her current state instead of pretending to stride. Ground
+    // locomotion is a sim-floor and Pi-legs behavior, not a prop behavior.
+    if (act.activity === "walk") return;
     // her commands ride the MAVLink lane now: real SET_ATTITUDE_TARGET
     // frames the Matek F405 (or the SITL sim) speaks natively
     this.sendMav(this.attitudeCommand(act.yaw, act.vz));
     // the halo lighting stays on the bridge's own channel — a body concern,
     // not a flight-control concern
-    // telemetry comes back as JSON {t:"pose", x,y,z,yaw,rpm}
-    this.ws!.onmessage = (ev) => {
-      try {
-        const d = JSON.parse(ev.data as string) as Partial<DronePose> & { rpm?: number };
-        this.lastPose = { ...this.lastPose, ...d, bob: this.lastPose.bob };
-        if (typeof d.rpm === "number") this.lastRpm = d.rpm;
-      } catch { /* ignore bad frames */ }
-    };
   }
 
   pose(): DronePose { return this.lastPose; }

@@ -1,0 +1,20 @@
+name: zola gates
+
+on: [push, pull_request]
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: types
+        run: npx tsc --noEmit
+      - name: tests (the safety lines are the most important code in the project)
+        run: npx vitest run
+      - name: production build (what the Pi runs)
+        run: npm run build

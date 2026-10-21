@@ -2144,15 +2144,26 @@ export default function DronePetPanel() {
     }
   }, [handleCommand]);
 
-  const exportMemory = useCallback(() => {
-    const blob = new Blob([memory.exportJSON()], { type: "application/json" });
+  const exportLife = useCallback(() => {
+    // THE WHOLE LIFE — memory (who she knows, what she remembers), the
+    // self-build ledger (capabilities she forged), and the recon cache
+    // (facts she learned from the live web). One file; she travels complete.
+    const life = {
+      kind: "zola-life",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      memory: JSON.parse(memory.exportJSON()),
+      selfBuilds: loadSelfBuilds(),
+      recon: JSON.parse(localStorage.getItem("zola_recon_cache_v1") ?? "{}"),
+    };
+    const blob = new Blob([JSON.stringify(life, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "aura-memory.json";
+    a.download = `zola-life-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    pushLog("sys", "memory exported — inspect exactly what Zola knows");
+    pushLog("sys", "life exported — memory, self-built capabilities, learned facts. She travels complete.");
   }, [memory, pushLog]);
 
   const people = memory.snapshot.people;
@@ -2699,11 +2710,11 @@ export default function DronePetPanel() {
             )}
           </div>
           <div className="flex gap-2 pt-1 items-center">
-            <button onClick={exportMemory} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#f0b90b]/60 hover:text-[#f0b90b] transition-colors">
-              EXPORT (inspect what it knows)
+            <button onClick={exportLife} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#f0b90b]/60 hover:text-[#f0b90b] transition-colors">
+              EXPORT LIFE (memory + built capabilities + learned facts)
             </button>
             <label className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#35d0a5]/60 hover:text-[#35d0a5] transition-colors cursor-pointer">
-              RESTORE (adopt a backup)
+              RESTORE LIFE (adopt a backup)
               <input
                 type="file"
                 accept="application/json,.json"
@@ -2712,11 +2723,22 @@ export default function DronePetPanel() {
                   const f = e.target.files?.[0];
                   if (!f) return;
                   const text = await f.text();
-                  if (window.confirm("Adopt this memory backup? It replaces everything Zola currently remembers.")) {
-                    const ok = memory.importJSON(text);
-                    pushLog("sys", ok ? "memory restored from backup — she now remembers everything from that file" : "invalid backup file — ignored");
+                  if (!window.confirm("Adopt this life backup? It replaces everything Zola currently remembers and knows how to do.")) { e.target.value = ""; return; }
+                  try {
+                    const life = JSON.parse(text) as { kind?: string; memory?: string; selfBuilds?: GeneratedCapability[]; recon?: Record<string, unknown> };
+                    let okMemory = false;
+                    if (life.kind === "zola-life" && life.memory) {
+                      okMemory = memory.importJSON(typeof life.memory === "string" ? life.memory : JSON.stringify(life.memory));
+                      if (life.selfBuilds) localStorage.setItem("zola_self_builds_v1", JSON.stringify(life.selfBuilds));
+                      if (life.recon) localStorage.setItem("zola_recon_cache_v1", JSON.stringify(life.recon));
+                      pushLog("sys", okMemory ? "LIFE restored — her memory, her built capabilities, her learned facts. Reloading so she wakes as that self." : "invalid life file — ignored");
+                      if (okMemory) { window.setTimeout(() => window.location.reload(), 1200); } // reincarnation runs on boot
+                    } else {
+                      okMemory = memory.importJSON(text); // legacy memory-only backup
+                      pushLog("sys", okMemory ? "memory restored from backup" : "invalid backup file — ignored");
+                    }
                     refreshCounts();
-                  }
+                  } catch { pushLog("sys", "invalid backup file — ignored"); }
                   e.target.value = "";
                 }}
               />

@@ -105,8 +105,11 @@ pip install pymavlink websockets
 # `--out`/`udpin:...:14551` carries NO stream (sim_vehicle's --out only takes
 # effect through MAVProxy). Direct TCP is simpler and proven:
 python aura_relay.py --connection tcp:127.0.0.1:5760
-# PX4:
-python aura_relay.py --connection tcp:127.0.0.1:4560
+# PX4 — UNTESTED on this machine (no PX4 SITL has flown here yet). The
+documented PX4 offboard port is UDP 14540, so the honest first attempt is:
+python aura_relay.py --connection udpin:0.0.0.0:14540
+# (the relay's phantom-link guard will refuse to pretend a silent port is
+# a flight controller — if PX4 speaks elsewhere, the log will say so)
 ```
 
 You should see:
@@ -148,7 +151,7 @@ You should see:
 
 | Symptom | Fix |
 | --- | --- |
-| Relay stuck at "waiting for flight controller" | SITL not up yet — check the sim terminal; ArduPilot: `tcp:127.0.0.1:5760`, PX4: `tcp:127.0.0.1:4560` |
+| Relay stuck at "waiting for flight controller" | SITL not up yet — check the sim terminal; ArduPilot (verified): `tcp:127.0.0.1:5760`; PX4 (untested here): `udpin:0.0.0.0:14540` |
 | `sim_vehicle.py` not found | `source ~/.bashrc` after install-prereqs; or run from `ardupilot/Tools/autotest/` |
 | Browser can't reach ws://8765 | Relay not running in WSL; `sudo ufw allow 8765` if ufw is on |
 | Offboard refuses to start | Sim needs a moment after boot; retry — the relay retries automatically once |

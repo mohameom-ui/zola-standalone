@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { createReadStream, existsSync, readFileSync, writeFileSync } from "fs";
+import { createReadStream, existsSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 
 // ============================================================================
@@ -32,6 +32,20 @@ const CRITICAL: string[] = [
   "public/models/mediapipe/efficientdet_lite0.float16.tflite",
 ];
 
+// HER BODY — the movement library and every 3D model her world loads are
+// trust-critical too: a swapped clip is a different pet. Discovered at audit
+// time, so new clips (the walk cycle, the next twenty) are guarded the day
+// they are added — no manifest edits to forget.
+const MODEL_DIR = "public/assets/models";
+const modelRoot = path.join(process.cwd(), MODEL_DIR);
+if (existsSync(modelRoot)) {
+  for (const rel of readdirSync(modelRoot, { recursive: true }) as string[]) {
+    if (rel.endsWith(".glb")) {
+      CRITICAL.push(`${MODEL_DIR}/${rel.split(path.sep).join("/")}`);
+    }
+  }
+}
+
 function sha256(file: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const h = createHash("sha256");
@@ -63,6 +77,14 @@ export async function GET() {
     for (const rel of Object.keys(base)) {
       if (!(rel in results)) { verdict = "DRIFT"; drifted.push(rel + " (missing)"); }
     }
+    // the baseline GROWS: newly added trust-critical files are baselined at
+    // first sight (previously a static baseline meant new assets flew blind)
+    const merged = { ...base };
+    let grew = false;
+    for (const [rel, hash] of Object.entries(results)) {
+      if (!(rel in merged)) { merged[rel] = hash; grew = true; }
+    }
+    if (grew) writeFileSync(BASELINE, JSON.stringify(merged, null, 2));
   } else {
     writeFileSync(BASELINE, JSON.stringify(results, null, 2));
   }

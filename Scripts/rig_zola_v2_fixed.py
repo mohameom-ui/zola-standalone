@@ -18,7 +18,8 @@ import bpy, os, sys, json, struct, mathutils
 
 ANIMS_DIR = r"C:\Users\self_\ZOLA-standalone\public\assets\models\zola-anims"
 OUT_DIR = os.path.join(ANIMS_DIR, "v2")
-BODY = r"C:\Users\self_\ZOLA-standalone\public\assets\models\zola-body-v2.glb"
+import os as _os
+BODY = _os.environ.get("ZOLA_BODY") or "C:/Users/self_/ZOLA-standalone/public/assets/models/zola-body-v2.glb"
 CLIP_EXPORT_HEIGHT = 1.775  # the legacy gesture-stage scale (legacy clips are 1.775 m in-file)
 
 # her measured silhouette (normalized heights, from the mesh profile)

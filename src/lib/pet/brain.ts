@@ -6,6 +6,7 @@
 // ============================================================================
 
 import type { Actuation, Activity, Mood, Percept } from "./types";
+import { canTakeOff, REFUSE_TAKEOFF_BELOW } from "./batteryPolicy";
 import { TaskRunner, type TickResult, wrapAngle } from "./tasks";
 import type { RoutineData } from "./memory";
 import { PersonaEngine, type PersonaName } from "./persona";
@@ -300,6 +301,13 @@ export class PetBrain {
     const t = text.toLowerCase().trim();
     if (!t) return null;
     const has = (...words: string[]) => words.some((w) => t.includes(w));
+
+    // v5.3 — THE BATTERY GATE: flight-shaped commands get refused below the
+    // policy line, in her own words. Walking and dock commands pass freely.
+    if (battery < REFUSE_TAKEOFF_BELOW && has("hover", "fly", "flight", "take off", "takeoff", "launch", "trick", "patrol", "mission")) {
+      const gate = canTakeOff(battery);
+      if (!gate.ok) return gate.refusal ?? null; // the panel speaks her refusal
+    }
 
     // --- human adaptation: learn their style from every message ----------------
     this.hooks.profile?.update(

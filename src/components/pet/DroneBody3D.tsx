@@ -109,10 +109,10 @@ function SceneRig({
       return m;
     };
     const servoJoints: [string, number][] = [
-      ["upperarm_l", 0.045], ["upperarm_r", 0.045],
-      ["lowerarm_l", 0.034], ["lowerarm_r", 0.034],
-      ["thigh_l", 0.05], ["thigh_r", 0.05],
-      ["calf_l", 0.04], ["calf_r", 0.04],
+      ["upperarm_l", 0.024], ["upperarm_r", 0.024],
+      ["lowerarm_l", 0.018], ["lowerarm_r", 0.018],
+      ["thigh_l", 0.026], ["thigh_r", 0.026],
+      ["calf_l", 0.02], ["calf_r", 0.02],
     ];
     const added: THREE.Object3D[] = [];
     for (const [name, r] of servoJoints) {
@@ -122,15 +122,9 @@ function SceneRig({
       bone.add(cap);
       added.push(cap);
     }
-    const traceMat = new THREE.MeshStandardMaterial({ color: 0x35d0a5, emissive: 0x35d0a5, emissiveIntensity: 1.6, toneMapped: false });
-    for (const name of ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01"]) {
-      const bone = scene.getObjectByName(name);
-      if (!bone) continue;
-      const node = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 10), traceMat);
-      node.position.y = 0.01;
-      bone.add(node);
-      added.push(node);
-    }
+    // v5 note: the spine trace nodes are retired on the humanoid body —
+    // dots floating on a dress read as debris, not circuitry. The servo
+    // caps stay, at companion scale: subtle, not surgical.
     return () => { for (const a of added) a.removeFromParent(); };
   }, [scene]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
@@ -345,19 +339,13 @@ function SceneRig({
           ))}
         </group>
       </group>
-      {/* the Aura-Telemetry ring — her cranial halo LEDs, emissive glow
-          synced to her persona + motor state (she spans y -0.905..0.87
-          in-file, so the cranium sits at ~0.87; the ring wraps her halo) */}
-      <mesh ref={ringRef} position={[0, 0.87, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* the Aura-Telemetry glow — on the humanoid body the physical ring
+          is retired; her persona light lives as a soft ambient aura */}
+      <mesh ref={ringRef} visible={false} position={[0, 0.87, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.26, 0.02, 16, 48]} />
-        <meshStandardMaterial
-          color={ringColor}
-          emissive={ringColor}
-          emissiveIntensity={ringIntensity}
-          toneMapped={false}
-        />
+        <meshStandardMaterial color={ringColor} emissive={ringColor} emissiveIntensity={ringIntensity} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, -0.5, 0.8]} color={ringColor} intensity={3.4} distance={5} decay={1.6} />
+      <pointLight position={[0, -0.5, 0.8]} color={ringColor} intensity={1.6} distance={5} decay={1.6} />
     </group>
   );
 }
@@ -420,7 +408,8 @@ export default function DroneBody3D({
       onClick={onPet}
       title="pet her — she responds with body and voice"
     >
-      <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}>
+      <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}
+        onCreated={({ gl }) => { gl.toneMappingExposure = 1.35; }}>
         {/* the studio: she deserves a photo shoot, not an interrogation */}
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 5, 4]} intensity={2.6} color="#f4f6fb" />

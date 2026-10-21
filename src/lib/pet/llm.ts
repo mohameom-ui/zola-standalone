@@ -174,6 +174,7 @@ export async function lmStudioVision(imageDataUrl: string, question = "Identify 
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(12_000),
       body: JSON.stringify({
+        model: "qwen/qwen3.5-9b", // an mmproj-capable brain on this device
         stream: false,
         max_tokens: 80,
         messages: [
@@ -215,7 +216,7 @@ export class LlmConsultant {
       const ids = (data.data ?? []).map((m) => m.id);
       if (!ids.length) return null;
       // preference: instruction-tuned brains first, then the biggest listed
-      const prefs = [/llama-?3\.1|llama-?3\.2/i, /qwen/i, /mistral|mixtral/i, /gemma/i, /phi/i];
+const prefs = [/qwen3\.8-27b/i, /llama-?3\.1|llama-?3\.2/i, /qwen3\.5-9b/i, /qwen/i, /mistral|mixtral/i, /gemma/i, /phi/i];
       for (const p of prefs) {
         const hit = ids.find((t) => p.test(t));
         if (hit) return hit;

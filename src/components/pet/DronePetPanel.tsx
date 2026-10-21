@@ -23,6 +23,8 @@ import { SpatialMap } from "@/lib/pet/spatialMap";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
 import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
+import { Cortex } from "@/lib/pet/cortex";
+import { allPersonas } from "@/lib/pet/personas";
 import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
 import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
 import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
@@ -106,7 +108,10 @@ export default function DronePetPanel() {
     story?: () => void;
     dream?: () => void;
     gesture?: (name: string) => boolean;
+    patrol?: () => void;
   }>({});
+  // v3.1 CORTEX — the capability registry: 500 persona-shifts + the system ops
+  const cortexRef = useRef(new Cortex());
   const gestureApiRef = useRef<GestureApi | null>(null);
   // SPONTANEA — her last interaction (commands reset it; idle accrues)
   const lastInteractionRef = useRef(performance.now());
@@ -461,6 +466,16 @@ export default function DronePetPanel() {
    */
   const applyDecision = useCallback((d: LlmDecision): boolean => {
     const act = (d.do ?? "none").trim();
+    // v3.1 — the CORTEX registry first: any registered capability executes
+    // here (the 500 persona-shifts + the system ops). Unregistered verbs
+    // fall through to the legacy routing below.
+    if (cortexRef.current.has(act)) {
+      void cortexRef.current.execute(act).then((line) => {
+        if (line) say(line);
+        refreshCounts();
+      });
+      return true;
+    }
     const SIMPLE = new Set(["come", "follow", "trick", "dance", "sleep", "wake", "hover", "scan", "cancel", "status", "patrol"]);
     let canonical = "";
     if (SIMPLE.has(act)) canonical = act === "cancel" ? "cancel task" : act === "scan" ? "scan the room" : act;
@@ -1808,7 +1823,24 @@ export default function DronePetPanel() {
       gestureApiRef.current?.playGesture(name);
       return true;
     };
-  }, [runIntegrity, exportVlog, triggerDream, handleCommand]);
+    featuresRef.current.patrol = () => void handleCommand("patrol the room");
+
+    // v3.1 CORTEX — register the SYSTEM capabilities (the real handlers)
+    const c = cortexRef.current;
+    c.register({ id: "diagnose", kind: "system", label: "Full integrity sweep", description: "Audit every local asset and byte for drift.", run: () => { void runIntegrity(); return "Integrity sweep running."; } });
+    c.register({ id: "vlog", kind: "system", label: "Compile micro-vlog", description: "Compile today into her own words.", run: () => { exportVlog(); return "Micro-vlog compiled."; } });
+    c.register({ id: "dream", kind: "system", label: "Dream cycle", description: "Consolidate today's events into tuning.", run: () => { triggerDream(); return "Dream cycle complete."; } });
+    c.register({ id: "story", kind: "system", label: "Tell a story", description: "Weave a story from her day.", run: () => { void handleCommand("tell me a story"); return "Story begun."; } });
+    c.register({ id: "sun", kind: "system", label: "Sun report", description: "Report the sun phase and the light.", run: () => { const sr = sunReport(new Date()); return `Sun phase: ${sr.phase}.`; } });
+    c.register({ id: "patrol", kind: "system", label: "Room patrol", description: "Fly a patrol loop of the room.", run: () => { void handleCommand("patrol the room"); return "Patrol engaged."; } });
+    // the 500 persona-shifts — the run delegates to the panel's real setter
+    c.registerPersonaShifts(allPersonas(), (name) => {
+      setPersona(name);
+      return `Persona shift: ${name}.`;
+    });
+    c.onLog((who, text) => pushLog(who, text));
+    pushLog("sys", `[CORTEX] ${c.size} capabilities registered`);
+  }, [runIntegrity, exportVlog, triggerDream, handleCommand, memory, pushLog]);
 
   // SPONTANEA — the autonomous movement engine: when idle past her
   // persona's cadence, HER BRAIN picks a move from her repertoire, gated
@@ -2594,14 +2626,19 @@ export default function DronePetPanel() {
           ))}
         </div>
 
-        {/* --- command chips + input --------------------------------------------------- */}
-        <div className="flex flex-wrap gap-1.5">
-          {CHIPS.map(([cmd, label]) => (
-            <button key={cmd} onClick={() => handleCommand(cmd)} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#f0b90b]/60 hover:text-[#f0b90b] transition-colors">
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* --- the brain is the interface — manual chips collapsed ------------------- */}
+        <details className="group">
+          <summary className="hud-label text-[9px] text-[#8b8f9c] hover:text-[#f0b90b] cursor-pointer select-none">
+            MANUAL OVERRIDE · {CHIPS.length} QUICK COMMANDS (the brain handles these verbally)
+          </summary>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {CHIPS.map(([cmd, label]) => (
+              <button key={cmd} onClick={() => handleCommand(cmd)} className="px-2.5 py-1 rounded-md border border-white/10 text-[10px] text-[#c8ccd6] hover:border-[#f0b90b]/60 hover:text-[#f0b90b] transition-colors">
+                {label}
+              </button>
+            ))}
+          </div>
+        </details>
         <form
           onSubmit={(e) => {
             e.preventDefault();

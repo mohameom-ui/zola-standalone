@@ -149,7 +149,7 @@ export function rotatePersona(currentId: number, mood: string, warmthHint: numbe
     const p = all[i];
     let score = 0;
     for (const [k, v] of Object.entries(want)) {
-      score += 1 - Math.abs((p.traits as Record<string, number>)[k] - v);
+      score += 1 - Math.abs((p.traits as unknown as Record<string, number>)[k] - v);
     }
     score += hash(p.name + mood) * 0.3; // variety without chaos
     if (score > best) { best = score; bestId = i; }

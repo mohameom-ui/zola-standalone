@@ -10,7 +10,7 @@
 
 import type { Activity } from "./types";
 
-export type StepKind = "scan" | "search_item" | "come" | "follow" | "trick" | "hover" | "patrol_cycle" | "goto_item" | "drill_hover" | "drill_square" | "drill_circle";
+export type StepKind = "scan" | "search_item" | "come" | "follow" | "trick" | "hover" | "patrol_cycle" | "goto_item" | "walk_item" | "drill_hover" | "drill_square" | "drill_circle";
 
 export interface TaskStep {
   kind: StepKind;
@@ -179,6 +179,37 @@ export class TaskRunner {
     };
   }
 
+  /** Build a WALKING navigation task — the same nav plan as planGoto, but
+   *  she travels on her legs (ground activity, slower approach). Used when
+   *  asked to walk somewhere, or when her battery refuses flight but the
+   *  destination is known — she keeps her "I walk, I do not fly" promise. */
+  planWalkGoto(
+    target: string,
+    targetYaw: number | null,
+    targetPos?: { x: number; y: number; z: number } | null,
+  ): Task {
+    const steps: TaskStep[] = [];
+    const hasPos = !!targetPos;
+    if (!hasPos && (targetYaw === null || Number.isNaN(targetYaw))) {
+      steps.push({ kind: "search_item", label: `Find ${target}`, target, done: false });
+    }
+    steps.push({
+      kind: "walk_item",
+      label: `Walk to ${target}`,
+      target,
+      targetYaw: hasPos ? null : targetYaw,
+      targetPos: targetPos ?? null,
+      done: false,
+    });
+    return {
+      id: `t_${Date.now().toString(36)}`,
+      description: steps.map((s) => s.label).join(" → "),
+      steps,
+      createdAt: Date.now(),
+      recurring: false,
+    };
+  }
+
   start(task: Task, now: number): string {
     this.task = task;
     this.stepStartedAt = now;
@@ -324,6 +355,59 @@ export class TaskRunner {
           // phase 2: approach while scanning
           activity = "scan";
           vx = 0.4;
+        }
+        break;
+      }
+      case "walk_item": {
+        // GROUND NAVIGATION — like goto_item but on her legs: slower approach,
+        // longer patience, arrival means standing at the spot
+        const target = step.target ?? "it";
+        const hit = ctx.visibleItems.find((i) => i === target || target.includes(i) || i.includes(target));
+        if (hit) {
+          if (!this.announced.has(step.label)) {
+            this.announced.add(step.label);
+            say = `Strolled right up to the ${target}.`;
+          }
+          activity = "hover";
+          finish();
+          break;
+        }
+        if (elapsed > 45_000) {
+          say = `The stroll to the ${target} ran long — calling it. I got close.`;
+          finish();
+          break;
+        }
+        if (step.targetPos) {
+          const dxw = step.targetPos.x - ctx.px;
+          const dyw = step.targetPos.y - ctx.py;
+          const dist = Math.hypot(dxw, dyw);
+          if (dist < 0.2) {
+            say = `I walked to the ${target}. Ground travel: slow, dignified.`;
+            finish();
+            break;
+          }
+          const delta = wrapAngle(Math.atan2(dyw, dxw) - ctx.yaw);
+          if (Math.abs(delta) > 0.15) {
+            activity = "walk";
+            yawRate = Math.max(-0.5, Math.min(0.5, delta * 2));
+          } else {
+            activity = "walk";
+            vx = Math.max(0.1, Math.min(0.2, dist * 1.2)); // a stroll, not a sprint
+          }
+          break;
+        }
+        if (step.targetYaw != null && !step.approach) {
+          const delta = wrapAngle(step.targetYaw - ctx.yaw);
+          if (Math.abs(delta) > 0.12) {
+            activity = "walk";
+            yawRate = Math.max(-0.45, Math.min(0.45, delta * 2));
+          } else {
+            step.approach = true;
+            this.stepStartedAt = ctx.now;
+          }
+        } else {
+          activity = "walk";
+          vx = 0.14;
         }
         break;
       }

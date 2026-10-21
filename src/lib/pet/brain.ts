@@ -312,7 +312,21 @@ export class PetBrain {
     // policy line, in her own words. Walking and dock commands pass freely.
     if (battery < REFUSE_TAKEOFF_BELOW && has("hover", "fly", "flight", "take off", "takeoff", "launch", "trick", "patrol", "mission")) {
       const gate = canTakeOff(battery);
-      if (!gate.ok) return gate.refusal ?? null; // the panel speaks her refusal
+      if (!gate.ok) {
+        // she keeps her own promise: "I walk, I do not fly" — if the
+        // destination is known on the map, she strolls there instead
+        const m = /(?:take me to|go to|fly to|navigate to|walk to|stroll to)\s+(?!sleep)(?:my |the |a |an )?(.{2,30})/i.exec(text);
+        if (m) {
+          const target = m[1].replace(/[.!?]+$/, "").trim();
+          const isDock = /dock|home|charger|pad/i.test(target);
+          const pos = isDock ? this.hooks.dockPose?.() ?? null : this.hooks.wherePos?.(target) ?? null;
+          if (pos) {
+            this.walkUntil = 0;
+            return this.runner.start(this.runner.planWalkGoto(target, null, { x: pos.x, y: pos.y, z: 0 }), performance.now());
+          }
+        }
+        return gate.refusal ?? null; // the panel speaks her refusal
+      }
     }
 
     // --- human adaptation: learn their style from every message ----------------
@@ -549,6 +563,22 @@ export class PetBrain {
       this.setActivity("hover");
       return "Holding position.";
     }
+    // GROUND NAVIGATION — "walk to the dock" / "stroll to my cup": the same
+    // map navigation as flying there, just on her legs
+    if (has("walk home", "stroll home", "walk to the dock", "stroll to the dock")) {
+      const dock = this.hooks.dockPose?.() ?? { x: -1.2, y: -1.2, z: 0 };
+      this.walkUntil = 0;
+      return this.runner.start(this.runner.planWalkGoto("the dock", null, { x: dock.x, y: dock.y, z: 0 }), performance.now());
+    }
+    const walkToMatch = /(?:walk|stroll)\s+(?:to|over to)\s+(?:my |the |a |an )?(.{2,30})/i.exec(text);
+    if (walkToMatch) {
+      const target = walkToMatch[1].replace(/[.!?]+$/, "").trim();
+      const isDock = /dock|home|charger|pad/i.test(target);
+      const pos = isDock ? this.hooks.dockPose?.() ?? null : this.hooks.wherePos?.(target) ?? null;
+      const yaw = isDock ? null : this.hooks.whereYaw?.(target) ?? null;
+      this.walkUntil = 0; // task-driven walking has no stroll timer
+      return this.runner.start(this.runner.planWalkGoto(isDock ? "the dock" : target, yaw, pos ? { x: pos.x, y: pos.y, z: 0 } : null), performance.now());
+    }
     // GROUND LOCOMOTION — she can actually travel on her legs, not just hover
     if (has("stroll", "walk")) {
       this.setActivity("walk");
@@ -682,7 +712,7 @@ export class PetBrain {
       }
     }
     if (has("what can you do", "help", "abilities", "capabilit")) {
-      return "I follow you, come when called, scan and remember items, find things and fly to them, run routines, patrol, dance, watch your face, and roast the rude. Try me.";
+      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance, watch your face, and roast the rude. Try me.";
     }
     if (has("goodbye", "bye", "see you", "later")) {
       this.setMood("happy");
@@ -977,7 +1007,7 @@ export class PetBrain {
         a.vx = 0.16;
         a.yaw = Math.sin(now / 2100) * 0.25;
         if (p.faceSeen) { a.vx = 0.05; a.yaw = clamp(-p.faceX * 0.8, -0.4, 0.4); } // drift toward you, slowly
-        if (now > this.walkUntil) this.setActivity("hover"); // stroll over, stand idle
+        if (this.walkUntil && now > this.walkUntil) this.setActivity("hover"); // stroll over, stand idle (0 = task-driven, no timer)
         break;
       }
       case "follow": {

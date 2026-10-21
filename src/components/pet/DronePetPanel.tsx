@@ -134,6 +134,7 @@ export default function DronePetPanel() {
   const batterySyncAtRef = useRef(0);
   const lastGestureRef = useRef<string | null>(null);
   const autoReturnSaidRef = useRef(false);
+  const greetedThisSessionRef = useRef<Set<string>>(new Set());
   const autoScanTried = useRef(false);
   const uncertainAnnouncedRef = useRef<Set<string>>(new Set());
   const movedAnnouncedRef = useRef<Set<string>>(new Set());
@@ -1238,6 +1239,25 @@ export default function DronePetPanel() {
       };
       // multi-person identity resolution (consent-gated, local only)
       v.onFaces = (faces) => {
+        // v5.1 — THE GREETER: when a KNOWN person appears in her view, she
+        // greets them by name with body language that fits the moment
+        const knownNow = new Set<string>();
+        for (const f of faces) {
+          const m = memory.getConsent().faceIndex && f.embedding.length ? memory.recognize(f.embedding) : null;
+          if (m?.person.name) knownNow.add(m.person.name);
+        }
+        for (const name of knownNow) {
+          if (!greetedThisSessionRef.current.has(name)) {
+            greetedThisSessionRef.current.add(name);
+            const line = `${name}. Noted in the ledger. Welcome back to my airspace.`;
+            say(line);
+            const pick = chooseGesture(brainRef.current?.getMood() ?? "curious", "greet", Math.random(), lastGestureRef.current);
+            if (pick && GESTURE_REPERTOIRE.includes(pick.clip)) {
+              lastGestureRef.current = pick.clip;
+              gestureApiRef.current?.playGesture(pick.clip);
+            }
+          }
+        }
         const allow = memory.getConsent().faceIndex;
         identityListRef.current = faces.map((f) => {
           if (!allow || f.embedding.length === 0) {

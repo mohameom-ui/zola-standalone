@@ -13,7 +13,7 @@ check(){ if eval "$2" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi }
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "=== ZOLA DAY-ONE CHECK ($APP_DIR)"
 
-check "app builds/serves on :3000"        "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 | grep -q 200"
+check "app builds/serves on :3001"        "curl -s -o /dev/null -w '%{http_code}' http://localhost:3001 | grep -q 200"
 check "voice pack manifest present"        "test -f '$APP_DIR/public/voices/piper/manifest.json'"
 check "voice WAVs present (>=34)"          "[ \$(find '$APP_DIR/public/voices/piper' -name '*.wav' | wc -l) -ge 34 ]"
 check "offline AI models present"          "test -d '$APP_DIR/public/models/whisper-tiny-en' && test -d '$APP_DIR/public/models/kokoro-82m' && test -d '$APP_DIR/public/models/smolvlm-256m'"

@@ -8,3 +8,5 @@ docs/
 *.log
 .git/
 zola-*.log
+Saved/
+.zola-pair

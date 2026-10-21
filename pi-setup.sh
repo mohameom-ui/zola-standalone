@@ -95,7 +95,7 @@ cat > "$HOME/.config/autostart/zola-kiosk.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Zola Kiosk
-Exec=chromium-browser --kiosk --app=http://localhost:3000 --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream --disable-features=Translate
+Exec=chromium-browser --kiosk --app=http://localhost:3001 --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream --disable-features=Translate
 Restart=false
 EOF
 
@@ -107,7 +107,7 @@ echo ""
 echo "============================================================"
 echo "  ZOLA IS DEPLOYED ON THIS PI."
 echo "  • relay:    systemd zola-relay  (MAVLink <-> WebSocket:8765)"
-echo "  • app:      systemd zola-app    (http://localhost:3000)"
+echo "  • app:      systemd zola-app    (http://localhost:3001)"
 echo "  • screen:   kiosk Chromium auto-opens her panel on boot"
 echo "  Reboot now: sudo reboot"
 echo "  - relay wired for: connection '$ZOLA_CONNECTION' @ $ZOLA_BAUD baud"

@@ -231,5 +231,9 @@ The owner's directive: make her beautiful, human, solid, and one.
   is silently ignored (v6 re-bake landed byte-identical) — same params
   gap as the bridge 400.
 
-Resume hook: the paint brightening pass, stat-row trim, SITL round-trip,
-walk cycle, Pi 5.
+Resume hook (updated 2026-10-21): the paint brightening pass (45e996c),
+stat-row trim (5a36493), the SITL round-trip (a912d67 — she flew ArduPilot
+SITL end-to-end, direct TCP to the FC) and the walk cycle (e718e84 —
+CMU 07_01 retargeted, real-time gait + ground locomotion activity) have
+LANDED. Remaining: the Pi 5 deployment; and for the walk — teach her to
+walk TO places (goto on foot), not just stroll.

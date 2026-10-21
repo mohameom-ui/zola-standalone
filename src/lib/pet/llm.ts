@@ -166,11 +166,43 @@ export class LlmConsultant {
   model = "llama3.1:8b";
   baseUrl = "http://localhost:11434";
   private online = false;
+  private backend: "ollama" | "lmstudio" = "ollama";
 
   get isOnline() { return this.online; }
+  get brainSource() { return this.backend; }
+
+  /** LM STUDIO FIRST — the AI Brain Studio local server (OpenAI-compatible
+   * at :1234/v1). When you load a model there, she upgrades to it
+   * automatically; Ollama stays as the second choice. */
+  private async probeLmStudio(): Promise<string | null> {
+    try {
+      const res = await fetch("http://localhost:1234/v1/models", { signal: AbortSignal.timeout(2500) });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { data?: { id: string }[] };
+      const ids = (data.data ?? []).map((m) => m.id);
+      if (!ids.length) return null;
+      // preference: instruction-tuned brains first, then the biggest listed
+      const prefs = [/llama-?3\.1|llama-?3\.2/i, /qwen/i, /mistral|mixtral/i, /gemma/i, /phi/i];
+      for (const p of prefs) {
+        const hit = ids.find((t) => p.test(t));
+        if (hit) return hit;
+      }
+      return ids[0];
+    } catch {
+      return null;
+    }
+  }
 
   /** Ping Ollama AND auto-pick the biggest usable brain installed. */
   async checkAvailable(): Promise<boolean> {
+    const lm = await this.probeLmStudio();
+    if (lm) {
+      this.backend = "lmstudio";
+      this.baseUrl = "http://localhost:1234/v1";
+      this.model = lm;
+      this.online = true;
+      return true;
+    }
     try {
       const res = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(2500) });
       this.online = res.ok;
@@ -203,6 +235,36 @@ export class LlmConsultant {
     context: string,
     history?: { role: "user" | "assistant"; content: string }[],
   ): Promise<LlmDecision> {
+    if (this.backend === "lmstudio") {
+      // the Brain Studio path: OpenAI-compatible chat completions
+      const messages = [
+        { role: "system", content: SYSTEM_PROMPT + "\nReply with ONLY a JSON object." },
+        ...(history ?? []),
+        { role: "user", content: `${context}\n\nUSER: ${input}` },
+      ];
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.model,
+          stream: false,
+          temperature: 0.7,
+          max_tokens: 400,
+          messages,
+        }),
+      });
+      if (!res.ok) throw new Error(`lmstudio ${res.status}`);
+      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      const raw = data.choices?.[0]?.message?.content ?? "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      try {
+        const fixed = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
+        const parsed = JSON.parse(fixed) as Partial<LlmDecision>;
+        return { say: parsed.say ?? null, do: parsed.do ?? null };
+      } catch {
+        return { say: raw.trim() || null, do: null };
+      }
+    }
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

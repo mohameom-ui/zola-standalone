@@ -61,7 +61,8 @@ await ask("convert 60 mph to kph");
 let usedIt = false;
 try {
   // her spoken answer renders in the log/say area; wait for kph + a number
-  await page.getByText(/9[0-7](\.\d+)?\s*kph/i).first().waitFor({ timeout: 120_000 });
+  // her code may phrase the unit as km/h, kph, or kilometers per hour
+  await page.getByText(/9[0-7](\.\d+)?\s*(km\/h|kph|kilometers)/i).first().waitFor({ timeout: 120_000 });
   usedIt = true;
   say("✓ she answered with the conversion — her own code, her own args");
 } catch {

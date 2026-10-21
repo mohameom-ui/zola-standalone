@@ -339,6 +339,7 @@ export default function DronePetPanel() {
   const [taskInfo, setTaskInfo] = useState<{ desc: string; step: string; done: number; total: number } | null>(null);
   const [flightStats, setFlightStats] = useState({ alt: 0, pitch: 0, roll: 0, rpm: 0 });
   const [bubble, setBubble] = useState<string | null>(null); // what she's saying, drawn on her body
+  const [nowPlaying, setNowPlaying] = useState<string | null>(null); // her current movement
   const lastTaskKeyRef = useRef("");
   const poseRef = useRef<DronePose>({ x: 0, y: 0, z: 0, yaw: 0, bob: 0, pitch: 0, roll: 0 });
   const flightStatsKeyRef = useRef("");
@@ -2094,6 +2095,7 @@ export default function DronePetPanel() {
               activity={activity}
               stretchCue={stretchCue}
               gestureApiRef={gestureApiRef}
+              onGestureChange={setNowPlaying}
             />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-2 px-1">
@@ -2172,7 +2174,9 @@ export default function DronePetPanel() {
               <button
                 key={g}
                 onClick={() => gestureApiRef.current?.playGesture(g)}
-                className="text-[9px] px-2 py-1 rounded border border-white/15 text-[#8b8f9c] hover:border-white/30 tracking-widest transition-colors"
+                className={`text-[9px] px-2 py-1 rounded border tracking-widest transition-colors ${
+                  nowPlaying === g ? "border-[#f0b90b] text-[#f0b90b]" : "border-white/15 text-[#8b8f9c] hover:border-white/30"
+                }`}
               >
                 {g.replace(/_0?1$/, "").toUpperCase()}
               </button>
@@ -2183,6 +2187,11 @@ export default function DronePetPanel() {
             >
               IMPROV
             </button>
+            {nowPlaying && (
+              <span className="text-[9px] text-[#f0b90b] tracking-wider ml-auto self-center">
+                NOW PLAYING · {nowPlaying.replace(/_0?1$/, "").toUpperCase()}
+              </span>
+            )}
           </div>
         </div>
 

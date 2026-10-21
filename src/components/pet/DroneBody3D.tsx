@@ -81,6 +81,7 @@ function SceneRig({
   onTelemetry,
   gestureApiRef,
   onGestureDone,
+  onGestureChange,
 }: {
   accentColor: string;
   fps: number;
@@ -91,6 +92,7 @@ function SceneRig({
   onTelemetry?: (fps: number) => void;
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
+  onGestureChange?: (name: string | null) => void;
 }) {
   const gl = useThree((s) => s.gl);
   const gltf = useLoader(GLTFLoader, RIGGED_URL);
@@ -262,12 +264,14 @@ function SceneRig({
       action.reset().setEffectiveWeight(0).fadeIn(0.25).play();
       activeAction.current = action;
       activeName.current = name;
+      onGestureChange?.(name); // NOW PLAYING rides the HUD
       const dur = clip.duration;
       window.setTimeout(() => {
         if (activeName.current !== name) return;
         action.fadeOut(0.3);
         activeAction.current = null;
         activeName.current = null;
+        onGestureChange?.(null);
         const next = gestureQueue.current.shift(); // the improv chain continues
         if (next) playGesture(next);
         else onGestureDone?.(name);
@@ -370,6 +374,7 @@ export default function DroneBody3D({
   onTelemetry,
   gestureApiRef,
   onGestureDone,
+  onGestureChange,
 }: {
   accentColor?: string;
   mood?: string;
@@ -382,6 +387,7 @@ export default function DroneBody3D({
   onTelemetry?: (fps: number) => void;
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
+  onGestureChange?: (name: string | null) => void;
 }) {
   const [fpsLive, setFpsLive] = useState(fps);
   // NEURAL_AURA_CACHE — her first scan target is always herself
@@ -430,6 +436,7 @@ export default function DroneBody3D({
             onTelemetry={setFpsLive}
             gestureApiRef={gestureApiRef}
             onGestureDone={onGestureDone}
+            onGestureChange={onGestureChange}
           />
         </Suspense>
       </Canvas>

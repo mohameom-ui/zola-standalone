@@ -508,7 +508,7 @@ export default function DronePetPanel() {
       });
       return true;
     }
-    const SIMPLE = new Set(["come", "follow", "trick", "dance", "sleep", "wake", "hover", "scan", "cancel", "status", "patrol"]);
+    const SIMPLE = new Set(["come", "follow", "trick", "dance", "sleep", "wake", "hover", "scan", "cancel", "status", "patrol", "walk"]);
     let canonical = "";
     if (SIMPLE.has(act)) canonical = act === "cancel" ? "cancel task" : act === "scan" ? "scan the room" : act;
     else if (act.startsWith("find:")) canonical = `find ${act.slice(5).trim()}`;

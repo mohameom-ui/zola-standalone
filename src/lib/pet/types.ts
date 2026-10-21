@@ -6,7 +6,7 @@
 
 export type Mood = "idle" | "curious" | "happy" | "excited" | "sleepy" | "alarmed" | "sleeping";
 
-export type Activity = "hover" | "follow" | "come" | "trick" | "wander" | "sleep" | "search" | "scan" | "dock";
+export type Activity = "hover" | "follow" | "come" | "trick" | "wander" | "sleep" | "search" | "scan" | "dock" | "walk";
 
 /** world position (sim room meters, x = depth, y = lateral, z = altitude) */
 export interface Vec3 { x: number; y: number; z: number }

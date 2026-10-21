@@ -61,6 +61,7 @@ export class SimDroneHAL implements PetHAL {
 
     // ---- style constants from mood -------------------------------------------
     const sleeping = act.activity === "sleep";
+    const strolling = act.activity === "walk"; // ground locomotion — legs, not props
     const sluggish = act.mood === "sleepy" || act.mood === "sleeping" || sleeping;
     const excited = act.mood === "excited" || act.activity === "trick";
     const gScale = this.tuning.gain / 3.2;                // trained gain multiplier
@@ -152,7 +153,7 @@ export class SimDroneHAL implements PetHAL {
 
     // ---- hover bob: personality-sized ------------------------------------------
     const bobSpeed = sleeping ? 0 : excited ? 5.2 : act.mood === "happy" ? 3.8 : 3.1;
-    const bobAmp = sleeping ? 0 : excited ? 0.05 : act.mood === "alarmed" ? 0.02 : 0.035;
+    const bobAmp = sleeping ? 0 : strolling ? 0.004 : excited ? 0.05 : act.mood === "alarmed" ? 0.02 : 0.035; // the gait clip provides her ground bob
     this.p.bob += dt * bobSpeed * (sleeping ? 0 : 1);
     this.bobAmp = bobAmp;
 
@@ -171,7 +172,9 @@ export class SimDroneHAL implements PetHAL {
 
     // ---- props --------------------------------------------------------------------
     const thrust = Math.abs(act.vx) + Math.abs(act.vy) + Math.abs(act.vz) + Math.abs(act.yaw);
-    const targetRpm = sleeping ? 300 : excited ? 3200 + thrust * 1500 : 2400 + thrust * 1400;
+    // walking is servo work — the props idle; she is honest about where
+    // propulsion comes from (and stays below the gravity threshold)
+    const targetRpm = sleeping ? 300 : strolling ? 340 + thrust * 100 : excited ? 3200 + thrust * 1500 : 2400 + thrust * 1400;
     this.rpm += (targetRpm - this.rpm) * Math.min(1, dt * 4);
   }
 

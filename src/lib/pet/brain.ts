@@ -25,6 +25,11 @@ const COME_LINES = ["Coming over now.", "On my way.", "Zoom, incoming."];
 const TRICK_LINES = ["Watch this.", "Spinning up.", "Look at me go."];
 const SLEEP_LINES = ["Entering low power nap.", "Goodnight. Wake me later.", "Battery saving mode."];
 const WAKE_LINES = ["I am awake.", "Ready for action.", "Systems online."];
+const WALK_LINES = [
+  "Ground mode. Watch the gait — I practice.",
+  "Strolling. The legs earn their keep too.",
+  "Walking the floor. Servos humming happily.",
+];
 const LOST_LINES = ["Where did you go?", "I cannot see you anymore.", "Hello? Anyone there?"];
 const FOUND_LINES = ["There you are.", "Found you.", "I see you now."];
 const STATUS = (b: number) => `Battery at ${Math.round(b * 100)} percent.`;
@@ -182,6 +187,7 @@ export class PetBrain {
   private searchRate = 0.25;
   private trickUntil = 0;
   private scanUntil = 0;
+  private walkUntil = 0;
   private lastTrickDir = 1;
   private lastSmileReact = 0;
   private lastFrownReact = 0;
@@ -542,6 +548,13 @@ export class PetBrain {
     if (has("stop", "stay", "hover", "hold")) {
       this.setActivity("hover");
       return "Holding position.";
+    }
+    // GROUND LOCOMOTION — she can actually travel on her legs, not just hover
+    if (has("stroll", "walk")) {
+      this.setActivity("walk");
+      this.walkUntil = performance.now() + 14_000 + Math.random() * 8_000;
+      this.setMood("curious");
+      return this.styleLine(WALK_LINES);
     }
     if (has("hello", "hi ", "hey", "hi!")) {
       this.setMood("happy");
@@ -957,6 +970,16 @@ export class PetBrain {
         a.yaw = Math.sin(now / 1700) * 0.2;
         if (now > this.nextWanderAt - 4000) this.setActivity("hover");
         break;
+      case "walk": {
+        // GROUND LOCOMOTION — the stroll: low, slow, gentle heading wander.
+        // If she somehow got airborne, she descends before striding.
+        if (p.pz > 0.08) { a.vz = -0.3; break; }
+        a.vx = 0.16;
+        a.yaw = Math.sin(now / 2100) * 0.25;
+        if (p.faceSeen) { a.vx = 0.05; a.yaw = clamp(-p.faceX * 0.8, -0.4, 0.4); } // drift toward you, slowly
+        if (now > this.walkUntil) this.setActivity("hover"); // stroll over, stand idle
+        break;
+      }
       case "follow": {
         if (!p.faceSeen) { a.vx = 0; break; }
         // steer toward face center; size controls forward speed / stand-off

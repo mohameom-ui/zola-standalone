@@ -69,6 +69,7 @@ const ACTIVITY_GESTURE: Record<string, string[]> = {
   sleepy: ["mope_01", "stretch_01"],
   sleeping: ["laydown_01"],
   search: ["shrug_01", "crawl_01"],
+  walk: ["walk_01"], // ground locomotion — the gait loops while she strolls
 };
 
 function SceneRig({
@@ -273,8 +274,15 @@ function SceneRig({
       activeName.current = name;
       onGestureChange?.(name); // NOW PLAYING rides the HUD
       const dur = clip.duration;
-      window.setTimeout(() => {
+      // GAIT LOOP — while she is strolling, the walk cycles until her brain
+      // changes activity; the loop itself performs the clean stop when it does
+      const afterClip = () => {
         if (activeName.current !== name) return;
+        if (name === "walk_01" && activityRef.current === "walk") {
+          action.reset().setEffectiveWeight(1).play();
+          window.setTimeout(afterClip, dur * 1000);
+          return;
+        }
         action.fadeOut(0.3);
         activeAction.current = null;
         activeName.current = null;
@@ -282,13 +290,16 @@ function SceneRig({
         const next = gestureQueue.current.shift(); // the improv chain continues
         if (next) playGesture(next);
         else onGestureDone?.(name);
-      }, ((dur - 0.3) * 1000) | 0);
+      };
+      window.setTimeout(afterClip, ((dur - 0.3) * 1000) | 0);
     });
   };
 
   // THE BRAIN BRIDGE — her body language follows her inner state (the
   // retired GestureStage's last live feature, now on the ONE body)
   const prevBridge = useRef<string | null>(null);
+  const activityRef = useRef(activity); // the gait loop reads the CURRENT activity
+  useEffect(() => { activityRef.current = activity; }, [activity]);
   useEffect(() => {
     const state = `${activity ?? ""}|${mood}`;
     if (prevBridge.current === null) { prevBridge.current = state; return; } // settle first, perform later

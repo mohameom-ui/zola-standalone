@@ -24,6 +24,7 @@
 
 import asyncio
 import json
+import base64
 import os
 import sys
 import time
@@ -129,6 +130,8 @@ class MockActuators:
         self.led_color = (r, g, b)
         self.log.append(f"LED → rgb({r},{g},{b})")
         # the real implementation: the WS2812 strip via rpi-ws281x
+    def send_mavlink(self, data: bytes):
+        self.log.append(f"MAVLINK {len(data)} bytes (mock: logged, not flown)")
 
     def get_battery(self) -> dict:
         # the real implementation: read the ADC voltage divider
@@ -143,6 +146,30 @@ class MockActuators:
             for line in self.log:
                 print(f"  [mock] {line}", flush=True)
             self.log.clear()
+
+
+class MavlinkSink:
+    """Where MAVLink frames go: UDP for SITL, serial for the real FC."""
+    def __init__(self, udp_host=None, udp_port=14550, serial_port=None, baud=115200):
+        self.udp = None
+        self.ser = None
+        if udp_host:
+            import socket
+            self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_host, self.udp_port = udp_host, udp_port
+        elif serial_port:
+            import serial  # pyserial -- the Pi has it; the dev box may not
+            self.ser = serial.Serial(serial_port, baud, timeout=0.1)
+
+    def send(self, data: bytes):
+        if self.udp:
+            self.udp.sendto(data, (self.udp_host, self.udp_port))
+        elif self.ser:
+            self.ser.write(data)
+
+    def close(self):
+        if self.udp: self.udp.close()
+        if self.ser: self.ser.close()
 
 
 class RealActuators:
@@ -170,6 +197,14 @@ class RealActuators:
     def set_led(self, r: int, g: int, b: int):
         # the WS2812 strip via the rpi-ws281x library
         pass  # the real implementation
+    # the MAVLink lane — wired by main() to SITL UDP or the real UART
+    mavlink_sink = None
+
+    def send_mavlink(self, data: bytes):
+        if self.mavlink_sink:
+            self.mavlink_sink.send(data)
+        else:
+            print(f"[bridge] mavlink frame dropped: no sink configured")
 
     def get_battery(self) -> dict:
         # the real implementation: the ADC voltage divider
@@ -239,6 +274,15 @@ async def handle_client(websocket, actuators):
                     print(f"[bridge] gesture: {gname} ({len(GESTURES.get(gname, []))} steps)", flush=True)
                 else:
                     print(f"[bridge] unknown gesture: {gname}", flush=True)
+            elif action == "mav":
+                # the flight-control lane: a raw MAVLink v2 frame from the
+                # brain (base64), forwarded to the FC -- SITL UDP first,
+                # real UART when --serial names the port
+                try:
+                    data = base64.b64decode(msg.get("frame", ""))
+                    actuators.send_mavlink(data)
+                except Exception as e:
+                    print(f"[bridge] mav frame dropped: {e}", flush=True)
             elif action == "ping":
                 await websocket.send(json.dumps({"type": "pong"}))
             else:

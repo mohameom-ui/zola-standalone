@@ -15,6 +15,7 @@
 // ============================================================================
 
 import type { Actuation, DronePose } from "./types";
+import { encodeHeartbeat, encodeSetAttitudeTarget } from "./mavlink";
 import { sunReport } from "./suncalc";
 
 /** obstacle-avoidance whisker: given (from,to,altitude) return a steered target */
@@ -210,27 +211,58 @@ export class MavLinkBridgeHAL implements PetHAL {
   private lastPose: DronePose = { x: 0, y: 0, z: 0.8, yaw: 0, bob: 0, pitch: 0, roll: 0 };
   private lastRpm = 0;
   private url: string;
+  private seq = 0;
+  private bootAt = Date.now();
+  private hbTimer: ReturnType<typeof setInterval> | null = null;
 
   avoid: AvoidFn | null = null;
 
   constructor(url: string) { this.url = url; }
 
+  /** Build one MAVLink SET_ATTITUDE_TARGET frame for her FC — exported for
+   * the tests: yaw -> quaternion, vz -> thrust (clamped, the governor rules). */
+  attitudeCommand(yaw: number, vz: number): Uint8Array {
+    const yawHalf = yaw / 2;
+    const q: [number, number, number, number] = [0, 0, Math.sin(yawHalf), Math.cos(yawHalf)];
+    const thrust = Math.max(0, Math.min(1, 0.5 + vz * 0.2));
+    return encodeSetAttitudeTarget(
+      { seq: this.seq++ & 0xff, sysid: 1, compid: 1 },
+      Date.now() - this.bootAt,
+      q,
+      thrust,
+    );
+  }
+
+  private sendMav(frame: Uint8Array) {
+    if (!this.connected) return;
+    let bin = "";
+    for (const b of frame) bin += String.fromCharCode(b);
+    try { this.ws!.send(JSON.stringify({ action: "mav", frame: btoa(bin) })); } catch { /* link hiccup */ }
+  }
+
   connect(onOpen?: () => void, onClose?: () => void) {
     try { this.ws = new WebSocket(this.url); } catch { this.ws = null; }
     if (this.ws) {
       this.ws.onopen = () => {
-        // arm + take off as soon as the link is live
-        try { this.ws!.send(JSON.stringify({ t: "start" })); } catch { /* relay may not be ready */ }
+        // her heartbeat keepalive: one HEARTBEAT per second, MAVLink-native
+        this.hbTimer = setInterval(() => {
+          this.sendMav(encodeHeartbeat({ seq: this.seq++ & 0xff, sysid: 1, compid: 1 }));
+        }, 1000);
         onOpen?.();
       };
-      this.ws.onclose = () => { this.ws = null; onClose?.(); };
+      this.ws.onclose = () => {
+        if (this.hbTimer) { clearInterval(this.hbTimer); this.hbTimer = null; }
+        this.ws = null; onClose?.();
+      };
     }
   }
 
   /** land + shut the offboard session down cleanly */
   disconnect() {
+    if (this.hbTimer) { clearInterval(this.hbTimer); this.hbTimer = null; }
     if (this.connected) {
-      try { this.ws!.send(JSON.stringify({ t: "stop" })); } catch { /* noop */ }
+      // her landing command: thrust zero, level attitude, in HER language
+      this.sendMav(this.attitudeCommand(this.lastPose.yaw, -5));
     }
     this.ws?.close();
     this.ws = null;
@@ -240,9 +272,11 @@ export class MavLinkBridgeHAL implements PetHAL {
 
   apply(act: Actuation, _dt: number) {
     if (!this.connected) return;
-    this.ws!.send(JSON.stringify({
-      t: "vel", vx: act.vx, vy: act.vy, vz: act.vz, yaw: act.yaw, led: act.led,
-    }));
+    // her commands ride the MAVLink lane now: real SET_ATTITUDE_TARGET
+    // frames the Matek F405 (or the SITL sim) speaks natively
+    this.sendMav(this.attitudeCommand(act.yaw, act.vz));
+    // the halo lighting stays on the bridge's own channel — a body concern,
+    // not a flight-control concern
     // telemetry comes back as JSON {t:"pose", x,y,z,yaw,rpm}
     this.ws!.onmessage = (ev) => {
       try {

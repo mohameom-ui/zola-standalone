@@ -92,6 +92,7 @@ function SceneRig({
   const activeAction = useRef<THREE.AnimationAction | null>(null);
   const activeName = useRef<string | null>(null);
   const sway = useRef({ t: 0 });
+  const ringRef = useRef<THREE.Mesh>(null);
 
   // the procedural balancer — runs whenever no gesture owns her body
   useFrame((_, delta) => {
@@ -161,7 +162,27 @@ function SceneRig({
     };
   });
 
-  return <primitive object={scene} />;
+  // the LED ring — reactive to persona, fps, and the motor state
+  const tier = fps >= 55 ? "buttery" : fps >= 30 ? "mid" : "critical";
+  const ringColor = tier === "buttery" ? accentColor : tier === "mid" ? "#f0b90b" : "#ff4d4f";
+  const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
+
+  return (
+    <group>
+      <primitive object={scene} />
+      {/* the LED ring — emissive glow synced to her persona + motor state */}
+      <mesh ref={ringRef} position={[0, -0.55, 0.55]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.45, 0.045, 16, 48]} />
+        <meshStandardMaterial
+          color={ringColor}
+          emissive={ringColor}
+          emissiveIntensity={ringIntensity}
+          toneMapped={false}
+        />
+      </mesh>
+      <pointLight position={[0, -0.5, 0.8]} color={ringColor} intensity={3.4} distance={5} decay={1.6} />
+    </group>
+  );
 }
 
 export default function DroneBody3D({

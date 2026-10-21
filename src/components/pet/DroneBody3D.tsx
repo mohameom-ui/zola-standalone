@@ -12,7 +12,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Canvas, useFrame, useLoader } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { scanAsset, scanWorldManifest, GESTURE_REPERTOIRE, type ScanResult } from "@/lib/pet/auraCache";
 
 // ONE BODY — the v2.1 humanoid-drone hybrid is her ONLY body
@@ -80,6 +80,7 @@ function SceneRig({
   gestureApiRef?: React.MutableRefObject<GestureApi | null>;
   onGestureDone?: (name: string) => void;
 }) {
+  const gl = useThree((s) => s.gl);
   const gltf = useLoader(GLTFLoader, RIGGED_URL);
   const scene = useMemo(() => gltf.scene, [gltf]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
@@ -105,6 +106,22 @@ function SceneRig({
   // the latest flight state without re-binding the frame callback
   const flightRef = useRef(flight);
   flightRef.current = flight;
+
+  // THE HANGAR GATE — honest renderer telemetry, printed from inside the
+  // live frame loop every 5 s: [hangar-gate] perf: fps drawCalls triangles.
+  // Rule 2: every number real, straight from the WebGL renderer info.
+  const gateRef = useRef({ frames: 0, t: 0 });
+  useFrame((_, delta) => {
+    const g = gateRef.current;
+    g.frames += 1;
+    g.t += delta;
+    if (g.t >= 5) {
+      const info = gl.info.render;
+      console.log(`[hangar-gate] perf: fps=${(g.frames / g.t).toFixed(1)} drawCalls=${info.calls} triangles=${info.triangles}`);
+      g.frames = 0;
+      g.t = 0;
+    }
+  });
 
   // the procedural balancer — runs whenever no gesture owns her body
   useFrame((_, delta) => {

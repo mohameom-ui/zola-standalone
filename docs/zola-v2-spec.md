@@ -202,3 +202,34 @@ code is gone; git history preserves the lineage.
 Standing: 112/112 tests, tsc clean, both sovereign remotes in sync.
 Next hook: v5.6 — the SITL round-trip (her MAVLink frames into a real
 ArduPilot simulator, attitude telemetry back).
+
+## The Rebuild Era (2026-10-21, evening)
+
+The owner's directive: make her beautiful, human, solid, and one.
+
+- **v3 (3/4 view):** first regen from a 3/4 concept — 58k verts, real
+  volume. Taught us the reference quality caps the output.
+- **v4 (companion canon):** rounded/glossy direction — superseded by the
+  owner's clarification: she must look HUMAN.
+- **v5 (THE ACTROID CANON):** forged from a photograph of a real human-
+  form android (Kokoro Actroid, 'Actroid 2.jpg' by Jennifer, Wikimedia
+  Commons, CC BY-SA 2.0 — attribution recorded). 132,906 verts, a human
+  face and form. THE body.
+- **The shatter discovery:** the v5 mesh is ~7,300 disconnected islands
+  (69,853 of 132,906 verts were far-flung debris). The deepest root of
+  'ugly', found with Scripts/clean_v6_region.py.
+- **v7 (THE WELD):** voxel remesh fused the islands into ONE solid body
+  (86,566 verts) — her paint survived, her silhouette solidified, the
+  debris field collapsed. 19/19 clips re-exported on the solid frame.
+- **The UI:** the tab bar retired — Senses/Flight/Mind/Memory render as
+  ONE VIEW; the sensor chip wall folded into a brain-managed drawer.
+- **The brain:** three-tier chain — LM Studio (:1234, first choice) →
+  Ollama → LocalGenie. DEEP SENSE wired: uncertain sightings go to the
+  Brain Studio's vision models (mmproj gemma-4/Qwen3.5/Bonsai) for
+  one-line identification.
+- **Known issue for upstream:** the workflow's texture_resolution param
+  is silently ignored (v6 re-bake landed byte-identical) — same params
+  gap as the bridge 400.
+
+Resume hook: the paint brightening pass, stat-row trim, SITL round-trip,
+walk cycle, Pi 5.

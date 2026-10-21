@@ -22,6 +22,7 @@ import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
+import { checkForUpdates, installPack } from "@/lib/pet/updates";
 import { pickSpontaneous, shouldSelfMove } from "@/lib/pet/spontanea";
 import { Cortex } from "@/lib/pet/cortex";
 import { allPersonas, modeByName } from "@/lib/pet/modes";
@@ -438,8 +439,14 @@ export default function DronePetPanel() {
     const visible = (visionRef.current?.objects ?? []).map((o) => o.label).join(", ") || "nothing";
     const today = memory.dailyReport() ?? "nothing happened yet today";
     const profile = memory.describeProfile();
-    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. You can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, persona:<persona>, mission:<text>, body:sim|real.`;
-  }, [memory, brain]);
+    // the mode voice: her current mode's trait vector shapes HOW she speaks
+    const cur = modeByName(persona);
+    const t = cur?.traits;
+    const voice = t
+      ? `Your current mode: ${cur.name} (${cur.archetype}). Voice now: warmth ${Math.round(t.warmth * 100)}%, energy ${Math.round(t.energy * 100)}%, sass ${Math.round(t.sass * 100)}%, formality ${Math.round(t.formality * 100)}%. Speak from this mode's character — a ${t.sass > 0.7 ? "sharp-tongued" : t.warmth > 0.7 ? "warm" : "cool"} ${t.energy > 0.7 ? "energetic" : "measured"} presence.`
+      : "";
+    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.`;
+  }, [memory, brain, persona]);
 
   // v2.4 CORTEX — manual dream cycle (the auto-wrap runs at 17-19h; the
   // brain can now demand one on demand)
@@ -1480,6 +1487,27 @@ export default function DronePetPanel() {
     const iv = setInterval(() => void runIntegrity(), 10 * 60 * 1000);
     return () => clearInterval(iv);
   }, [runIntegrity]);
+
+  // v3.2 OTA — check the forge for capability packs on boot
+  useEffect(() => {
+    void (async () => {
+      const pack = await checkForUpdates();
+      if (!pack) return;
+      const n = installPack(pack, (cap) => {
+        cortexRef.current.register({
+          id: cap.id,
+          kind: cap.kind as "system" | "mode",
+          label: cap.label,
+          description: cap.description,
+          run: () => `Capability ${cap.label} — executed.`,
+        });
+      });
+      if (n > 0) {
+        pushLog("sys", `OTA: ${n} new capabilities installed from the forge (v${pack.version})${pack.notes ? " — " + pack.notes : ""}`);
+        say(`Update installed. ${n} new capabilities online. I grew while you were away.`);
+      }
+    })();
+  }, [pushLog, say]);
 
   // ---- ENERGY PACING — gentle stretch companion, no nagging ----------------
   useEffect(() => {

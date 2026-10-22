@@ -21,7 +21,9 @@ import { scanAsset, scanWorldManifest, GESTURE_REPERTOIRE, type ScanResult } fro
 // the RIGGED base: the textured mesh + 65-bone skeleton + skin (envelope
 // weights, exported by Scripts/rig_zola_v2_fixed.py --base). The gesture
 // clips bind to it by bone name at runtime.
-const RIGGED_URL = "/assets/models/zola-anims/v2/rigged_base.glb";
+// v9 — the STUDIO FINISH body: metallic/clearcoat/smooth-shaded material pass
+// (geometry and skin weights identical; see Scripts/material_pass_v9.py)
+const RIGGED_URL = "/assets/models/zola-anims/v2/rigged_base_v9.glb";
 // her feet rest at y=-0.905 in-file; the hangar grid sits at y=-1.05
 const GROUND_OFFSET = -0.145;
 

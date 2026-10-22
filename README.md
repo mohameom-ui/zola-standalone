@@ -22,13 +22,15 @@ browser brain (Next.js :3001)                her body
 ```bash
 npm install
 npm run dev            # http://localhost:3001
-npm test               # vitest — the safety lines are all in here
+npm test                    # 143 tests — the safety lines are all in here
+node zola-live-loop.mjs     # build → ledger → reincarnation → use, in the real panel
+node zola-full-check.mjs    # ALL ORGANS: eyes, ears, voice, body, mind, life export
 npx tsc --noEmit       # types
 ```
 
 Optional brains & senses (all local): [Ollama](https://ollama.com) on
 `:11434` (she self-engages when she finds it), a camera for her eye,
-a mic for her ears.
+a mic for her ears. `start-zola.bat` is the daily launch.
 
 ## What she can do
 

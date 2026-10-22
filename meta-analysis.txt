@@ -1,2 +1,0 @@
-node_modules/kokoro-js/node_modules/@huggingface/transformers/src/env.js
-node_modules/kokoro-js/node_modules/onnxruntime-common/dist/esm/env.js

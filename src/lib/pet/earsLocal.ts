@@ -67,7 +67,7 @@ export class LocalEars {
   private async loadPipeline(model: string, localBase?: string): Promise<AsrPipeline> {
     const tf = (await import("@huggingface/transformers")) as unknown as {
       pipeline: (task: string, model: string, opts: Record<string, unknown>) => Promise<AsrPipeline>;
-      env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
+      env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string; proxy?: boolean } } } };
     };
     // air-gap: her models are LOCAL — allowLocalModels defaults to false in
     // browsers, which made every local whisper path an "invalid model ID"

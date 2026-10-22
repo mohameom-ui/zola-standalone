@@ -627,3 +627,12 @@ Format: [date] slice — action — library source → destination.
 - **Integrity:** the auditor now guards HER BODY — all GLBs her world loads (16 → 66 files), baseline grows with new assets; re-baselined after the v10 pass (the DRIFT it reported was the pass itself — working as designed)
 - **Life:** EXPORT LIFE / RESTORE LIFE — one zola-life.json (memory + self-build ledger + recon facts); restore reincarnates through the gate; legacy memory backups still adopt
 - **CI:** GitHub Actions runs the gates (types, safety-line tests, production build) on every push; the production build now wipes .next first (a dev manifest poisoned next build — the Pi would have hit it)
+
+### 2026-10-22 05:00 — SENSES PASS: the full-body check + three silent organ failures fixed
+- **The full-body check** (`zola-full-check.mjs`, Playwright + Chromium fake media devices — the same grants her Pi kiosk uses): one command proves all nine organs in her real panel — gesture, ground locomotion, consent-gated senses, perception REACTIONS, SmolVLM deep eyes, Kokoro voice, self-build, capability use, EXPORT LIFE. Final run: ALL ORGANS VERIFIED, zero page errors, 237 s.
+- **Bug 1 (all three brains):** transformers.js defaults `allowLocalModels=false` in browsers — her 342 MB of local SmolVLM/whisper/Kokoro files were unreachable; every organ deaf/blind/mute to its own weights. Fixed with `env.allowLocalModels + localModelPath` in all three loaders.
+- **Bug 2 (deep eyes):** this transformers build has no `image-text-to-text` pipeline — rewired to the low-level SmolVLM API (AutoProcessor + AutoModelForImageTextToText, chat format, tokenizer decode); the architecture was exported all along.
+- **Bug 3 (voice):** the vendor bundle exported a DETACHED env shim (only wasmPaths) — mutations invisible, her voice knocked on the Hub forever (401). The bundle REBAKED from source (`build-vendor.mjs`, esbuild with node:/sharp browser shims) with the REAL env patched at module scope.
+- **Bug 4 (freezes):** ONNX WASM ran on the main thread — the panel froze ~2.5 min per heavyweight load. `wasm.proxy = true` in all three loaders — ORT runs in a worker.
+- **Bug 5 (reflex order):** "take a stroll" was suggestion-matched to "wake up" before her legs heard it — ground verbs moved to the FRONT of brain.command; two brain tests lock it.
+- **Governor:** the altitude box now enforced in the governor itself (real-frame gap); geofence can no longer be loosened past default; THE GOVERNOR GOT ITS FIRST 14 TESTS.

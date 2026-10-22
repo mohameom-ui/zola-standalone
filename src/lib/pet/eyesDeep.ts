@@ -34,7 +34,7 @@ export class DeepEyes {
       const tf = (await import("@huggingface/transformers")) as unknown as {
         AutoProcessor: { from_pretrained: (m: string, o?: Record<string, unknown>) => Promise<SmolProcessor> };
         AutoModelForImageTextToText: { from_pretrained: (m: string, o?: Record<string, unknown>) => Promise<SmolModel> };
-        env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
+        env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string; proxy?: boolean } } } };
       };
       // air-gap: her models are LOCAL — transformers.js defaults to
       // allowLocalModels=false in browsers (treats paths as Hub ids), which

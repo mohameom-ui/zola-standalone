@@ -47,7 +47,7 @@ export class NeuralVoice {
         };
         // the bundle carries its OWN transformers copy — its env must be told
         // her voice model is local (same lesson as the eyes and the ears)
-        env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
+        env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string; proxy?: boolean } } } };
       };
       if (k.env) {
         k.env.allowLocalModels = true;

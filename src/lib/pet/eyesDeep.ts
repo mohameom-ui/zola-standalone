@@ -6,17 +6,22 @@
 // if not loaded, her normal perception stack answers instead.
 // ============================================================================
 
-type VlmPipeline = (
-  input: unknown,
-  opts?: Record<string, unknown>,
-) => Promise<unknown>;
+// the low-level SmolVLM pair (this transformers build has no VLM pipeline)
+type SmolTokenizer = { decode: (t: unknown, o?: Record<string, unknown>) => string };
+type SmolProcessor = {
+  (text: string, image: unknown): Promise<Record<string, unknown>>;
+  tokenizer?: SmolTokenizer;
+};
+type SmolModel = (inputs: Record<string, unknown>) => Promise<unknown>;
 
 // verified: this repo ships official ONNX (onnx/decoder_model_merged*.onnx)
-const VLM_LOCAL = "/models/smolvlm-256m";
+// BARE id — env.localModelPath = "/models/" provides the directory
+const VLM_LOCAL = "smolvlm-256m";
 const VLM_MODEL = "HuggingFaceTB/SmolVLM-256M-Instruct";
 
 export class DeepEyes {
-  private vlm: VlmPipeline | null = null;
+  private vlm: SmolModel | null = null;
+  private processor: SmolProcessor | null = null;
   loaded = false;
   busy = false;
 
@@ -27,12 +32,23 @@ export class DeepEyes {
     this.onDiag("DEEP EYES: loading her seeing brain from local files...");
     try {
       const tf = (await import("@huggingface/transformers")) as unknown as {
-        pipeline: (task: string, model: string, opts?: Record<string, unknown>) => Promise<VlmPipeline>;
-        env?: { backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
+        AutoProcessor: { from_pretrained: (m: string, o?: Record<string, unknown>) => Promise<SmolProcessor> };
+        AutoModelForImageTextToText: { from_pretrained: (m: string, o?: Record<string, unknown>) => Promise<SmolModel> };
+        env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
       };
-      // air-gap: pin the ONNX runtime wasm to our local copy — never the CDN
-      if (tf.env?.backends?.onnx?.wasm) tf.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/";
-      this.vlm = await tf.pipeline("image-text-to-text", VLM_LOCAL, {
+      // air-gap: her models are LOCAL — transformers.js defaults to
+      // allowLocalModels=false in browsers (treats paths as Hub ids), which
+      // refused every local file ("download aborted due to invalid model ID")
+      if (tf.env) {
+        tf.env.allowLocalModels = true;
+        tf.env.localModelPath = "/models/";
+        if (tf.env.backends?.onnx?.wasm) { tf.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/"; tf.env.backends.onnx.wasm.proxy = true; } // ORT runs in a worker — her panel never freezes while a brain loads
+      }
+      // LOW-LEVEL API: this transformers build has no image-text-to-text
+      // pipeline (proven live), but the SmolVLM architecture is fully exported
+      // — the processor+model pair is the same thing the pipeline would wrap
+      this.processor = await tf.AutoProcessor.from_pretrained(VLM_LOCAL);
+      this.vlm = await tf.AutoModelForImageTextToText.from_pretrained(VLM_LOCAL, {
         dtype: "q4f16", // verified: decoder_model_merged_q4f16.onnx exists upstream
         progress_callback: (p: { status?: string; progress?: number }) => {
           if (p?.status === "progress" && typeof p.progress === "number") {
@@ -72,21 +88,25 @@ export class DeepEyes {
         RawImage: { fromBlob: (b: Blob) => Promise<unknown> };
       };
       const image = await tf.RawImage.fromBlob(blob);
-      const prompt = question ?? "Describe what you see in this image in one or two sentences.";
-      const out = (await this.vlm(
-        { image, text: prompt },
-        { max_new_tokens: 90, do_sample: false },
-      )) as unknown;
-      const arr = Array.isArray(out) ? out : [out];
-      const first = arr[0] as { generated_text?: unknown } | undefined;
-      let text = "";
-      if (typeof first?.generated_text === "string") text = first.generated_text;
-      else if (first?.generated_text && typeof first.generated_text === "object") {
-        const g = first.generated_text as Record<string, unknown>[];
-        const last = g[g.length - 1];
-        if (last && typeof last.content === "string") text = last.content;
-      }
-      return text.trim() || null;
+      // SmolVLM's chat format: the question is her instruction, the image is
+      // the scene — the processor builds pixel_values + input_ids together
+      const prompt = `<|user|>\n${question ?? "Describe what you see in this image in one or two sentences."}<|end_of_text|>\n<|assistant|>\n`;
+      const proc = this.processor;
+      const model = this.vlm;
+      if (!proc || !model) return null;
+      const inputs = (await proc(prompt, image)) as Record<string, unknown>;
+      const out = (await model({
+        ...inputs,
+        max_new_tokens: 90,
+        do_sample: false,
+      })) as unknown;
+      // the low-level generate returns TOKEN IDS — decode via her tokenizer
+      const tokenizer = proc.tokenizer;
+      if (!tokenizer) return null;
+      const decoded = tokenizer.decode(out, { skip_special_tokens: true });
+      // strip the echo of her instruction if the decoder keeps it
+      const text = decoded.replace(/^[\s\S]*?<end_of_utterance>\s*/i, "").replace(/Assistant:\s*/i, "").trim();
+      return text || null;
     } catch (e) {
       this.onDiag(`DEEP EYES error: ${e instanceof Error ? e.message : String(e)}`);
       return null;

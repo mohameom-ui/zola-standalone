@@ -45,8 +45,16 @@ export class NeuralVoice {
         KokoroTTS: {
           from_pretrained: (id: string, opts: Record<string, unknown>) => Promise<KokoroLike>;
         };
+        // the bundle carries its OWN transformers copy — its env must be told
+        // her voice model is local (same lesson as the eyes and the ears)
+        env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
       };
-      this.tts = await k.KokoroTTS.from_pretrained("/models/kokoro-82m", {
+      if (k.env) {
+        k.env.allowLocalModels = true;
+        k.env.localModelPath = "/models/";
+        if (k.env.backends?.onnx?.wasm) { k.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/"; k.env.backends.onnx.wasm.proxy = true; } // ORT in a worker — no panel freeze
+      }
+      this.tts = await k.KokoroTTS.from_pretrained("kokoro-82m", {
         dtype: "q8",
         device: "wasm",
         progress_callback: (p: { status?: string; progress?: number }) => {

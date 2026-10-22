@@ -67,13 +67,19 @@ export class LocalEars {
   private async loadPipeline(model: string, localBase?: string): Promise<AsrPipeline> {
     const tf = (await import("@huggingface/transformers")) as unknown as {
       pipeline: (task: string, model: string, opts: Record<string, unknown>) => Promise<AsrPipeline>;
-      env?: { backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
+      env?: { allowLocalModels?: boolean; localModelPath?: string; backends?: { onnx?: { wasm?: { wasmPaths?: string } } } };
     };
-    // air-gap: pin the ONNX runtime wasm to our local copy — never the CDN
-    if (tf.env?.backends?.onnx?.wasm) tf.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/";
+    // air-gap: her models are LOCAL — allowLocalModels defaults to false in
+    // browsers, which made every local whisper path an "invalid model ID"
+    if (tf.env) {
+      tf.env.allowLocalModels = true;
+      tf.env.localModelPath = "/models/";
+      if (tf.env.backends?.onnx?.wasm) { tf.env.backends.onnx.wasm.wasmPaths = "/vendor/ort/"; tf.env.backends.onnx.wasm.proxy = true; } // ORT runs in a worker — her panel never freezes while a brain loads
+    }
     // WebGPU is 5-10x faster; fall back to WASM when unavailable
     for (const device of ["webgpu", "wasm"]) {
-        const id = localBase ?? model;
+        // bare id: localModelPath provides "/models/" — a full path would double it
+      const id = localBase ? localBase.split("/").pop()! : model;
       try {
         const pipe = await tf.pipeline("automatic-speech-recognition", id, {
           dtype: "q8",

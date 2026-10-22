@@ -336,6 +336,30 @@ export class PetBrain {
       }
     }
 
+    // GROUND VERBS — FIRST, before the planner and the suggest fallback ever
+    // see the text: a stroll is a known verb, not an unknown phrase (the old
+    // ordering let "take a stroll" get suggestion-matched to "wake up"!)
+    if (has("walk home", "stroll home", "walk to the dock", "stroll to the dock")) {
+      const dock = this.hooks.dockPose?.() ?? { x: -1.2, y: -1.2, z: 0 };
+      this.walkUntil = 0;
+      return this.runner.start(this.runner.planWalkGoto("the dock", null, { x: dock.x, y: dock.y, z: 0 }), performance.now());
+    }
+    const walkToMatch = /(?:walk|stroll)\s+(?:to|over to)\s+(?:my |the |a |an )?(.{2,30})/i.exec(text);
+    if (walkToMatch) {
+      const target = walkToMatch[1].replace(/[.!?]+$/, "").trim();
+      const isDock = /dock|home|charger|pad/i.test(target);
+      const pos = isDock ? this.hooks.dockPose?.() ?? null : this.hooks.wherePos?.(target) ?? null;
+      const yaw = isDock ? null : this.hooks.whereYaw?.(target) ?? null;
+      this.walkUntil = 0; // task-driven walking has no stroll timer
+      return this.runner.start(this.runner.planWalkGoto(isDock ? "the dock" : target, yaw, pos ? { x: pos.x, y: pos.y, z: 0 } : null), performance.now());
+    }
+    if (has("stroll", "walk")) {
+      this.setActivity("walk");
+      this.walkUntil = performance.now() + 14_000 + Math.random() * 8_000;
+      this.setMood("curious");
+      return this.styleLine(WALK_LINES);
+    }
+
     // --- human adaptation: learn their style from every message ----------------
     this.hooks.profile?.update(
       0, // warmth deltas applied in the specific branches below
@@ -569,29 +593,6 @@ export class PetBrain {
     if (has("stop", "stay", "hover", "hold")) {
       this.setActivity("hover");
       return "Holding position.";
-    }
-    // GROUND NAVIGATION — "walk to the dock" / "stroll to my cup": the same
-    // map navigation as flying there, just on her legs
-    if (has("walk home", "stroll home", "walk to the dock", "stroll to the dock")) {
-      const dock = this.hooks.dockPose?.() ?? { x: -1.2, y: -1.2, z: 0 };
-      this.walkUntil = 0;
-      return this.runner.start(this.runner.planWalkGoto("the dock", null, { x: dock.x, y: dock.y, z: 0 }), performance.now());
-    }
-    const walkToMatch = /(?:walk|stroll)\s+(?:to|over to)\s+(?:my |the |a |an )?(.{2,30})/i.exec(text);
-    if (walkToMatch) {
-      const target = walkToMatch[1].replace(/[.!?]+$/, "").trim();
-      const isDock = /dock|home|charger|pad/i.test(target);
-      const pos = isDock ? this.hooks.dockPose?.() ?? null : this.hooks.wherePos?.(target) ?? null;
-      const yaw = isDock ? null : this.hooks.whereYaw?.(target) ?? null;
-      this.walkUntil = 0; // task-driven walking has no stroll timer
-      return this.runner.start(this.runner.planWalkGoto(isDock ? "the dock" : target, yaw, pos ? { x: pos.x, y: pos.y, z: 0 } : null), performance.now());
-    }
-    // GROUND LOCOMOTION — she can actually travel on her legs, not just hover
-    if (has("stroll", "walk")) {
-      this.setActivity("walk");
-      this.walkUntil = performance.now() + 14_000 + Math.random() * 8_000;
-      this.setMood("curious");
-      return this.styleLine(WALK_LINES);
     }
     if (has("hello", "hi ", "hey", "hi!")) {
       this.setMood("happy");

@@ -730,6 +730,12 @@ export default function DronePetPanel() {
     // THE SELF-BUILT BRIDGE — her own code answers matched requests directly
     const bridged = await trySelfBuiltBridge(text, (id, args) => cortexRef.current.execute(id, undefined, args));
     if (bridged) { say(bridged); refreshCounts(); return; }
+    // GROUND VERBS — walking is reflex-fast: no LLM round-trip for a stroll
+    // (at 4 AM her LLM voice will chat about bedtime instead of walking)
+    if (/^(take a stroll|stroll|walk|walk around)\b/i.test(text)) {
+      const line = brain.command(text, batteryRef.current);
+      if (line) { say(line); refreshCounts(); return; }
+    }
 
     // Tier 1: Ollama (if installed) — strongest local brain
     // v3.2 SELF-ENGAGEMENT: the brain engages ITSELF the moment Ollama is

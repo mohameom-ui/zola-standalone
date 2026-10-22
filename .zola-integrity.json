@@ -64,5 +64,6 @@
   "public/assets/models/zola-anims/v2/v2_throw_01.glb": "df5bd9cb50318241753abdaecc2e66422e3d537a5f1a807a52413637acdef212",
   "public/assets/models/zola-anims/v2/v2_walk_01.glb": "877fea9a27414d7da5cf083742cbe70665d383aa963848e3d22af815ff5e08e3",
   "public/assets/models/zola-anims/v2/v2_wave_01.glb": "360e0dbecdb5c109944cd57e4b1b2f4b542c85612d3cd469f9ba4f1e4d065936",
-  "public/assets/models/zola-anims/v2/v2_wave_02.glb": "8a183625104fee9d1f96d53ee65b848dd46f3770e184be5f4a4ca92427d29d98"
+  "public/assets/models/zola-anims/v2/v2_wave_02.glb": "8a183625104fee9d1f96d53ee65b848dd46f3770e184be5f4a4ca92427d29d98",
+  "public/assets/models/zola-anims/v2/rigged_base_v10.glb": "6aae5d005232d7d3a048af97ed5f58d2e93d3a23d4a72f4402e46a1856f56cb7"
 }

@@ -50,7 +50,9 @@ export class SafetyGovernor {
    * nothing past the default. Auto-tune adjusts margins, never disables safety. */
   setLimits(patch: Partial<SafetyLimits>) {
     if (patch.geofenceRadius !== undefined) {
-      this.limits.geofenceRadius = Math.min(2.4, Math.max(0.6, patch.geofenceRadius));
+      // the doc says it: tighten freely to the 0.6 floor, NEVER loosen past
+      // the default — the old clamp allowed 2.4 (double the fence)
+      this.limits.geofenceRadius = Math.min(DEFAULT_LIMITS.geofenceRadius, Math.max(0.6, patch.geofenceRadius));
     }
     if (patch.visionStaleLimit !== undefined) {
       this.limits.visionStaleLimit = Math.min(4000, Math.max(2000, patch.visionStaleLimit));
@@ -168,11 +170,17 @@ export class SafetyGovernor {
       flags.push("VISUAL HOLD · CONFIDENCE LOW");
     }
 
-    // Geofence altitude box.
-    const projected = act.vz; // HAL clamps position too; this kills the intent early
-    if (projected > 0 && act.vz > 0 && act.activity === "trick") {
-      act.vz = Math.min(act.vz, 0.25);
-      flags.push("CEILING GUARD");
+    // Geofence altitude box — enforced HERE, not just in the sim HAL: on the
+    // real frame no SimDroneHAL clamp exists, so the ceiling must live in the
+    // governor (the FC failsafe is the second belt, never the only one).
+    if (p.pz >= L.maxAltitude && act.vz > 0) {
+      act.vz = 0;
+      flags.push("CEILING — ALTITUDE BOX");
+    }
+    if (p.pz <= L.minAltitude && act.vz < 0 && act.activity !== "sleep" && act.activity !== "dock") {
+      // below-floor intent is refused — EXCEPT landing (sleep/dock own their descent)
+      act.vz = 0;
+      flags.push("FLOOR — ALTITUDE BOX");
     }
     act.vz = Math.max(act.vz, -0.5); // descent rate cap (no slam-landing)
 

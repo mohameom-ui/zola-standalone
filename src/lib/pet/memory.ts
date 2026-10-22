@@ -221,7 +221,17 @@ export class AuraMemory {
       if (!raw) return fresh();
       const parsed = JSON.parse(raw) as MemoryData;
       if (parsed?.version !== 1) return fresh();
-      return { ...fresh(), ...parsed, consent: { ...fresh().consent, ...parsed.consent } };
+      // nested objects merge field-wise: an older save must never erase a
+      // NEW subfield's default (e.g. settings.localEars predates some saves)
+      const f = fresh();
+      return {
+        ...f,
+        ...parsed,
+        consent: { ...f.consent, ...parsed.consent },
+        settings: { ...f.settings, ...parsed.settings },
+        battery: { ...f.battery, ...parsed.battery },
+        stats: { ...f.stats, ...parsed.stats },
+      };
     } catch {
       return fresh();
     }

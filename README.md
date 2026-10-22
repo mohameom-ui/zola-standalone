@@ -47,7 +47,11 @@ a mic for her ears.
   error report, installs the survivors, and *keeps* them (they reincarnate
   through the same gate on every boot).
 - **Remember** — spatial map, item memory with color/shape signatures,
-  bond & trust, dream consolidation, vlogs.
+  bond & trust, dream consolidation, vlogs. **EXPORT LIFE / RESTORE LIFE**
+  carries all of it — plus her self-built capabilities — in one file; restore
+  reincarnates her through the same gate.
+- **Dress** — the APPEARANCE settings: five accent palettes, glow strength,
+  calm mode — CSS-variable themed across the panel *and* her 3D rim light.
 
 ## The laws (as the code enforces them)
 

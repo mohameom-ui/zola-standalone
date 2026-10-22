@@ -611,3 +611,19 @@ Format: [date] slice — action — library source → destination.
 - **Source:** concept `tools/zola-forge/refs/ref-zola-v2-humanoid.png` (Aetheria repo)
 - **Enabled by:** pagefile 16-64GB (commit-limit fix for os error 1455)
 - **Destination:** `public/assets/models/zola-body-v2.glb` (hangar card swaps to this body)
+
+### 2026-10-21 — SOVEREIGNTY PASS: Ollama-only brain, SITL round-trip FLOWN, the walk cycle, the honest sandbox
+- **Brain:** all Brain-Studio coupling deleted (commit 5111384) — she consults only her own Ollama (:11434); `ollamaVision()` auto-picks a WORKING vision brain (manifests can lie: llama3.2-vision's mllama arch is unloadable on this runtime — the fallback walks the preference list; moondream is her eye; the dead 7.8 GB model removed 2026-10-22)
+- **Flight:** SITL ROUND-TRIP proven end-to-end (a912d67) — browser brain → relay → ArduPilot SITL (direct TCP 5760, MAVProxy not required) → physics → telemetry; max alt 0.90 m, landed — safe. Two relay bugs killed: the PHANTOM LINK (wait_heartbeat times out silently) and the guide's wrong connection recipe
+- **Walk:** CMU subject 07 take 01 (chosen from the INDEX, not the candidates file's folklore) retargeted with real-time stride (new `--stride` resample — the old bake ran ~5x slow and truncated at Blender's default frame_end); ground locomotion + ground NAVIGATION ("walk to the dock") + the low-battery promise ("I walk, I do not fly") now kept by code
+- **Sandbox:** the self-builder's keyword blocklist was breached 4 ways in a live red-team run — rebuilt as an AST ALLOWLIST (acorn): every node type, identifier, property, call target allowlisted; args arrive with a null prototype; the 4 escape payloads are permanent regressions
+- **Self-builder honesty:** the panel's CORTEX registration carried a STUB run() — replaced with her real code; builds persist (ledger, capped 40) and REINCARNATE through the same gate on boot; the forge uses constrained-JSON drafts with a self-correction loop; normalizeDraft meets brains where they actually write (function expressions, named declarations); the AST gate learned to allow her own declared helper functions
+- **Security:** the companion relay is PAIRED (x-zola-pair token, minted once, disclosed only over localhost); hydration killed by the mount gate + scanAsset moved out of render
+
+### 2026-10-22 — APPEARANCE PASS: the theme system, the studio hangar, the v10 body
+- **Theme:** five palettes (AURORA/EMBER/ICE/VIOLET/ROSE) + glow + CALM MODE as CSS variables (--z-*); 80+ hardcoded accents tokenized; APPEARANCE drawer in-panel; persists locally, loads after the mount gate
+- **Body v9:** material pass (Blender) — metallic 0.45, roughness 0.5, clearcoat KHR extension, smooth-by-angle; zero geometry edits, 66 joints preserved
+- **Body v10:** THE MECHANICAL SIGNATURE through her own rig pipeline over ALL 20 clips + base — cranial fin (Head), back thruster pack (spine_03), glowing chest core (spine_02), forearm/ankle rings; separate skinned meshes with exact single-bone groups; plus the REPAINT (Pillow: contrast 1.14, color 1.3, sharpness 1.5, creases deepened 32%); anatomy verified: 65 joints, walk's 195 channels intact; gesture bind proven live ("wave at me")
+- **Integrity:** the auditor now guards HER BODY — all GLBs her world loads (16 → 66 files), baseline grows with new assets; re-baselined after the v10 pass (the DRIFT it reported was the pass itself — working as designed)
+- **Life:** EXPORT LIFE / RESTORE LIFE — one zola-life.json (memory + self-build ledger + recon facts); restore reincarnates through the gate; legacy memory backups still adopt
+- **CI:** GitHub Actions runs the gates (types, safety-line tests, production build) on every push; the production build now wipes .next first (a dev manifest poisoned next build — the Pi would have hit it)

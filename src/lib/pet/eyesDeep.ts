@@ -94,7 +94,11 @@ export class DeepEyes {
       const proc = this.processor;
       const model = this.vlm;
       if (!proc || !model) return null;
-      const inputs = (await proc(prompt, image)) as Record<string, unknown>;
+      const inputs = (await proc(prompt, image)) as { input_ids?: { dims?: number[] } } & Record<string, unknown>;
+      // a blank/garbage frame can tokenize to nothing — skip rather than
+      // crash the cortex ("token_ids must be a non-empty array")
+      const nTokens = (inputs.input_ids?.dims ?? [])[1] ?? 0;
+      if (!nTokens) { this.onDiag("DEEP EYES: frame produced no tokens — skipped"); return null; }
       const out = (await model({
         ...inputs,
         max_new_tokens: 90,

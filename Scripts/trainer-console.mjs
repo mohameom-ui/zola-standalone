@@ -14,7 +14,7 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, openSync, copyFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,46 +47,61 @@ const shelf = () => {
 };
 
 const progress = () => {
-  // count the latest "Learning iteration N/M" in the newest run of the active experiment
-  if (!current) return null;
-  const exp = current.name;
-  const dir = path.join(logsRoot, exp);
-  if (!existsSync(dir)) return null;
-  const runs = readdirSync(dir).filter((r) => !r.startsWith(".")).sort().at(-1);
-  if (!runs) return null;
-  try {
-    const log = readFileSync(path.join(dir, runs, "training.log"), "utf8");
-    const matches = [...log.matchAll(/Learning iteration (\d+)\/(\d+)/g)];
-    const last = matches.at(-1);
-    return last ? { iteration: Number(last[1]), total: Number(last[2]) } : null;
-  } catch { return null; }
+  // the run's own captured log — the server KNOWS which file it started;
+  // no directory archaeology
+  if (!current || !current.consoleLog) return null;
+  let log = "";
+  try { log = readFileSync(current.consoleLog, "utf8"); } catch { return null; }
+  const matches = [...log.matchAll(/Learning iteration (\d+)\/(\d+)/g)];
+  const last = matches.at(-1);
+  const tail = log.split("\n").map((l) => l.replace(/\u001b\[[0-9;]*m/g, "").trim()).filter((l) => /^(Learning iteration|Mean reward|Mean episode length)/.test(l)).slice(-6);
+  return { iteration: last ? Number(last[1]) : null, total: last ? Number(last[2]) : null, tail };
 };
 
+const ENGINES = [
+  ["MOTOR (Isaac Sim)", "REAL RL — PPO training, best-checkpoint selection, ONNX export"],
+  ["HEARING", "online — she learns YOUR phrases permanently (correct her: 'no, I said…')"],
+  ["PERSONALITY", "online reinforcement — warmth and bond move with every interaction"],
+  ["SCANNING + VISION", "online memory — recognition trains by encounter (the aura cache)"],
+  ["TALKING", "fixed Kokoro weights; her expressiveness lives in the persona engine"],
+  ["MEMORY", "online — facts, items, nightly consolidation, EXPORT LIFE reincarnation"],
+];
+
 const page = () => `<!doctype html><meta charset="utf-8"><title>ZOLA TRAINER</title>
-<body style="background:#0b0e13;color:#cfd6e4;font-family:Consolas,monospace;max-width:900px;margin:30px auto">
-<h1 style="color:#f0b90b">🛸 ZOLA TRAINER CONSOLE</h1>
-<p>Live curves: <a href="http://localhost:6006" style="color:#5ac8fa" target="_blank">TensorBoard :6006</a>
- · Her panel: <a href="http://localhost:3001" style="color:#5ac8fa" target="_blank">:3001</a></p>
-<div id="status" style="border:1px solid #233;padding:10px;margin:10px 0"></div>
-<h2>start a training round</h2>
+<body style="background:#0b0e13;color:#cfd6e4;font-family:Consolas,monospace;max-width:1000px;margin:24px auto;padding:0 16px">
+<h1 style="color:#f0b90b;margin-bottom:4px">🛸 ZOLA TRAINER CONSOLE</h1>
+<p style="color:#8b93a5;margin-top:0">one dashboard: her live links, her training, her 3D body, her engines</p>
+<p>
+  <a href="http://localhost:3001" style="color:#5ac8fa">her panel :3001</a> ·
+  <a href="http://localhost:6006" style="color:#5ac8fa">training curves :6006</a> ·
+  <a href="/status" style="color:#5ac8fa">status json</a>
+</p>
+<div id="status" style="border:1px solid #233;padding:10px;margin:10px 0;min-height:22px"></div>
+<pre id="logtail" style="background:#0d1117;border:1px solid #1a2233;padding:8px;color:#7ee787;font-size:11px;max-height:150px;overflow:auto;margin:0 0 14px"></pre>
+<h2>▶ start a training round</h2>
 <div id="tasks" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-<h2>watch her live, in 3D</h2>
-<p style="color:#8b93a5">opens the Isaac Sim window rendering her trained policy — one at a time (it shares the GPU with training)</p>
+<h2>🎬 watch her live, in 3D</h2>
+<p style="color:#8b93a5">opens the real Isaac Sim window rendering her trained policy — the 3D window and a training round share the GPU, so pause one for the other</p>
 <div id="viewers" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-<div style="margin-top:14px"><button onclick="fetch('/killviewer',{method:'POST'})" style="background:#331">close 3D window</button></div>
+<div style="margin-top:12px"><button onclick="post('/killviewer')" style="padding:8px 12px;background:#331122;color:#ff9ab0;border:0;cursor:pointer">close 3D window</button></div>
+<h2>🧠 her engines — what training each one means</h2>
+<table style="border-collapse:collapse;width:100%">${ENGINES.map(([n, m]) =>
+  `<tr><td style="border:1px solid #1a2233;padding:6px;color:#f0b90b;white-space:nowrap">${n}</td><td style="border:1px solid #1a2233;padding:6px">${m}</td></tr>`).join("")}</table>
 <pre id="shelf" style="color:#6d7588;font-size:11px"></pre>
 <script>
 const TASKS = ${JSON.stringify(TASKS)};
+function post(u) { return fetch(u, { method: "POST" }).then(r => r.text()).then(t => { document.getElementById("status").innerHTML = "<b style='color:#ffd27a'>" + t + "</b>"; tick(); }); }
 for (const [k, t] of Object.entries(TASKS)) {
   const b = document.createElement("button");
-  b.textContent = "▶ train " + t.label;
+  b.textContent = "▶ " + t.label;
   b.style.cssText = "padding:8px 12px;background:#132038;border:1px solid #2a4a7a;color:#cfe3ff;cursor:pointer";
-  b.onclick = () => fetch("/start?task=" + k, { method: "POST" }).then(() => tick());
+  b.onclick = () => post("/start?task=" + k);
   document.getElementById("tasks").append(b);
   const v = document.createElement("button");
-  v.textContent = "🎬 3D: " + t.label;
+  v.textContent = "🎬 3D";
+  v.title = "live 3D window: " + t.label;
   v.style.cssText = "padding:8px 12px;background:#231a10;border:1px solid #7a5a2a;color:#ffe8c0;cursor:pointer";
-  v.onclick = () => fetch("/viewer?task=" + k, { method: "POST" });
+  v.onclick = () => post("/viewer?task=" + k);
   document.getElementById("viewers").append(v);
 }
 async function tick() {
@@ -94,7 +109,8 @@ async function tick() {
   document.getElementById("status").innerHTML = s.training
     ? "TRAINING <b style='color:#ffd27a'>" + s.training.label + "</b> — iteration " + (s.progress?.iteration ?? "?") + " / " + (s.progress?.total ?? "?") + " · started " + new Date(s.training.startedAt).toLocaleTimeString()
     : "idle — no training round running";
-  document.getElementById("shelf").textContent = "policy shelf: " + s.shelf.join("  ·  ");
+  document.getElementById("logtail").textContent = s.logtail || "(no live training log)";
+  document.getElementById("shelf").textContent = "policy shelf (" + s.shelf.length + "): " + s.shelf.join("  ·  ");
 }
 setInterval(tick, 2000); tick();
 </script>`;
@@ -102,8 +118,9 @@ setInterval(tick, 2000); tick();
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost:3002");
   if (url.pathname === "/status") {
+    const p = progress();
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ training: current ? { label: current.name, startedAt: current.startedAt } : null, progress: progress(), shelf: shelf() }));
+    res.end(JSON.stringify({ training: current ? { label: current.name, startedAt: current.startedAt } : null, progress: p ? { iteration: p.iteration, total: p.total } : null, logtail: p?.tail ?? [], shelf: shelf() }));
     return;
   }
   if (url.pathname === "/start" && req.method === "POST") {
@@ -111,11 +128,27 @@ const server = http.createServer(async (req, res) => {
     const t = TASKS[key];
     if (!t || current) { res.writeHead(409); res.end("busy or unknown task"); return; }
     const runName = `console_${key}_${Date.now().toString(36)}`;
+    const exp = "zola_" + (t.id.split("-")[2] ?? key).toLowerCase();
+    // the run's stdout IS its training log — captured per-experiment so the
+    // progress tail works live, and archived into the run dir on exit so the
+    // best-checkpoint selector can do its job
+    const expDir = path.join(logsRoot, exp);
+    if (!existsSync(expDir)) { res.writeHead(500); res.end("no experiment dir yet — train it once manually first"); return; }
+    const consoleLog = path.join(expDir, `console_${Date.now().toString(36)}.log`);
+    const out = openSync(consoleLog, "a");
     const proc = spawn(isaaclab, ["train", "--rl_library", "rsl_rl", "--task", t.id,
       "--num_envs", "64", "--max_iterations", String(t.iters), "--run_name", runName],
-      { cwd: repo, detached: false, stdio: "ignore" });
-    current = { name: t.id.split("-")[2] ?? key, proc, startedAt: Date.now() };
-    proc.on("exit", () => { current = null; });
+      { cwd: repo, detached: false, stdio: ["ignore", out, out],
+        env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
+    current = { name: t.label, exp, proc, startedAt: Date.now(), consoleLog };
+    proc.on("exit", () => {
+      current = null;
+      try {
+        const dir = path.join(logsRoot, exp);
+        const runs = readdirSync(dir).filter((r) => statSyncSafe(path.join(dir, r))).sort().at(-1);
+        if (runs) copyFileSync(consoleLog, path.join(dir, runs, "training.log"));
+      } catch {}
+    });
     res.writeHead(200); res.end("started " + t.label);
     return;
   }
@@ -130,7 +163,8 @@ const server = http.createServer(async (req, res) => {
     if (viewer) { viewer.kill(); viewer = null; }
     // the LIVE 3D window: her trained policy, rendered, in real time
     viewer = spawn(isaaclab, ["play", "--rl_library", "rsl_rl", "--task", t.id,
-      "--checkpoint", "latest", "--num_envs", "1", "--viz", "kit"], { cwd: repo, stdio: "ignore" });
+      "--checkpoint", "latest", "--num_envs", "1", "--viz", "kit"],
+      { cwd: repo, stdio: "ignore", env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
     viewer.on("exit", () => { viewer = null; });
     res.writeHead(200); res.end("3D window opening for " + t.label);
     return;

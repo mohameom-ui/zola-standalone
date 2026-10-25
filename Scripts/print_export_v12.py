@@ -105,8 +105,107 @@ def export_filtered(mesh_obj, arm, regions, keep_regions, filepath, scale):
     bm.free()
     return write_stl(filepath, me, scale)
 
+def box(name, dims_m, at):
+    """A hardware mount box: dims in METERS, positioned with its CENTER at `at`."""
+    bpy.ops.mesh.primitive_cube_add(size=1, location=at)
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.scale = (dims_m[0], dims_m[1], dims_m[2])
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    return ob
+
+def join_all(objs, name):
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    bpy.ops.object.join()
+    joined = bpy.context.active_object
+    joined.name = name
+    return joined
+
+def build_hardware():
+    """THE HARDWARE MOUNT PIECES — separate, real-size (the Pi inside her is
+    the real 85 mm Pi 5), each printed flat, no booleans: multi-box pieces
+    joined into single solids."""
+    hw = os.path.join(OUT, "hardware")
+    os.makedirs(hw, exist_ok=True)
+    manifest_hw = {}
+
+    # 1. THE PI 5 STANDOFF FRAME — the real 58 x 49 mm M2.5 hole pattern,
+    #    four pillars on a base plate that glues to the torso back wall
+    parts = [box("base", (0.098, 0.068, 0.002), (0, 0, 0.001))]
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            parts.append(box(f"pillar{sx}{sy}", (0.005, 0.005, 0.008),
+                             (sx * 0.029, sy * 0.0245, 0.006)))
+    joined = join_all(parts, "pi5_standoff_frame")
+    info = write_stl(os.path.join(hw, "pi5_standoff_frame.stl"), joined.data, 1.0)
+    manifest_hw["pi5_standoff_frame"] = {"file": "hardware/pi5_standoff_frame.stl", **info}
+    log(f"pi5 standoff frame: {info['dims_mm']} mm")
+    bpy.data.objects.remove(joined, do_unlink=True)
+
+    # 2. THE BATTERY TRAY — the 3S 1300's slide-in tray (70 x 35 x 18 pack)
+    iw, ih = 0.072, 0.019
+    wt = 0.0025
+    parts = [box("floor", (iw + 2 * wt, 0.038, wt), (0, 0, wt / 2))]
+    parts.append(box("wall_back", (iw + 2 * wt, wt, ih), (0, -(0.019 + wt / 2), ih / 2)))
+    parts.append(box("wall_front", (iw + 2 * wt, wt, ih), (0, 0.019 + wt / 2, ih / 2)))
+    parts.append(box("wall_end1", (wt, 0.038 + 2 * wt, ih), (-(iw / 2 + wt / 2), 0, ih / 2)))
+    parts.append(box("wall_end2", (wt, 0.038 + 2 * wt, ih), (iw / 2 + wt / 2, 0, ih / 2)))
+    joined = join_all(parts, "battery_tray_3s1300")
+    info = write_stl(os.path.join(hw, "battery_tray_3s1300.stl"), joined.data, 1.0)
+    manifest_hw["battery_tray"] = {"file": "hardware/battery_tray_3s1300.stl", **info}
+    log(f"battery tray: {info['dims_mm']} mm")
+    bpy.data.objects.remove(joined, do_unlink=True)
+
+    # 3. THE NECK CABLE GUIDE — a flat U-channel for the camera ribbon + wires
+    parts = [box("guide_floor", (0.012, 0.05, 0.002), (0, 0, 0.001))]
+    parts.append(box("rail1", (0.003, 0.05, 0.008), (-0.0055, 0, 0.005)))
+    parts.append(box("rail2", (0.003, 0.05, 0.008), (0.0055, 0, 0.005)))
+    joined = join_all(parts, "neck_cable_guide")
+    info = write_stl(os.path.join(hw, "neck_cable_guide.stl"), joined.data, 1.0)
+    manifest_hw["neck_cable_guide"] = {"file": "hardware/neck_cable_guide.stl", **info}
+    log(f"neck cable guide: {info['dims_mm']} mm")
+    bpy.data.objects.remove(joined, do_unlink=True)
+
+    # 4. THE MG90S SERVO CRADLE — one cradle, print N of them
+    #    the servo: 23 x 12 x 23 mm; the cradle inner: 24 x 13 x 24, walls 2 mm
+    iw, ih, il = 0.013, 0.024, 0.024
+    wt = 0.002
+    parts = [box("c_floor", (il + 2 * wt, iw + 2 * wt, wt), (0, 0, wt / 2))]
+    for sx in (-1, 1):
+        parts.append(box(f"c_side{sx}", (il + 2 * wt, wt, ih), (0, sx * (iw / 2 + wt / 2), ih / 2)))
+    for sy in (-1, 1):
+        parts.append(box(f"c_end{sy}", (wt, iw + 2 * wt, ih), (sy * (il / 2 + wt / 2), 0, ih / 2)))
+    # the mounting ears on the ends (M2 screw holes are drilled by hand)
+    for sy in (-1, 1):
+        parts.append(box(f"c_ear{sy}", (0.006, iw + 2 * wt, 0.003), (sy * (il / 2 + wt + 0.003), 0, ih / 2)))
+    joined = join_all(parts, "servo_cradle_mg90s")
+    info = write_stl(os.path.join(hw, "servo_cradle_mg90s.stl"), joined.data, 1.0)
+    manifest_hw["servo_cradle_mg90s"] = {"file": "hardware/servo_cradle_mg90s.stl", **info,
+                                         "note": "print 18: 12 legs + 4 arms; the 2 shoulders use the DS3218 block"}
+    log(f"MG90S cradle: {info['dims_mm']} mm")
+    bpy.data.objects.remove(joined, do_unlink=True)
+
+    # 5. THE DS3218 SHOULDER BLOCK — the big servo's U-cradle (40 x 20 x 40)
+    iw, ih, il = 0.021, 0.041, 0.041
+    wt = 0.003
+    parts = [box("s_floor", (il + 2 * wt, iw + 2 * wt, wt), (0, 0, wt / 2))]
+    for sx in (-1, 1):
+        parts.append(box(f"s_side{sx}", (il + 2 * wt, wt, ih), (0, sx * (iw / 2 + wt / 2), ih / 2)))
+    for sy in (-1, 1):
+        parts.append(box(f"s_end{sy}", (wt, iw + 2 * wt, ih), (sy * (il / 2 + wt / 2), 0, ih / 2)))
+    joined = join_all(parts, "shoulder_block_ds3218")
+    info = write_stl(os.path.join(hw, "shoulder_block_ds3218.stl"), joined.data, 1.0)
+    manifest_hw["shoulder_block_ds3218"] = {"file": "hardware/shoulder_block_ds3218.stl", **info}
+    log(f"DS3218 block: {info['dims_mm']} mm")
+    bpy.data.objects.remove(joined, do_unlink=True)
+
+    return manifest_hw
+
 def main():
-    for sub in ("desktop", "v12_450mm", "drone"):
+    for sub in ("desktop", "v12_450mm", "drone", "hardware"):
         os.makedirs(os.path.join(OUT, sub), exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     log(f"importing {BODY}")
@@ -135,6 +234,8 @@ def main():
 
     manifest = {"source": "zola-anims/v3/zola.glb", "full_height_mm": FULL_HEIGHT_MM,
                 "printer": "Ender 3 Max Neo (300x300x300)", "parts": {}}
+    hw_manifest = build_hardware()
+    manifest["parts"].update(hw_manifest)
 
     # ---- 1. the DESKTOP one-piece (280 mm) ---------------------------------
     scale_d = DESKTOP_MM / FULL_HEIGHT_MM

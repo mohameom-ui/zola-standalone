@@ -758,3 +758,7 @@ Format: [date] slice — action — library source → destination.
 - **hover_v5** (3500 iters, gusts 6 N): **28.43/599.00 — the best flight policy ever, on the V12 collar geometry**. The trajectory climbed steadily (3.15 → 22.91 → 28.43) — she rides the collar rotors through full episodes at doubled gusts. Exported (model_3499, drift 4.77e-07).
 - **The shelf (all collar-geometry flight + all web skills):** balance, walk ×3, hands, flight posture, touchdown (v10), hover (v5), picture, thumbs, halobeat, talking expression — 11 verified ONNX artifacts. The head-geometry hover/takeoff exports RETIRED.
 - The sit's three-run record + the depth family is in the dictionary; the torque-control path remains the documented unblock.
+
+### 2026-10-25 (20) — THE HARDWARE MOUNT PIECES (print-ready, real-size)
+- Five new hardware STLs in print/zola-v12/hardware/: **pi5_standoff_frame** (the real 58×49 M2.5 pattern on a torso-wall base), **battery_tray_3s1300** (the slide-in tray), **neck_cable_guide** (the U-channel for the camera ribbon), **servo_cradle_mg90s** (print 18), **shoulder_block_ds3218**. All separate no-boolean pieces (the house rule), all real-size (the Pi inside her is the real 85 mm Pi 5), all bbox-verified in the manifest.
+- The full debug sweep re-run: python compile ✓, tsc ✓, 162/162 vitest ✓, isaac tests ✓, the pack route serving the local manifest ✓, console syntax ✓, no stale references (halo_rotors renamed to collar_rotors everywhere).

@@ -18,17 +18,31 @@ class ZolaPrototypeEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
         self.robot = self.scene["robot"]
         names = self.robot.joint_names
-        self.leg_ids = torch.tensor([names.index(n) for n in MODEL["controlled_joints"]], device=self.device, dtype=torch.long)
-        self.actions = torch.zeros((self.num_envs, 12), device=self.device)
+        # EVERY controlled joint is actuated (the hands task adds the legs so
+        # she can counterbalance her own arm torques); the POSE subset is the
+        # smaller set that receives commanded targets (arms/hands only).
+        controlled = getattr(cfg, "controlled_joints", None) or MODEL["controlled_joints"]
+        self.ctrl_ids = torch.tensor([names.index(n) for n in controlled], device=self.device, dtype=torch.long)
+        pose_joints = getattr(cfg, "pose_joints", None) or []
+        self.pose_ids = torch.tensor([names.index(n) for n in pose_joints], device=self.device, dtype=torch.long) if pose_joints else None
+        count = len(controlled)
+        self.actions = torch.zeros((self.num_envs, count), device=self.device)
         self.previous_actions = torch.zeros_like(self.actions)
         self.commands = torch.zeros((self.num_envs, 3), device=self.device)
         self.targets = self.robot.data.default_joint_pos.torch.clone()
+        # POSE TRACKING (the hands task): a commanded arm/hand pose per episode.
+        # Zero weight keeps the balance/walk tasks byte-identical to their
+        # trained observation and reward contracts.
+        self.track_pose = getattr(cfg, "pose_tracking_weight", 0.0) > 0 and self.pose_ids is not None
+        self.pos_targets = torch.zeros((self.num_envs, len(pose_joints)), device=self.device)
 
     def _pre_physics_step(self, actions):
         self.previous_actions.copy_(self.actions)
         self.actions.mul_(.6).add_(actions.clamp(-1, 1), alpha=.4)
         self.targets.copy_(self.robot.data.default_joint_pos.torch)
-        self.targets[:, self.leg_ids] += self.actions*self.cfg.action_scale
+        if self.track_pose:
+            self.targets[:, self.pose_ids] += self.pos_targets
+        self.targets[:, self.ctrl_ids] += self.actions*self.cfg.action_scale
         limits = self.robot.data.soft_joint_pos_limits.torch
         self.targets.clamp_(limits[..., 0], limits[..., 1])
 
@@ -37,15 +51,18 @@ class ZolaPrototypeEnv(DirectRLEnv):
 
     def _get_observations(self):
         data = self.robot.data
-        observations = torch.cat((
-            data.joint_pos.torch[:, self.leg_ids]-data.default_joint_pos.torch[:, self.leg_ids],
-            data.joint_vel.torch[:, self.leg_ids]*.1,
+        parts = [
+            data.joint_pos.torch[:, self.ctrl_ids]-data.default_joint_pos.torch[:, self.ctrl_ids],
+            data.joint_vel.torch[:, self.ctrl_ids]*.1,
             data.root_link_lin_vel_b.torch,
             data.root_link_ang_vel_b.torch*.25,
             data.projected_gravity_b.torch,
             self.commands,
-            self.actions,
-        ), dim=-1)
+        ]
+        if self.track_pose:
+            parts.append(self.pos_targets)
+        parts.append(self.actions)
+        observations = torch.cat(parts, dim=-1)
         return {"policy": observations}
 
     def _get_rewards(self):
@@ -58,10 +75,15 @@ class ZolaPrototypeEnv(DirectRLEnv):
         upright = (-data.projected_gravity_b.torch[:, 2]).clamp(0, 1)
         stance_height = torch.exp(-((height-MODEL["base_height"])/.08)**2)
         action_rate = torch.sum((self.actions-self.previous_actions)**2, dim=1)
-        joint_speed = torch.sum(data.joint_vel.torch[:, self.leg_ids]**2, dim=1)
+        joint_speed = torch.sum(data.joint_vel.torch[:, self.ctrl_ids]**2, dim=1)
         reward = (linear_tracking+ .4*yaw_tracking+ .6*upright+ .6*stance_height
                   -.02*action_rate-.0005*joint_speed-.2*velocity[:, 2]**2
                   -.05*torch.sum(angular[:, :2]**2, dim=1))
+        if self.track_pose:
+            pose_err = (data.joint_pos.torch[:, self.pose_ids]
+                        - (data.default_joint_pos.torch[:, self.pose_ids] + self.pos_targets))
+            pose_tracking = torch.exp(-2*torch.mean(pose_err**2, dim=1))
+            reward = reward + self.cfg.pose_tracking_weight*pose_tracking
         return reward*self.step_dt-self.reset_terminated.float()
 
     def _get_dones(self):
@@ -80,7 +102,8 @@ class ZolaPrototypeEnv(DirectRLEnv):
         super()._reset_idx(env_ids)
         count = len(env_ids)
         positions = self.robot.data.default_joint_pos.torch[env_ids].clone()
-        positions[:, self.leg_ids] += (torch.rand((count, 12), device=self.device)-.5)*.06
+        controlled = self.ctrl_ids.numel()
+        positions[:, self.ctrl_ids] += (torch.rand((count, controlled), device=self.device)-.5)*.06
         limits = self.robot.data.soft_joint_pos_limits.torch[env_ids]
         positions.clamp_(limits[..., 0], limits[..., 1])
         velocities = self.robot.data.default_joint_vel.torch[env_ids].clone()
@@ -98,3 +121,14 @@ class ZolaPrototypeEnv(DirectRLEnv):
         self.previous_actions[env_ids] = 0
         for column, (low, high) in enumerate(self.cfg.command_ranges):
             self.commands[env_ids, column] = low+(high-low)*torch.rand(count, device=self.device)
+        if self.track_pose:
+            # a fresh arm/hand pose per episode: a DELIBERATE pose — each
+            # controlled joint offset by up to cfg.pose_target_scale radians
+            # around its default, clamped to the soft limits the actuators
+            # enforce (full-travel targets topple her; hands_v1 proved it)
+            scale = getattr(self.cfg, "pose_target_scale", .35)
+            arm_limits = self.robot.data.soft_joint_pos_limits.torch[env_ids][:, self.pose_ids]
+            default = self.robot.data.default_joint_pos.torch[env_ids][:, self.pose_ids]
+            offset = ((torch.rand((count, self.pose_ids.numel()), device=self.device)*2-1)*scale)
+            target = (default+offset).clamp(arm_limits[..., 0], arm_limits[..., 1])
+            self.pos_targets[env_ids] = target-default

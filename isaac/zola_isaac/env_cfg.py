@@ -59,6 +59,12 @@ class ZolaSceneCfg(InteractiveSceneCfg):
     light = AssetBaseCfg(prim_path="/World/light", spawn=sim_utils.DomeLightCfg(intensity=1500.0))
 
 
+# the upper-limb vocabulary: shoulders, elbows, wrists, and every finger flex
+ARM_JOINTS = [j["name"] for j in MODEL["joints"]
+              if any(s in j["name"] for s in ("shoulder", "elbow", "wrist"))
+              or j["name"].endswith("_flex")]
+
+
 @configclass
 class ZolaBalanceCfg(DirectRLEnvCfg):
     model_profile_sha256 = MODEL["profile_sha256"]
@@ -69,6 +75,11 @@ class ZolaBalanceCfg(DirectRLEnvCfg):
     observation_space = 48
     state_space = 0
     action_scale = .35
+    # None = the profile's 12 leg joints; a list overrides (the hands task).
+    controlled_joints: list[str] | None = None
+    # >0 adds commanded-pose tracking to the reward and the targets to the
+    # observations (the hands task). 0 keeps balance/walk contracts identical.
+    pose_tracking_weight = 0.0
     command_ranges = ((0.0, 0.0), (0.0, 0.0), (0.0, 0.0))
     sim: SimulationCfg = SimulationCfg(dt=1/120, render_interval=decimation, physics=ZolaPhysicsCfg())
     scene: ZolaSceneCfg = ZolaSceneCfg(num_envs=32, env_spacing=5.0, replicate_physics=True, clone_in_fabric=True)
@@ -77,3 +88,22 @@ class ZolaBalanceCfg(DirectRLEnvCfg):
 @configclass
 class ZolaWalkCfg(ZolaBalanceCfg):
     command_ranges = ((.15, .5), (-.1, .1), (-.3, .3))
+
+
+@configclass
+class ZolaHandsCfg(ZolaBalanceCfg):
+    """She USES her hands: track a random arm/wrist/finger pose per episode
+    while staying upright. WHOLE-BODY control — the 12 leg joints stay in the
+    action space so she can counterbalance her own arm torques (rigid-legged
+    arm-swinging toppled her in hands_v1/v2); pose targets apply to the 22
+    arm/hand joints only. 34 actions, 136 observations."""
+    controlled_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    pose_joints = ARM_JOINTS
+    pose_tracking_weight = 1.0
+    # deliberate poses, not flailing: ±0.35 rad around default per joint —
+    # a full-travel target (±2.4 rad shoulders) topples her before she can
+    # learn anything (hands_v1 plateaued at 2-second episodes)
+    pose_target_scale = .35
+    action_scale = .3
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*len(ARM_JOINTS)+48  # 2*(34) states + 12 base + 22 targets + 34 actions

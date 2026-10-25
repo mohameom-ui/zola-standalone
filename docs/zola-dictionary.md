@@ -195,7 +195,8 @@ grows without a redeploy.
 
 ## Trained Policy (Simulation)
 
-A PPO motor policy trained in Isaac Lab (balance or walk), exported by
+A PPO motor policy trained in Isaac Lab (balance, walk, or arm-and-hand
+pose control), exported by
 `isaac/export_policy_onnx.py` to a round-trip-verified ONNX artifact with its
 manifest in `isaac/policies/`. **She knows her own policies** — ask about her
 policies and she reports them from the generated manifests. The manifest and
@@ -294,6 +295,14 @@ task, never asleep, never without a body.
 **The honest stage rule applies to sight too:** a refused performance is
 never announced — she only speaks a trick line after her body actually plays
 the clip.
+
+**Her hands, in simulation (2026-10-25):** the Isaac proxy has 22 actuated
+upper-limb joints — shoulders, elbows, wrists, and five finger-flex joints
+per hand. The `Isaac-Zola-Hands-Prototype-v0` task trains WHOLE-BODY control
+(34 actions: 22 arm/hand joints tracking commanded poses + the 12 leg joints
+free to counterbalance — rigid-legged arm-swinging toppled her in the first
+two attempts). Final policy: reward 34.70, episodes 598/600. The exported
+policy is a simulation skill; her real body has no limb-servo bridge yet.
 
 ## D. The safety envelope that outranks every maneuver
 

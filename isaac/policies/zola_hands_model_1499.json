@@ -1,0 +1,23 @@
+{
+  "task": "zola_hands",
+  "run": "2026-10-25_01-35-13_hands_v3",
+  "checkpoint": "model_1499.pt",
+  "iteration": 1499,
+  "obs_dim": 136,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": -0.038676775991916656,
+    "std_head": 0.20190326869487762,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "cb60091e16fbda6c3e9ee4234d6b1f51f99495f6176430d29c3ba471da07a613",
+  "roundtrip_max_abs_drift": 5.960464477539062e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller"
+}

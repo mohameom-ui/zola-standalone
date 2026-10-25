@@ -11,6 +11,7 @@
 import balanceManifest from "../../../isaac/policies/zola_balance_model_1499.json";
 import walkManifest from "../../../isaac/policies/zola_walk_model_1499.json";
 import walkV2Manifest from "../../../isaac/policies/zola_walk_model_2499.json";
+import handsManifest from "../../../isaac/policies/zola_hands_model_1499.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -29,11 +30,13 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   balanceManifest,
   walkManifest,
   walkV2Manifest,
+  handsManifest,
 ] as unknown as IsaacPolicyManifest[];
 
 const TASK_NAMES: Record<string, string> = {
   zola_balance: "standing balance",
   zola_walk: "flat-ground walking",
+  zola_hands: "arm and hand pose control (she moves her hands)",
 };
 
 /** One honest spoken line per policy — what she trained, and what it is NOT. */

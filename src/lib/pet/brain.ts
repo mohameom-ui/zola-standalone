@@ -811,7 +811,7 @@ export class PetBrain {
       }
     }
     if (has("what can you do", "help", "abilities", "capabilit")) {
-      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance and walk policies from Isaac Sim (ask about my policies). Try me.";
+      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance, walking, and arm-and-hand policies from Isaac Sim (ask about my policies). Try me.";
     }
     if (has("goodbye", "bye", "see you", "later")) {
       this.setMood("happy");

@@ -60,6 +60,28 @@ command inputs are always zero (std = 0 exactly) — naive randn probes
 normalize to ±1e8 and measure fp32 chaos, not graph fidelity; that cost one
 failed verification before the fix. Artifacts + manifests in `isaac/policies/`.
 
+## Run 4 — hands_v1 (2026-10-25): she uses her hands
+
+New task `Isaac-Zola-Hands-Prototype-v0`: 22 upper-limb joints (shoulders,
+elbows, wrists, five finger-flex per hand) track a random commanded pose per
+episode while staying upright. Two design failures are part of the record:
+
+- **hands attempt 1** (arm-joints-only actions, full-travel targets): reward
+  plateaued at 4.9, episodes 125/600 — full-travel shoulder targets are
+  violently destabilizing.
+- **hands attempt 2** (arm-joints-only, ±0.35 rad deliberate poses): same
+  plateau — the REAL problem was that her legs were not in the action space;
+  she was a rigid-legged statue with no way to counterbalance her own arm
+  torques.
+- **hands_v1 (final)**: WHOLE-BODY control — 34 actions (22 arm/hand + 12
+  legs), pose targets on the arm subset only. 2,304,000 steps in 21 m 18 s,
+  final reward 34.70, episodes 597.96/600. Exported: round-trip drift
+  5.96e-07.
+
+The env now generalizes: `controlled_joints` (everything actuated),
+`pose_joints` (the tracked subset), `pose_tracking_weight` (0 keeps the
+balance/walk contracts byte-identical), and `pose_target_scale`.
+
 ## Notes / caveats
 
 - Windows console: the CLI loading screen can raise `UnicodeEncodeError`

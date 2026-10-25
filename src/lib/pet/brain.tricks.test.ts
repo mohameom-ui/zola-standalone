@@ -50,7 +50,7 @@ describe("the tricks — every clip has a voice", () => {
     expect(played).toContain("getup_01");
     const { brain: b2 } = trickBrain();
     b2.command("sleep", 0.9);
-    expect(b2.command("wake up", 0.9)).toMatch(/awake|Ready|Systems online|dream|grump/i);
+    expect(b2.command("wake up", 0.9)).toMatch(/awake|Ready|Systems online|dream|bold strategy/i);
     expect(b2.getActivity()).toBe("hover");
   });
 

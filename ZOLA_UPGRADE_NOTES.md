@@ -737,3 +737,9 @@ Format: [date] slice — action — library source → destination.
 - **The new skills wired into the reflex layer:** "sit down" (honestly mapped to her lie-down — the trained sit lives in the simulation body and she says so), "pose"/"picture" (her curtsey for the camera), "thumbs up" (mood + bond + the five-finger line). Lexicon keywords added.
 - **The trainer console is announced in her panel boot log** — the operator learns :3002 exists from inside her own panel.
 - Full-body check re-verified with the voice fix live: ALL ORGANS, no page errors.
+
+### 2026-10-25 (17) — THE DEEP-DIVE FIXES: the float's true datum + the weird-reply threshold
+- **THE FLOAT'S TRUE ROOT CAUSE** — the panel sends `alt: poseNow.z`, her pelvis WORLD height (~0.93 m STANDING). It was never a takeoff delta: every "grounded" threshold below her standing height left her hovering ~0.66 m up forever. The 3D body now subtracts her profile's base_height (0.9318) and lifts only on the EXCESS (>5 cm). The AIRBORNE HUD label got the same datum fix (it claimed AIRBORNE every second of her life).
+- **The weird-reply threshold**: the suggest fallback matched two-word candidates at 0.5 — ONE common word ("what's up" → "Did you mean: wake up?" via the lone "up"). Raised to 0.6 + a regression test.
+- **The voice-load window**: while the neural voice is still loading (first ~2 min), her early lines fell to the robotic Piper pack. Now: silence + a log line beat the robotic voice; Piper speaks only when the neural engine is switched OFF.
+- The routing audit (LLM tier 1 → on-device tier 2 → deep-eyes → wake word → missions → storytelling → reflexes) is verified connected; the LLM's decision grammar already carries gesture:<clip> so speech and body travel together.

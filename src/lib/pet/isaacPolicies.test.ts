@@ -44,6 +44,14 @@ describe("the isaac report — her simulation skills, served honestly", () => {
     expect(isaacPolicyLines().some((l) => l.includes("arm and hand pose control"))).toBe(true);
   });
 
+  it("the suggest fallback no longer hallucinates suggestions from one common word", () => {
+    const brain = new PetBrain();
+    // "what's up" scored 0.5 against "wake up" via the lone "up" — the old
+    // threshold suggested waking her when the human was just being casual
+    const reply = brain.command("what's up", 0.9);
+    expect(reply).not.toContain("Did you mean: wake up");
+  });
+
   it("the help line now mentions her simulation training", () => {
     const brain = new PetBrain();
     expect(brain.command("what can you do", 0.9)).toMatch(/Isaac Sim/);

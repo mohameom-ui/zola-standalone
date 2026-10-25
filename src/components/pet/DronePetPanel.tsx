@@ -491,13 +491,19 @@ export default function DronePetPanel() {
         if (spoken) return; // her real neural voice handled it
         pushLog("sys", "neural voice unavailable — trying her Pi voice pack");
       }
-      // fallback: the Piper pack (her authentic drone-body voice)
-      const packReady = await piperPackRef.current.ensureLoaded();
-      if (packReady) {
-        const spoken = await piperPackRef.current.speak(text);
-        if (spoken) return;
+      // the Piper fallback ONLY when the neural engine is switched OFF —
+      // while it is merely still loading, silence beats the robotic voice
+      if (!neuralRef.current.enabled) {
+        const packReady = await piperPackRef.current.ensureLoaded();
+        if (packReady) {
+          const spoken = await piperPackRef.current.speak(text);
+          if (spoken) return;
+        }
+      } else if (!neuralRef.current.loaded) {
+        pushLog("sys", "her neural voice is still loading — line shown in log only");
+      } else {
+        pushLog("sys", "no voice engine active — line shown in log only");
       }
-      pushLog("sys", "no voice engine active — line shown in log only");
     })();
     pushLog("aura", text);
     const until = performance.now() + 3200 + Math.min(3000, text.length * 45);

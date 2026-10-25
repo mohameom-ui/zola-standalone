@@ -1375,7 +1375,10 @@ export class PetBrain {
       const score = hit / cw.length;
       if (score > bestScore) { bestScore = score; best = cand; }
     }
-    return bestScore >= 0.5 ? best : null;
+    // 0.6, not 0.5: a 0.5 match on a two-word candidate is ONE common word
+    // ("what's up" scored as "wake up" via the lone "up") — the source of
+    // half her weird replies
+    return bestScore >= 0.6 ? best : null;
   }
 
   private isFlightCommand(t: string): boolean {

@@ -310,11 +310,14 @@ function SceneRig({
         Math.sin(targetYaw - bodyRef.current.rotation.y),
         Math.cos(targetYaw - bodyRef.current.rotation.y),
       ) * k;
-      // GROUNDED BY DEFAULT: she stopped floating — only clearly-airborne
-      // altitude lifts her off the pad; a hover-in-place reads as standing
-      // with the props spinning (the One-Body Directive, made visible)
-      if (f && f.alt > 0.12) {
-        const lift = Math.min(f.alt - 0.1, 1.2) * 0.8;
+      // THE FLOAT, fixed at the datum: the panel's alt is her pelvis WORLD
+      // height (≈0.93 m even STANDING — it was never a takeoff delta, so
+      // every "grounded" threshold below her standing height left her
+      // hovering ~0.66 m up forever). The lift is the EXCESS over her
+      // standing height; anything less is ground contact.
+      const airborneDelta = f ? f.alt - 0.9318 : 0; // 0.9318 = her profile's base_height
+      if (f && airborneDelta > 0.05) {
+        const lift = Math.min(airborneDelta, 1.2) * 0.8;
         const spin = Math.min(f.rpm / 12000, 1);
         bodyRef.current.position.y = lift + Math.sin(sway.current.t * 3.1) * 0.012 * (0.3 + spin);
         bodyRef.current.rotation.x = THREE.MathUtils.degToRad(f.pitch ?? 0);
@@ -609,9 +612,9 @@ export default function DroneBody3D({
         </Suspense>
       </Canvas>
       <span className="hud-label absolute left-6 top-6 text-[9px] opacity-80">FULL-BODY MOTION RIG</span>
-      {flight && flight.alt > 0.02 && (
+      {flight && flight.alt > 0.98 && (
         <span className="hud-label absolute left-6 top-12 text-[9px] text-[#35d0a5]">
-          AIRBORNE · {flight.alt.toFixed(2)} m · {Math.round(flight.rpm)} RPM
+          AIRBORNE · {(flight.alt - 0.9318).toFixed(2)} m up · {Math.round(flight.rpm)} RPM
         </span>
       )}
       {speech && (

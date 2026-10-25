@@ -1,0 +1,67 @@
+# Zola Isaac training run — 2026-10-24
+
+First Isaac Sim execution of the prototype tasks, on the local RTX 5060 Laptop
+(8 GB, driver 610.88), Isaac Lab 3.0.0 + Isaac Sim 6.2.0 pip wheel, PhysX
+backend (`isaacsim_physx` preset), Windows host.
+
+## Logic verification (all checks passed before training)
+
+- `isaac/tests`: 6/6 runnable tests pass; USD test skipped (needs `pxr`,
+  present only inside the Isaac environment).
+- Profile integrity: `isaac/zola_prototype.json` SHA-256 matches the embedded
+  `profile_sha256` in `assets/zola_prototype.json` (3b475f4d…).
+- API surface verified against the Isaac Lab 3.0 migration guide: the
+  `.torch` ProxyArray accessors, `root_link_*` data names, quaternion **xyzw**
+  reset composition (verified algebraically as Ry(pitch)·Rx(roll)),
+  `write_*_to_sim_index` writers, `actuators.target_command.set_position_index`,
+  and the `RslRlMLPModelCfg` / `GaussianDistributionCfg` runner config are all
+  current 3.0 APIs. Observation math checks: 12+12+3+3+3+3+12 = 48 dims.
+- Smoke test: `isaaclab zero_agent` ran 100 steps with zero actions, one env —
+  clean boot, no NaNs, clean shutdown.
+- `isaaclab list_envs` registers both tasks (Isaac-Zola-Balance-Prototype-v0,
+  Isaac-Zola-Walk-Prototype-v0) via the `zola_isaac.tasks` entry point.
+
+## Training results
+
+| Run | Task | Steps | Wall time | Final mean reward | Final episode length |
+|---|---|---|---|---|---|
+| `balance_v1` | Balance (zero command) | 1,152,000 | 10 m 26 s | 25.75 | 599/600 |
+| `walk_v1` | Walk (0.15–0.5 m/s fwd, ±0.1 m/s lat, ±0.3 rad/s yaw) | 1,152,000 | 18 m 27 s | 22.01 | ~high 500s |
+
+- Balance: episode length pinned at 599/600 from early training — no falls in
+  the final phase; reward plateaued at ~25.3; action std annealed 0.30 → 0.18.
+- Walk: episodes grew 6 → 577/600 over the run (policy learned not to fall
+  while tracking velocity commands). This is a prototype proxy result, not a
+  hardware-ready gait.
+- GPU peak ~3.3 GB / 8 GB at 32 envs — the laptop runs headless training fine
+  despite being below Isaac Sim's published 16 GB workstation minimum.
+
+## Artifacts
+
+`isaac/logs/` is gitignored. Each run directory contains the final policy
+(`model_1499.pt`), the frozen env/agent config (`params/`), and `run.json`:
+
+- `isaac/logs/rsl_rl/zola_balance_prototype/2026-10-24_balance_v1/`
+- `isaac/logs/rsl_rl/zola_walk_prototype/2026-10-24_walk_v1/`
+
+## Notes / caveats
+
+- Windows console: the CLI loading screen can raise `UnicodeEncodeError`
+  (cp1252) when output is redirected; `PYTHONUTF8=1` avoids it. Cosmetic only.
+- `isaaclab play` accepts no `--max_steps`; it runs until interrupted.
+- All profile parameters remain *assumed* (`hardware_calibrated: false`).
+  The contract in `isaac/zola_robot_contract.json` still governs what must be
+  measured before any hardware deployment.
+- Environment seed was unset in these first runs (Kit warning); set `--seed`
+  for reproducible reruns.
+
+## Reproduce
+
+```powershell
+# venv: isaaclab[isaacsim,rsl-rl]==3.0.0 (see isaac/README.md for overrides)
+python -m pip install --no-deps -e ./isaac
+isaaclab train --rl_library rsl_rl --task Isaac-Zola-Balance-Prototype-v0 `
+  --num_envs 32 --max_iterations 1500 --run_name balance_v2
+isaaclab play --rl_library rsl_rl --task Isaac-Zola-Balance-Prototype-v0 `
+  --checkpoint latest --num_envs 1
+```

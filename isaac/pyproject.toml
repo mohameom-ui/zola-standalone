@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zola-isaac"
+version = "0.1.0"
+description = "Zola humanoid simulation prototypes and calibration contracts"
+requires-python = ">=3.12,<3.13"
+dependencies = ["isaaclab==3.0.0"]
+
+[project.entry-points."isaaclab.tasks"]
+zola = "zola_isaac.tasks"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["zola_isaac*"]
+
+[tool.setuptools.package-data]
+zola_isaac = ["assets/*.json", "assets/*.urdf", "assets/*.usda"]

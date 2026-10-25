@@ -1,0 +1,1528 @@
+{
+  "name": "zola_prototype",
+  "root": "pelvis",
+  "base_height": 0.9318,
+  "links": [
+    {
+      "name": "pelvis",
+      "size": [
+        0.18,
+        0.25,
+        0.17
+      ],
+      "mass": 6.0,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "torso",
+      "size": [
+        0.18,
+        0.32,
+        0.4
+      ],
+      "mass": 10.0,
+      "center": [
+        0,
+        0,
+        0.18
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "neck_yaw_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "head",
+      "size": [
+        0.18,
+        0.2,
+        0.24
+      ],
+      "mass": 2.5,
+      "center": [
+        0,
+        0,
+        0.145
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "left_shoulder_pitch_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "left_shoulder_roll_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "left_upper_arm",
+      "size": [
+        0.08,
+        0.08,
+        0.211464
+      ],
+      "mass": 1.6,
+      "center": [
+        0,
+        0,
+        -0.12015
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "left_forearm",
+      "size": [
+        0.075,
+        0.075,
+        0.21929600000000002
+      ],
+      "mass": 1.2,
+      "center": [
+        0,
+        0,
+        -0.1246
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "left_wrist_pitch_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "left_palm",
+      "size": [
+        0.045,
+        0.08,
+        0.12
+      ],
+      "mass": 0.45,
+      "center": [
+        0,
+        0,
+        -0.06
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "left_thumb",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "left_index",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "left_middle",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "left_ring",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "left_pinky",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "left_hip_yaw_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "left_hip_roll_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "left_thigh",
+      "size": [
+        0.11,
+        0.11,
+        0.3684600000000001
+      ],
+      "mass": 4.0,
+      "center": [
+        0,
+        0,
+        -0.20470000000000005
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "left_shin",
+      "size": [
+        0.09,
+        0.09,
+        0.41759999999999997
+      ],
+      "mass": 3.0,
+      "center": [
+        0,
+        0,
+        -0.23199999999999998
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "left_ankle_pitch_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "left_foot",
+      "size": [
+        0.23,
+        0.11,
+        0.07
+      ],
+      "mass": 1.0,
+      "center": [
+        0.045,
+        0,
+        -0.035699999999999996
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "right_shoulder_pitch_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "right_shoulder_roll_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "right_upper_arm",
+      "size": [
+        0.08,
+        0.08,
+        0.211464
+      ],
+      "mass": 1.6,
+      "center": [
+        0,
+        0,
+        -0.12015
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "right_forearm",
+      "size": [
+        0.075,
+        0.075,
+        0.21929600000000002
+      ],
+      "mass": 1.2,
+      "center": [
+        0,
+        0,
+        -0.1246
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "right_wrist_pitch_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "right_palm",
+      "size": [
+        0.045,
+        0.08,
+        0.12
+      ],
+      "mass": 0.45,
+      "center": [
+        0,
+        0,
+        -0.06
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "right_thumb",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "right_index",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "right_middle",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "right_ring",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "right_pinky",
+      "size": [
+        0.018,
+        0.013,
+        0.065
+      ],
+      "mass": 0.05,
+      "center": [
+        0,
+        0,
+        -0.0325
+      ],
+      "color": "dark",
+      "collision": true
+    },
+    {
+      "name": "right_hip_yaw_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "right_hip_roll_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "right_thigh",
+      "size": [
+        0.11,
+        0.11,
+        0.3684600000000001
+      ],
+      "mass": 4.0,
+      "center": [
+        0,
+        0,
+        -0.20470000000000005
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "right_shin",
+      "size": [
+        0.09,
+        0.09,
+        0.41759999999999997
+      ],
+      "mass": 3.0,
+      "center": [
+        0,
+        0,
+        -0.23199999999999998
+      ],
+      "color": "white",
+      "collision": true
+    },
+    {
+      "name": "right_ankle_pitch_link",
+      "size": [
+        0.025,
+        0.025,
+        0.025
+      ],
+      "mass": 0.04,
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "color": "dark",
+      "collision": false
+    },
+    {
+      "name": "right_foot",
+      "size": [
+        0.23,
+        0.11,
+        0.07
+      ],
+      "mass": 1.0,
+      "center": [
+        0.045,
+        0,
+        -0.035699999999999996
+      ],
+      "color": "dark",
+      "collision": true
+    }
+  ],
+  "joints": [
+    {
+      "name": "waist_yaw",
+      "parent": "pelvis",
+      "child": "torso",
+      "origin": [
+        0,
+        0,
+        0.12280000000000002
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.5,
+      "upper": 0.5,
+      "drive": {
+        "effort": 80,
+        "velocity": 4,
+        "stiffness": 100,
+        "damping": 5
+      },
+      "source_bone": "spine_01"
+    },
+    {
+      "name": "neck_yaw",
+      "parent": "torso",
+      "child": "neck_yaw_link",
+      "origin": [
+        0,
+        0,
+        0.4303000000000001
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -1.1,
+      "upper": 1.1,
+      "drive": {
+        "effort": 10,
+        "velocity": 3,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": "neck_01"
+    },
+    {
+      "name": "neck_pitch",
+      "parent": "neck_yaw_link",
+      "child": "head",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -0.6,
+      "upper": 0.6,
+      "drive": {
+        "effort": 10,
+        "velocity": 3,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": "Head"
+    },
+    {
+      "name": "left_shoulder_pitch",
+      "parent": "torso",
+      "child": "left_shoulder_pitch_link",
+      "origin": [
+        0,
+        0.1516,
+        0.36349999999999993
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -2.4,
+      "upper": 1.2,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 50,
+        "damping": 3
+      },
+      "source_bone": "upperarm_l"
+    },
+    {
+      "name": "left_shoulder_roll",
+      "parent": "left_shoulder_pitch_link",
+      "child": "left_shoulder_roll_link",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -1.6,
+      "upper": 1.6,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 50,
+        "damping": 3
+      },
+      "source_bone": "upperarm_l"
+    },
+    {
+      "name": "left_shoulder_yaw",
+      "parent": "left_shoulder_roll_link",
+      "child": "left_upper_arm",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -1.5,
+      "upper": 1.5,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 50,
+        "damping": 3
+      },
+      "source_bone": "upperarm_l"
+    },
+    {
+      "name": "left_elbow",
+      "parent": "left_upper_arm",
+      "child": "left_forearm",
+      "origin": [
+        0,
+        0,
+        -0.2403
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -2.3,
+      "upper": 0.15,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 40,
+        "damping": 2
+      },
+      "source_bone": "lowerarm_l"
+    },
+    {
+      "name": "left_wrist_pitch",
+      "parent": "left_forearm",
+      "child": "left_wrist_pitch_link",
+      "origin": [
+        0,
+        0,
+        -0.2492
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -0.7,
+      "upper": 0.7,
+      "drive": {
+        "effort": 8,
+        "velocity": 4,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": "hand_l"
+    },
+    {
+      "name": "left_wrist_roll",
+      "parent": "left_wrist_pitch_link",
+      "child": "left_palm",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -0.7,
+      "upper": 0.7,
+      "drive": {
+        "effort": 8,
+        "velocity": 4,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": "hand_l"
+    },
+    {
+      "name": "left_thumb_flex",
+      "parent": "left_palm",
+      "child": "left_thumb",
+      "origin": [
+        0.012,
+        -0.032,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "thumb_01_l"
+    },
+    {
+      "name": "left_index_flex",
+      "parent": "left_palm",
+      "child": "left_index",
+      "origin": [
+        0,
+        -0.016,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "index_01_l"
+    },
+    {
+      "name": "left_middle_flex",
+      "parent": "left_palm",
+      "child": "left_middle",
+      "origin": [
+        0,
+        0.0,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "middle_01_l"
+    },
+    {
+      "name": "left_ring_flex",
+      "parent": "left_palm",
+      "child": "left_ring",
+      "origin": [
+        0,
+        0.016,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "ring_01_l"
+    },
+    {
+      "name": "left_pinky_flex",
+      "parent": "left_palm",
+      "child": "left_pinky",
+      "origin": [
+        0,
+        0.032,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "pinky_01_l"
+    },
+    {
+      "name": "left_hip_yaw",
+      "parent": "pelvis",
+      "child": "left_hip_yaw_link",
+      "origin": [
+        0,
+        0.1114,
+        0.012300000000000089
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.7,
+      "upper": 0.7,
+      "drive": {
+        "effort": 100,
+        "velocity": 5,
+        "stiffness": 120,
+        "damping": 6
+      },
+      "source_bone": "thigh_l"
+    },
+    {
+      "name": "left_hip_roll",
+      "parent": "left_hip_yaw_link",
+      "child": "left_hip_roll_link",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -0.6,
+      "upper": 0.6,
+      "drive": {
+        "effort": 100,
+        "velocity": 5,
+        "stiffness": 120,
+        "damping": 6
+      },
+      "source_bone": "thigh_l"
+    },
+    {
+      "name": "left_hip_pitch",
+      "parent": "left_hip_roll_link",
+      "child": "left_thigh",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.5,
+      "upper": 1,
+      "drive": {
+        "effort": 100,
+        "velocity": 5,
+        "stiffness": 120,
+        "damping": 6
+      },
+      "source_bone": "thigh_l"
+    },
+    {
+      "name": "left_knee",
+      "parent": "left_thigh",
+      "child": "left_shin",
+      "origin": [
+        0,
+        0,
+        -0.4094000000000001
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": 0,
+      "upper": 2.3,
+      "drive": {
+        "effort": 120,
+        "velocity": 5,
+        "stiffness": 160,
+        "damping": 8
+      },
+      "source_bone": "calf_l"
+    },
+    {
+      "name": "left_ankle_pitch",
+      "parent": "left_shin",
+      "child": "left_ankle_pitch_link",
+      "origin": [
+        0,
+        0,
+        -0.46399999999999997
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -0.8,
+      "upper": 0.6,
+      "drive": {
+        "effort": 60,
+        "velocity": 5,
+        "stiffness": 80,
+        "damping": 4
+      },
+      "source_bone": "foot_l"
+    },
+    {
+      "name": "left_ankle_roll",
+      "parent": "left_ankle_pitch_link",
+      "child": "left_foot",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -0.45,
+      "upper": 0.45,
+      "drive": {
+        "effort": 60,
+        "velocity": 5,
+        "stiffness": 80,
+        "damping": 4
+      },
+      "source_bone": "foot_l"
+    },
+    {
+      "name": "right_shoulder_pitch",
+      "parent": "torso",
+      "child": "right_shoulder_pitch_link",
+      "origin": [
+        0,
+        -0.1516,
+        0.36349999999999993
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -2.4,
+      "upper": 1.2,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 50,
+        "damping": 3
+      },
+      "source_bone": "upperarm_r"
+    },
+    {
+      "name": "right_shoulder_roll",
+      "parent": "right_shoulder_pitch_link",
+      "child": "right_shoulder_roll_link",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -1.6,
+      "upper": 1.6,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 50,
+        "damping": 3
+      },
+      "source_bone": "upperarm_r"
+    },
+    {
+      "name": "right_shoulder_yaw",
+      "parent": "right_shoulder_roll_link",
+      "child": "right_upper_arm",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -1.5,
+      "upper": 1.5,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 50,
+        "damping": 3
+      },
+      "source_bone": "upperarm_r"
+    },
+    {
+      "name": "right_elbow",
+      "parent": "right_upper_arm",
+      "child": "right_forearm",
+      "origin": [
+        0,
+        0,
+        -0.2403
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -2.3,
+      "upper": 0.15,
+      "drive": {
+        "effort": 30,
+        "velocity": 5,
+        "stiffness": 40,
+        "damping": 2
+      },
+      "source_bone": "lowerarm_r"
+    },
+    {
+      "name": "right_wrist_pitch",
+      "parent": "right_forearm",
+      "child": "right_wrist_pitch_link",
+      "origin": [
+        0,
+        0,
+        -0.2492
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -0.7,
+      "upper": 0.7,
+      "drive": {
+        "effort": 8,
+        "velocity": 4,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": "hand_r"
+    },
+    {
+      "name": "right_wrist_roll",
+      "parent": "right_wrist_pitch_link",
+      "child": "right_palm",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -0.7,
+      "upper": 0.7,
+      "drive": {
+        "effort": 8,
+        "velocity": 4,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": "hand_r"
+    },
+    {
+      "name": "right_thumb_flex",
+      "parent": "right_palm",
+      "child": "right_thumb",
+      "origin": [
+        0.012,
+        0.032,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "thumb_01_r"
+    },
+    {
+      "name": "right_index_flex",
+      "parent": "right_palm",
+      "child": "right_index",
+      "origin": [
+        0,
+        0.016,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "index_01_r"
+    },
+    {
+      "name": "right_middle_flex",
+      "parent": "right_palm",
+      "child": "right_middle",
+      "origin": [
+        0,
+        0.0,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "middle_01_r"
+    },
+    {
+      "name": "right_ring_flex",
+      "parent": "right_palm",
+      "child": "right_ring",
+      "origin": [
+        0,
+        -0.016,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "ring_01_r"
+    },
+    {
+      "name": "right_pinky_flex",
+      "parent": "right_palm",
+      "child": "right_pinky",
+      "origin": [
+        0,
+        -0.032,
+        -0.12
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 0.1,
+      "drive": {
+        "effort": 2,
+        "velocity": 4,
+        "stiffness": 2,
+        "damping": 0.1
+      },
+      "source_bone": "pinky_01_r"
+    },
+    {
+      "name": "right_hip_yaw",
+      "parent": "pelvis",
+      "child": "right_hip_yaw_link",
+      "origin": [
+        0,
+        -0.1114,
+        0.012300000000000089
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.7,
+      "upper": 0.7,
+      "drive": {
+        "effort": 100,
+        "velocity": 5,
+        "stiffness": 120,
+        "damping": 6
+      },
+      "source_bone": "thigh_r"
+    },
+    {
+      "name": "right_hip_roll",
+      "parent": "right_hip_yaw_link",
+      "child": "right_hip_roll_link",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -0.6,
+      "upper": 0.6,
+      "drive": {
+        "effort": 100,
+        "velocity": 5,
+        "stiffness": 120,
+        "damping": 6
+      },
+      "source_bone": "thigh_r"
+    },
+    {
+      "name": "right_hip_pitch",
+      "parent": "right_hip_roll_link",
+      "child": "right_thigh",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.5,
+      "upper": 1,
+      "drive": {
+        "effort": 100,
+        "velocity": 5,
+        "stiffness": 120,
+        "damping": 6
+      },
+      "source_bone": "thigh_r"
+    },
+    {
+      "name": "right_knee",
+      "parent": "right_thigh",
+      "child": "right_shin",
+      "origin": [
+        0,
+        0,
+        -0.4094000000000001
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": 0,
+      "upper": 2.3,
+      "drive": {
+        "effort": 120,
+        "velocity": 5,
+        "stiffness": 160,
+        "damping": 8
+      },
+      "source_bone": "calf_r"
+    },
+    {
+      "name": "right_ankle_pitch",
+      "parent": "right_shin",
+      "child": "right_ankle_pitch_link",
+      "origin": [
+        0,
+        0,
+        -0.46399999999999997
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -0.8,
+      "upper": 0.6,
+      "drive": {
+        "effort": 60,
+        "velocity": 5,
+        "stiffness": 80,
+        "damping": 4
+      },
+      "source_bone": "foot_r"
+    },
+    {
+      "name": "right_ankle_roll",
+      "parent": "right_ankle_pitch_link",
+      "child": "right_foot",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -0.45,
+      "upper": 0.45,
+      "drive": {
+        "effort": 60,
+        "velocity": 5,
+        "stiffness": 80,
+        "damping": 4
+      },
+      "source_bone": "foot_r"
+    }
+  ],
+  "controlled_joints": [
+    "left_hip_yaw",
+    "left_hip_roll",
+    "left_hip_pitch",
+    "left_knee",
+    "left_ankle_pitch",
+    "left_ankle_roll",
+    "right_hip_yaw",
+    "right_hip_roll",
+    "right_hip_pitch",
+    "right_knee",
+    "right_ankle_pitch",
+    "right_ankle_roll"
+  ],
+  "hardware_calibrated": false,
+  "provenance": "Simulation assumptions; no hardware measurements or actuator calibration",
+  "contact": {
+    "static_friction": 0.8,
+    "dynamic_friction": 0.7,
+    "restitution": 0.0
+  },
+  "profile_sha256": "3b475f4d862595820c58c9e45f2cd28eaeb0289e0b037e5c86b47b9d825841f0",
+  "total_mass_kg": 42.02
+}

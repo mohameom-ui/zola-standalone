@@ -1,0 +1,51 @@
+{
+  "schema": "zola.physics-prototype/v1",
+  "name": "zola_prototype",
+  "provenance": "Simulation assumptions; no hardware measurements or actuator calibration",
+  "hardware_calibrated": false,
+  "units": "meters-kilograms-seconds-radians",
+  "frame": "x forward, y left, z up",
+  "dimensions": {
+    "hip_height": 0.9318,
+    "hip_half_width": 0.1114,
+    "hip_joint_height": 0.9441,
+    "knee_height": 0.5347,
+    "ankle_height": 0.0707,
+    "waist_height": 1.0546,
+    "shoulder_height": 1.4181,
+    "shoulder_half_width": 0.1516,
+    "neck_height": 1.4849,
+    "upper_arm_length": 0.2403,
+    "forearm_length": 0.2492,
+    "palm_length": 0.12,
+    "finger_length": 0.065,
+    "foot_length": 0.23,
+    "foot_width": 0.11,
+    "foot_height": 0.07
+  },
+  "masses_kg": {
+    "pelvis": 6.0,
+    "torso": 10.0,
+    "carrier": 0.04,
+    "head": 2.5,
+    "upper_arm": 1.6,
+    "forearm": 1.2,
+    "palm": 0.45,
+    "finger": 0.05,
+    "thigh": 4.0,
+    "shin": 3.0,
+    "foot": 1.0
+  },
+  "contact": { "static_friction": 0.8, "dynamic_friction": 0.7, "restitution": 0.0 },
+  "drives": {
+    "waist": { "effort": 80, "velocity": 4, "stiffness": 100, "damping": 5 },
+    "neck": { "effort": 10, "velocity": 3, "stiffness": 10, "damping": 1 },
+    "shoulder": { "effort": 30, "velocity": 5, "stiffness": 50, "damping": 3 },
+    "elbow": { "effort": 30, "velocity": 5, "stiffness": 40, "damping": 2 },
+    "wrist": { "effort": 8, "velocity": 4, "stiffness": 10, "damping": 1 },
+    "finger": { "effort": 2, "velocity": 4, "stiffness": 2, "damping": 0.1 },
+    "hip": { "effort": 100, "velocity": 5, "stiffness": 120, "damping": 6 },
+    "knee": { "effort": 120, "velocity": 5, "stiffness": 160, "damping": 8 },
+    "ankle": { "effort": 60, "velocity": 5, "stiffness": 80, "damping": 4 }
+  }
+}

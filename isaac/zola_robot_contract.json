@@ -1,0 +1,45 @@
+{
+  "schema": "zola.isaac-sim.robot-contract/v1",
+  "status": "simulation-prototype-generated-hardware-calibration-pending",
+  "robot": {
+    "name": "Zola",
+    "visual_asset": "public/assets/models/zola-anims/v3/zola.glb",
+    "nominal_visual_height_m": 1.775,
+    "height_source": "Original motion skeleton; isaac/build_character.py uses explicit bone weights",
+    "visual_skeleton_bones": 65,
+    "gesture_clips": 20,
+    "visual_limbs": ["hands", "arms", "legs"]
+  },
+  "physics_articulation": {
+    "status": "uncalibrated-prototype",
+    "urdf_or_usd": ["isaac/zola_isaac/assets/zola_prototype.urdf", "isaac/zola_isaac/assets/zola_prototype.usda"],
+    "cad_source": null,
+    "physical_actuator_map": null,
+    "mass_properties": "Assumed in isaac/zola_prototype.json; not measured",
+    "collision_geometry": "Primitive box proxies; not hardware CAD",
+    "joint_limits_and_axes": "37 prototype revolute joints; see generated model metadata",
+    "sensor_frames_and_rates": null
+  },
+  "control_boundary": {
+    "web_visual_animation": "available",
+    "real_flight_relay": "ArduPilot flight-controller commands only",
+    "limb_actuation_bridge": "not-connected",
+    "learned_policy_deployment": "not-available"
+  },
+  "learning": {
+    "simulator": "NVIDIA Isaac Sim",
+    "training_framework": "NVIDIA Isaac Lab",
+    "policy_trained": false,
+    "tasks": ["Isaac-Zola-Balance-Prototype-v0", "Isaac-Zola-Walk-Prototype-v0"],
+    "task_enabled": true,
+    "runtime_validated": false,
+    "runtime_versions": {"isaac_lab": "3.0.0", "isaac_sim": "6.2", "python": "3.12"},
+    "hardware_deployment_enabled": false,
+    "hardware_deployment_requires": [
+      "validated physical articulation imported into Isaac Sim",
+      "measured mass and inertia assigned to links",
+      "actuated joints and hardware controller contract mapped",
+      "observation and action spaces match deployable sensors and actuators"
+    ]
+  }
+}

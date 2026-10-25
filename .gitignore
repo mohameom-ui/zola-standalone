@@ -28,3 +28,11 @@ public/assets/textures/
 
 # the restored Blender portable — a tool, not project code
 Tools/blender-5.2.2-windows-x64/
+
+# isolated simulation environments and run artifacts
+isaac/.venv/
+isaac/*.egg-info/
+isaac/logs/
+isaac/outputs/
+isaac/dist/
+isaac/build/

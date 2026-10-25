@@ -1,0 +1,1645 @@
+#usda 1.0
+(
+    defaultPrim = "Zola"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Zola" (
+    customData = {
+        dictionary zola = {
+            bool hardwareCalibrated = 0
+            string profileSHA256 = "3b475f4d862595820c58c9e45f2cd28eaeb0289e0b037e5c86b47b9d825841f0"
+            string provenance = "Simulation assumptions; no hardware measurements or actuator calibration"
+            double spawnHeight = 0.9318
+        }
+    }
+)
+{
+    def Material "contact" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 0.7
+        float physics:restitution = 0
+        float physics:staticFriction = 0.8
+    }
+
+    def Xform "pelvis" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsArticulationRootAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0457, 0.03065, 0.04745)
+        float physics:mass = 6
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.18, 0.25, 0.17)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "torso" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0.18)
+        float3 physics:diagonalInertia = (0.21866667, 0.16033334, 0.112333335)
+        float physics:mass = 10
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0, 0.12280000000000002)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.18, 0.32, 0.4)
+            double3 xformOp:translate = (0, 0, 0.18)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "neck_yaw_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0, 0.5531000000000001)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "head" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0.145)
+        float3 physics:diagonalInertia = (0.020333333, 0.01875, 0.0150833335)
+        float physics:mass = 2.5
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0, 0.5531000000000001)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.18, 0.2, 0.24)
+            double3 xformOp:translate = (0, 0, 0.145)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_shoulder_pitch_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, 0.48629999999999995)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_shoulder_roll_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, 0.48629999999999995)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_upper_arm" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.12015)
+        float3 physics:diagonalInertia = (0.006815603, 0.006815603, 0.0017066667)
+        float physics:mass = 1.6
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, 0.48629999999999995)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.08, 0.08, 0.211464)
+            double3 xformOp:translate = (0, 0, -0.12015)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_forearm" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.1246)
+        float3 physics:diagonalInertia = (0.0053715734, 0.0053715734, 0.001125)
+        float physics:mass = 1.2
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, 0.24599999999999994)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.075, 0.075, 0.219296)
+            double3 xformOp:translate = (0, 0, -0.1246)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_wrist_pitch_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, -0.003200000000000064)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_palm" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.06)
+        float3 physics:diagonalInertia = (0.00078, 0.0006159375, 0.0003159375)
+        float physics:mass = 0.45
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, -0.003200000000000064)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.045, 0.08, 0.12)
+            double3 xformOp:translate = (0, 0, -0.06)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_thumb" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0.012, 0.11960000000000001, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_index" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1356, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_middle" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1516, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_ring" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.16760000000000003, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_pinky" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1836, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_hip_yaw_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1114, 0.012300000000000089)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_hip_roll_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1114, 0.012300000000000089)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_thigh" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.2047)
+        float3 physics:diagonalInertia = (0.04928759, 0.04928759, 0.008066666)
+        float physics:mass = 4
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1114, 0.012300000000000089)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.11, 0.11, 0.36846)
+            double3 xformOp:translate = (0, 0, -0.20470000000000005)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_shin" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.232)
+        float3 physics:diagonalInertia = (0.04562244, 0.04562244, 0.00405)
+        float physics:mass = 3
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1114, -0.3971)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.09, 0.09, 0.4176)
+            double3 xformOp:translate = (0, 0, -0.23199999999999998)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_ankle_pitch_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1114, -0.8611)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "left_foot" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0.045, 0, -0.0357)
+        float3 physics:diagonalInertia = (0.0014166667, 0.0048166667, 0.0054166666)
+        float physics:mass = 1
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, 0.1114, -0.8611)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.23, 0.11, 0.07)
+            double3 xformOp:translate = (0.045, 0, -0.035699999999999996)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_shoulder_pitch_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, 0.48629999999999995)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_shoulder_roll_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, 0.48629999999999995)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_upper_arm" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.12015)
+        float3 physics:diagonalInertia = (0.006815603, 0.006815603, 0.0017066667)
+        float physics:mass = 1.6
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, 0.48629999999999995)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.08, 0.08, 0.211464)
+            double3 xformOp:translate = (0, 0, -0.12015)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_forearm" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.1246)
+        float3 physics:diagonalInertia = (0.0053715734, 0.0053715734, 0.001125)
+        float physics:mass = 1.2
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, 0.24599999999999994)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.075, 0.075, 0.219296)
+            double3 xformOp:translate = (0, 0, -0.1246)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_wrist_pitch_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, -0.003200000000000064)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_palm" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.06)
+        float3 physics:diagonalInertia = (0.00078, 0.0006159375, 0.0003159375)
+        float physics:mass = 0.45
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, -0.003200000000000064)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.045, 0.08, 0.12)
+            double3 xformOp:translate = (0, 0, -0.06)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_thumb" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0.012, -0.11960000000000001, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_index" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1356, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_middle" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1516, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_ring" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.16760000000000003, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_pinky" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.0325)
+        float3 physics:diagonalInertia = (0.000018308334, 0.000018954166, 0.0000020541668)
+        float physics:mass = 0.05
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1836, -0.12320000000000006)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.018, 0.013, 0.065)
+            double3 xformOp:translate = (0, 0, -0.0325)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_hip_yaw_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1114, 0.012300000000000089)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_hip_roll_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1114, 0.012300000000000089)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_thigh" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.2047)
+        float3 physics:diagonalInertia = (0.04928759, 0.04928759, 0.008066666)
+        float physics:mass = 4
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1114, 0.012300000000000089)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.11, 0.11, 0.36846)
+            double3 xformOp:translate = (0, 0, -0.20470000000000005)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_shin" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, -0.232)
+        float3 physics:diagonalInertia = (0.04562244, 0.04562244, 0.00405)
+        float physics:mass = 3
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1114, -0.3971)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.78, 0.85, 0.9)]
+            double size = 1
+            float3 xformOp:scale = (0.09, 0.09, 0.4176)
+            double3 xformOp:translate = (0, 0, -0.23199999999999998)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_ankle_pitch_link" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.0000041666667, 0.0000041666667, 0.0000041666667)
+        float physics:mass = 0.04
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1114, -0.8611)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape"
+        {
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.025, 0.025, 0.025)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def Xform "right_foot" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0.045, 0, -0.0357)
+        float3 physics:diagonalInertia = (0.0014166667, 0.0048166667, 0.0054166666)
+        float physics:mass = 1
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        double3 xformOp:translate = (0, -0.1114, -0.8611)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "shape" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding:physics = </Zola/contact>
+            color3f[] primvars:displayColor = [(0.025, 0.055, 0.085)]
+            double size = 1
+            float3 xformOp:scale = (0.23, 0.11, 0.07)
+            double3 xformOp:translate = (0.045, 0, -0.035699999999999996)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+
+    def "joints"
+    {
+        def PhysicsRevoluteJoint "waist_yaw" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.08726646
+            float drive:angular:physics:maxForce = 80
+            float drive:angular:physics:stiffness = 1.7453293
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </Zola/pelvis>
+            rel physics:body1 = </Zola/torso>
+            point3f physics:localPos0 = (0, 0, 0.1228)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28.64789
+            float physics:upperLimit = 28.64789
+        }
+
+        def PhysicsRevoluteJoint "neck_yaw" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.017453292
+            float drive:angular:physics:maxForce = 10
+            float drive:angular:physics:stiffness = 0.17453292
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </Zola/torso>
+            rel physics:body1 = </Zola/neck_yaw_link>
+            point3f physics:localPos0 = (0, 0, 0.4303)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -63.025356
+            float physics:upperLimit = 63.025356
+        }
+
+        def PhysicsRevoluteJoint "neck_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.017453292
+            float drive:angular:physics:maxForce = 10
+            float drive:angular:physics:stiffness = 0.17453292
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/neck_yaw_link>
+            rel physics:body1 = </Zola/head>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -34.37747
+            float physics:upperLimit = 34.37747
+        }
+
+        def PhysicsRevoluteJoint "left_shoulder_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.05235988
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.87266463
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/torso>
+            rel physics:body1 = </Zola/left_shoulder_pitch_link>
+            point3f physics:localPos0 = (0, 0.1516, 0.3635)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -137.50987
+            float physics:upperLimit = 68.75494
+        }
+
+        def PhysicsRevoluteJoint "left_shoulder_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.05235988
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.87266463
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/left_shoulder_pitch_link>
+            rel physics:body1 = </Zola/left_shoulder_roll_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -91.67325
+            float physics:upperLimit = 91.67325
+        }
+
+        def PhysicsRevoluteJoint "left_shoulder_yaw" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.05235988
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.87266463
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </Zola/left_shoulder_roll_link>
+            rel physics:body1 = </Zola/left_upper_arm>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85.94367
+            float physics:upperLimit = 85.94367
+        }
+
+        def PhysicsRevoluteJoint "left_elbow" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.034906585
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.6981317
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_upper_arm>
+            rel physics:body1 = </Zola/left_forearm>
+            point3f physics:localPos0 = (0, 0, -0.2403)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -131.78029
+            float physics:upperLimit = 8.594367
+        }
+
+        def PhysicsRevoluteJoint "left_wrist_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.017453292
+            float drive:angular:physics:maxForce = 8
+            float drive:angular:physics:stiffness = 0.17453292
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_forearm>
+            rel physics:body1 = </Zola/left_wrist_pitch_link>
+            point3f physics:localPos0 = (0, 0, -0.2492)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -40.107044
+            float physics:upperLimit = 40.107044
+        }
+
+        def PhysicsRevoluteJoint "left_wrist_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.017453292
+            float drive:angular:physics:maxForce = 8
+            float drive:angular:physics:stiffness = 0.17453292
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/left_wrist_pitch_link>
+            rel physics:body1 = </Zola/left_palm>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -40.107044
+            float physics:upperLimit = 40.107044
+        }
+
+        def PhysicsRevoluteJoint "left_thumb_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_palm>
+            rel physics:body1 = </Zola/left_thumb>
+            point3f physics:localPos0 = (0.012, -0.032, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "left_index_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_palm>
+            rel physics:body1 = </Zola/left_index>
+            point3f physics:localPos0 = (0, -0.016, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "left_middle_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_palm>
+            rel physics:body1 = </Zola/left_middle>
+            point3f physics:localPos0 = (0, 0, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "left_ring_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_palm>
+            rel physics:body1 = </Zola/left_ring>
+            point3f physics:localPos0 = (0, 0.016, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "left_pinky_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_palm>
+            rel physics:body1 = </Zola/left_pinky>
+            point3f physics:localPos0 = (0, 0.032, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "left_hip_yaw" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.10471976
+            float drive:angular:physics:maxForce = 100
+            float drive:angular:physics:stiffness = 2.0943952
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </Zola/pelvis>
+            rel physics:body1 = </Zola/left_hip_yaw_link>
+            point3f physics:localPos0 = (0, 0.1114, 0.0123)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -40.107044
+            float physics:upperLimit = 40.107044
+        }
+
+        def PhysicsRevoluteJoint "left_hip_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.10471976
+            float drive:angular:physics:maxForce = 100
+            float drive:angular:physics:stiffness = 2.0943952
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/left_hip_yaw_link>
+            rel physics:body1 = </Zola/left_hip_roll_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -34.37747
+            float physics:upperLimit = 34.37747
+        }
+
+        def PhysicsRevoluteJoint "left_hip_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.10471976
+            float drive:angular:physics:maxForce = 100
+            float drive:angular:physics:stiffness = 2.0943952
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_hip_roll_link>
+            rel physics:body1 = </Zola/left_thigh>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85.94367
+            float physics:upperLimit = 57.29578
+        }
+
+        def PhysicsRevoluteJoint "left_knee" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.13962634
+            float drive:angular:physics:maxForce = 120
+            float drive:angular:physics:stiffness = 2.7925267
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_thigh>
+            rel physics:body1 = </Zola/left_shin>
+            point3f physics:localPos0 = (0, 0, -0.4094)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 131.78029
+        }
+
+        def PhysicsRevoluteJoint "left_ankle_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.06981317
+            float drive:angular:physics:maxForce = 60
+            float drive:angular:physics:stiffness = 1.3962634
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/left_shin>
+            rel physics:body1 = </Zola/left_ankle_pitch_link>
+            point3f physics:localPos0 = (0, 0, -0.464)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45.836624
+            float physics:upperLimit = 34.37747
+        }
+
+        def PhysicsRevoluteJoint "left_ankle_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.06981317
+            float drive:angular:physics:maxForce = 60
+            float drive:angular:physics:stiffness = 1.3962634
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/left_ankle_pitch_link>
+            rel physics:body1 = </Zola/left_foot>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -25.7831
+            float physics:upperLimit = 25.7831
+        }
+
+        def PhysicsRevoluteJoint "right_shoulder_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.05235988
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.87266463
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/torso>
+            rel physics:body1 = </Zola/right_shoulder_pitch_link>
+            point3f physics:localPos0 = (0, -0.1516, 0.3635)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -137.50987
+            float physics:upperLimit = 68.75494
+        }
+
+        def PhysicsRevoluteJoint "right_shoulder_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.05235988
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.87266463
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/right_shoulder_pitch_link>
+            rel physics:body1 = </Zola/right_shoulder_roll_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -91.67325
+            float physics:upperLimit = 91.67325
+        }
+
+        def PhysicsRevoluteJoint "right_shoulder_yaw" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.05235988
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.87266463
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </Zola/right_shoulder_roll_link>
+            rel physics:body1 = </Zola/right_upper_arm>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85.94367
+            float physics:upperLimit = 85.94367
+        }
+
+        def PhysicsRevoluteJoint "right_elbow" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.034906585
+            float drive:angular:physics:maxForce = 30
+            float drive:angular:physics:stiffness = 0.6981317
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_upper_arm>
+            rel physics:body1 = </Zola/right_forearm>
+            point3f physics:localPos0 = (0, 0, -0.2403)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -131.78029
+            float physics:upperLimit = 8.594367
+        }
+
+        def PhysicsRevoluteJoint "right_wrist_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.017453292
+            float drive:angular:physics:maxForce = 8
+            float drive:angular:physics:stiffness = 0.17453292
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_forearm>
+            rel physics:body1 = </Zola/right_wrist_pitch_link>
+            point3f physics:localPos0 = (0, 0, -0.2492)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -40.107044
+            float physics:upperLimit = 40.107044
+        }
+
+        def PhysicsRevoluteJoint "right_wrist_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.017453292
+            float drive:angular:physics:maxForce = 8
+            float drive:angular:physics:stiffness = 0.17453292
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/right_wrist_pitch_link>
+            rel physics:body1 = </Zola/right_palm>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -40.107044
+            float physics:upperLimit = 40.107044
+        }
+
+        def PhysicsRevoluteJoint "right_thumb_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_palm>
+            rel physics:body1 = </Zola/right_thumb>
+            point3f physics:localPos0 = (0.012, 0.032, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "right_index_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_palm>
+            rel physics:body1 = </Zola/right_index>
+            point3f physics:localPos0 = (0, 0.016, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "right_middle_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_palm>
+            rel physics:body1 = </Zola/right_middle>
+            point3f physics:localPos0 = (0, 0, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "right_ring_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_palm>
+            rel physics:body1 = </Zola/right_ring>
+            point3f physics:localPos0 = (0, -0.016, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "right_pinky_flex" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.0017453292
+            float drive:angular:physics:maxForce = 2
+            float drive:angular:physics:stiffness = 0.034906585
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_palm>
+            rel physics:body1 = </Zola/right_pinky>
+            point3f physics:localPos0 = (0, -0.032, -0.12)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -68.75494
+            float physics:upperLimit = 5.729578
+        }
+
+        def PhysicsRevoluteJoint "right_hip_yaw" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.10471976
+            float drive:angular:physics:maxForce = 100
+            float drive:angular:physics:stiffness = 2.0943952
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </Zola/pelvis>
+            rel physics:body1 = </Zola/right_hip_yaw_link>
+            point3f physics:localPos0 = (0, -0.1114, 0.0123)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -40.107044
+            float physics:upperLimit = 40.107044
+        }
+
+        def PhysicsRevoluteJoint "right_hip_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.10471976
+            float drive:angular:physics:maxForce = 100
+            float drive:angular:physics:stiffness = 2.0943952
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/right_hip_yaw_link>
+            rel physics:body1 = </Zola/right_hip_roll_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -34.37747
+            float physics:upperLimit = 34.37747
+        }
+
+        def PhysicsRevoluteJoint "right_hip_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.10471976
+            float drive:angular:physics:maxForce = 100
+            float drive:angular:physics:stiffness = 2.0943952
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_hip_roll_link>
+            rel physics:body1 = </Zola/right_thigh>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85.94367
+            float physics:upperLimit = 57.29578
+        }
+
+        def PhysicsRevoluteJoint "right_knee" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.13962634
+            float drive:angular:physics:maxForce = 120
+            float drive:angular:physics:stiffness = 2.7925267
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_thigh>
+            rel physics:body1 = </Zola/right_shin>
+            point3f physics:localPos0 = (0, 0, -0.4094)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 131.78029
+        }
+
+        def PhysicsRevoluteJoint "right_ankle_pitch" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.06981317
+            float drive:angular:physics:maxForce = 60
+            float drive:angular:physics:stiffness = 1.3962634
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </Zola/right_shin>
+            rel physics:body1 = </Zola/right_ankle_pitch_link>
+            point3f physics:localPos0 = (0, 0, -0.464)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45.836624
+            float physics:upperLimit = 34.37747
+        }
+
+        def PhysicsRevoluteJoint "right_ankle_roll" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0.06981317
+            float drive:angular:physics:maxForce = 60
+            float drive:angular:physics:stiffness = 1.3962634
+            float drive:angular:physics:targetPosition = 0
+            uniform token drive:angular:physics:type = "force"
+            uniform token physics:axis = "X"
+            rel physics:body0 = </Zola/right_ankle_pitch_link>
+            rel physics:body1 = </Zola/right_foot>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -25.7831
+            float physics:upperLimit = 25.7831
+        }
+    }
+}
+

@@ -21,7 +21,8 @@
     "finger_length": 0.065,
     "foot_length": 0.23,
     "foot_width": 0.11,
-    "foot_height": 0.07
+    "foot_height": 0.07,
+    "halo_half_width": 0.065
   },
   "masses_kg": {
     "pelvis": 6.0,
@@ -36,16 +37,65 @@
     "shin": 3.0,
     "foot": 1.0
   },
-  "contact": { "static_friction": 0.8, "dynamic_friction": 0.7, "restitution": 0.0 },
+  "contact": {
+    "static_friction": 0.8,
+    "dynamic_friction": 0.7,
+    "restitution": 0.0
+  },
   "drives": {
-    "waist": { "effort": 80, "velocity": 4, "stiffness": 100, "damping": 5 },
-    "neck": { "effort": 10, "velocity": 3, "stiffness": 10, "damping": 1 },
-    "shoulder": { "effort": 30, "velocity": 5, "stiffness": 50, "damping": 3 },
-    "elbow": { "effort": 30, "velocity": 5, "stiffness": 40, "damping": 2 },
-    "wrist": { "effort": 8, "velocity": 4, "stiffness": 10, "damping": 1 },
-    "finger": { "effort": 2, "velocity": 4, "stiffness": 2, "damping": 0.1 },
-    "hip": { "effort": 100, "velocity": 5, "stiffness": 120, "damping": 6 },
-    "knee": { "effort": 120, "velocity": 5, "stiffness": 160, "damping": 8 },
-    "ankle": { "effort": 60, "velocity": 5, "stiffness": 80, "damping": 4 }
+    "waist": {
+      "effort": 80,
+      "velocity": 4,
+      "stiffness": 100,
+      "damping": 5
+    },
+    "neck": {
+      "effort": 10,
+      "velocity": 3,
+      "stiffness": 10,
+      "damping": 1
+    },
+    "shoulder": {
+      "effort": 30,
+      "velocity": 5,
+      "stiffness": 50,
+      "damping": 3
+    },
+    "elbow": {
+      "effort": 30,
+      "velocity": 5,
+      "stiffness": 40,
+      "damping": 2
+    },
+    "wrist": {
+      "effort": 8,
+      "velocity": 4,
+      "stiffness": 10,
+      "damping": 1
+    },
+    "finger": {
+      "effort": 2,
+      "velocity": 4,
+      "stiffness": 2,
+      "damping": 0.1
+    },
+    "hip": {
+      "effort": 100,
+      "velocity": 5,
+      "stiffness": 120,
+      "damping": 6
+    },
+    "knee": {
+      "effort": 120,
+      "velocity": 5,
+      "stiffness": 160,
+      "damping": 8
+    },
+    "ankle": {
+      "effort": 60,
+      "velocity": 5,
+      "stiffness": 80,
+      "damping": 4
+    }
   }
 }

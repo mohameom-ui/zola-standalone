@@ -296,14 +296,17 @@ task, never asleep, never without a body.
 never announced — she only speaks a trick line after her body actually plays
 the clip.
 
-**The flight-posture discipline (2026-10-25):** the halo in her head is a
-quad-drone; its flight controller holds altitude and attitude, and her
-body's ONLY job in the air is to not fight it — limbs tucked, elbows soft,
-fingers curled clear of the props, knees slightly loaded. The
-`Isaac-Zola-Flight-Prototype-v0` task trains exactly that hold; final policy:
-reward 34.03, episodes 596/600. The aerial body-coupled dynamics (thrust
-wrenches, gusts at the base) are documented as a next-phase item — the
-neuromuscular discipline is what transfers.
+**The flight-posture discipline + coupled hover (2026-10-25):** the halo in
+her head is a quad-drone — now a PHYSICAL one: `prepare.py` adds four
+thruster links frozen to the head, and the `Isaac-Zola-Hover-Prototype-v0`
+task flies her on real four-rotor physics (body-frame rotor forces tilt with
+her — attitude steers the flight) with a scripted differential-thrust
+autopilot holding altitude and attitude. Her limb motion genuinely shifts
+the COM, tilts the thrust, and flailing can crash the flight; the hover
+policy (reward 13.95, episodes 416/600 under gusts) learned to ride it
+still. The earlier `Isaac-Zola-Flight-Prototype-v0` (reward 34.03, 596/600)
+trained the same discipline on the stable platform — the neuromuscular
+skill transfers, and now the physics does too.
 
 **THE HALO TOUCHDOWN — her invented signature move — TRAINED (2026-10-25):**
 when the props stop, she folds into a hero crouch — knees loaded

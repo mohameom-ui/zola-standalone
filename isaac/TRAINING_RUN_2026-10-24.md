@@ -107,21 +107,27 @@ The body-language layer generalized the env: `fixed_pose` (named poses held
 every episode), `spawn_drop_m` (+ `drop_curriculum`), `escape_radius` (the
 fence is a ground artifact — the air needs a bigger one).
 
-## The composer verdict (final, 2026-10-25)
+## The composer verdict — and its UNBLOCKING (2026-10-25)
 
-The follow-up rotor experiments (four halo forces with differential mixing,
-world/body-frame variants, positioned forces) narrowed the law to:
+The rotor experiments narrowed the law to:
 
-> The wrench composer of this build reliably applies **force at the body CoM
-> in the body frame** — nothing else. Torques: dropped. Positioned forces:
-> ineffective. World-frame wrenches (`is_global=True`): ineffective. A
-> `body_ids` list shorter than the wrench batch reads garbage.
+> The wrench composer of this build applies **force at a body's CoM in the
+> body frame** — and only that. Torques: dropped. Positioned forces:
+> ineffective. World-frame wrenches (`is_global=True`): ineffective. The
+> `body_ids` count must match the wrench batch exactly.
 >
 
-The rotor-wrench code was retired; the hover task is not registered. Honest
-coupled flight needs the thruster-URDF phase (halo thruster links with
-per-rotor force applications at the solver level, or the Newton backend's
-wrench path once verified).
+**The unblock:** make the rotors REAL BODIES. `prepare.py` now adds four
+halo-thruster links (frozen ±0.001-rad mounts to the head — a fixed joint
+would weld them away in PhysX), and each rotor's thrust becomes a legal
+force-at-its-own-CoM wrench. **Coupled flight works**: the probe held
+altitude and attitude with zero policy actions, and the trained hover policy
+(reward 13.95, episodes 416/600 under gusts) flies on real four-rotor
+physics where her limb motion genuinely shifts the COM, tilts the thrust,
+and reckless flailing can crash the flight.
+
+The USD is now regenerated with `usd-core` (pip) — the pxr-based unit test
+runs for real instead of skipping.
 
 ## The Touchdown record (2026-10-25) — SOLVED on the seventh run
 

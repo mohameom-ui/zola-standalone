@@ -15,6 +15,7 @@ import walkV2Manifest from "../../../isaac/policies/zola_walk_model_2499.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1499.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1499.json";
 import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_2499.json";
+import hoverManifest from "../../../isaac/policies/zola_hover_model_1999.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -36,6 +37,7 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   handsManifest,
   flightManifest,
   touchdownManifest,
+  hoverManifest,
 ] as unknown as IsaacPolicyManifest[];
 
 const TASK_NAMES: Record<string, string> = {
@@ -44,6 +46,7 @@ const TASK_NAMES: Record<string, string> = {
   zola_hands: "arm and hand pose control (she moves her hands)",
   zola_flight: "flight-posture discipline (hold still in the air — the halo does the flying)",
   zola_touchdown: "THE HALO TOUCHDOWN — her signature hero landing",
+  zola_hover: "coupled hover flight (real rotor physics — her body rides the halo)",
 };
 
 /** One honest spoken line per policy — what she trained, and what it is NOT. */
@@ -79,7 +82,8 @@ const LEG_JOINTS: string[] = (bodyProfile as { controlled_joints: string[] }).co
 const ARM_HAND_JOINTS: string[] = PROFILE_JOINTS.filter(
   (n) => n.includes("shoulder") || n.includes("elbow") || n.includes("wrist") || n.endsWith("_flex"),
 );
-const TORSO_HEAD_JOINTS: string[] = PROFILE_JOINTS.filter((n) => !LEG_JOINTS.includes(n) && !ARM_HAND_JOINTS.includes(n));
+const HALO_JOINTS: string[] = PROFILE_JOINTS.filter((n) => n.startsWith("halo_"));
+const TORSO_HEAD_JOINTS: string[] = PROFILE_JOINTS.filter((n) => !LEG_JOINTS.includes(n) && !ARM_HAND_JOINTS.includes(n) && !n.startsWith("halo_"));
 
 export const BODY_MAP = {
   joints: PROFILE_JOINTS.length,
@@ -88,6 +92,7 @@ export const BODY_MAP = {
     { name: "legs and feet", count: LEG_JOINTS.length, controlledBy: "balance + walking + all whole-body policies" },
     { name: "arms and hands", count: ARM_HAND_JOINTS.length, controlledBy: "the hands and flight-posture policies (simulation)" },
     { name: "waist and neck", count: TORSO_HEAD_JOINTS.length, controlledBy: "neutral targets (the halo does the flying)" },
+    { name: "halo thrusters", count: HALO_JOINTS.length, controlledBy: "frozen mounts — the autopilot pushes through them" },
   ],
   massKg: (bodyProfile as { total_mass_kg: number }).total_mass_kg,
   hardwareCalibrated: (bodyProfile as { hardware_calibrated: boolean }).hardware_calibrated,

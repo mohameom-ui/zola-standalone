@@ -176,6 +176,20 @@ class ZolaFlightCfg(ZolaHandsCfg):
 
 
 @configclass
+class ZolaHoverCfg(ZolaFlightCfg):
+    """She flies FOR REAL: the halo's four thruster bodies carry her with a
+    scripted differential-thrust autopilot (altitude + attitude). Body-frame
+    rotor forces tilt with her — her attitude steers the flight, and her limb
+    motion moves the COM she must keep under the thrust. The policy owns the
+    body: hold the flight posture while the platform is alive underneath."""
+    halo_rotors = True
+    gust_force = 3.0
+    escape_radius = 12.0
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
 class ZolaTouchdownCfg(ZolaHandsCfg):
     """The Halo Touchdown: a short real drop (6 cm — contact physics on),
     then fold into the hero crouch and HOLD it — body language for the

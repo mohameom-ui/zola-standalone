@@ -47,6 +47,12 @@ class ZolaFlightPPORunnerCfg(ZolaPPORunnerCfg):
 
 
 @configclass
+class ZolaHoverPPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_hover"
+    max_iterations = 1500
+
+
+@configclass
 class ZolaTouchdownPPORunnerCfg(ZolaPPORunnerCfg):
     experiment_name = "zola_touchdown"
     max_iterations = 1500

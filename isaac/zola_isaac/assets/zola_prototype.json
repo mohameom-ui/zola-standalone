@@ -68,6 +68,70 @@
       "collision": true
     },
     {
+      "name": "halo_front_left_thruster",
+      "size": [
+        0.035,
+        0.035,
+        0.03
+      ],
+      "mass": 0.04,
+      "center": [
+        0.065,
+        0.065,
+        0.28
+      ],
+      "color": "gold",
+      "collision": false
+    },
+    {
+      "name": "halo_front_right_thruster",
+      "size": [
+        0.035,
+        0.035,
+        0.03
+      ],
+      "mass": 0.04,
+      "center": [
+        0.065,
+        -0.065,
+        0.28
+      ],
+      "color": "gold",
+      "collision": false
+    },
+    {
+      "name": "halo_rear_left_thruster",
+      "size": [
+        0.035,
+        0.035,
+        0.03
+      ],
+      "mass": 0.04,
+      "center": [
+        -0.065,
+        0.065,
+        0.28
+      ],
+      "color": "gold",
+      "collision": false
+    },
+    {
+      "name": "halo_rear_right_thruster",
+      "size": [
+        0.035,
+        0.035,
+        0.03
+      ],
+      "mass": 0.04,
+      "center": [
+        -0.065,
+        -0.065,
+        0.28
+      ],
+      "color": "gold",
+      "collision": false
+    },
+    {
       "name": "left_shoulder_pitch_link",
       "size": [
         0.025,
@@ -684,6 +748,102 @@
         "damping": 1
       },
       "source_bone": "Head"
+    },
+    {
+      "name": "halo_front_left_mount",
+      "parent": "head",
+      "child": "halo_front_left_thruster",
+      "origin": [
+        0.065,
+        0.065,
+        0.28
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.001,
+      "upper": 0.001,
+      "drive": {
+        "effort": 10,
+        "velocity": 3,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": null
+    },
+    {
+      "name": "halo_front_right_mount",
+      "parent": "head",
+      "child": "halo_front_right_thruster",
+      "origin": [
+        0.065,
+        -0.065,
+        0.28
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.001,
+      "upper": 0.001,
+      "drive": {
+        "effort": 10,
+        "velocity": 3,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": null
+    },
+    {
+      "name": "halo_rear_left_mount",
+      "parent": "head",
+      "child": "halo_rear_left_thruster",
+      "origin": [
+        -0.065,
+        0.065,
+        0.28
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.001,
+      "upper": 0.001,
+      "drive": {
+        "effort": 10,
+        "velocity": 3,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": null
+    },
+    {
+      "name": "halo_rear_right_mount",
+      "parent": "head",
+      "child": "halo_rear_right_thruster",
+      "origin": [
+        -0.065,
+        -0.065,
+        0.28
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -0.001,
+      "upper": 0.001,
+      "drive": {
+        "effort": 10,
+        "velocity": 3,
+        "stiffness": 10,
+        "damping": 1
+      },
+      "source_bone": null
     },
     {
       "name": "left_shoulder_pitch",
@@ -1523,6 +1683,6 @@
     "dynamic_friction": 0.7,
     "restitution": 0.0
   },
-  "profile_sha256": "3b475f4d862595820c58c9e45f2cd28eaeb0289e0b037e5c86b47b9d825841f0",
-  "total_mass_kg": 42.02
+  "profile_sha256": "1d9280a51ee345ece597a895513d26babca25d3ad251cefdefd766d33f28ac45",
+  "total_mass_kg": 42.18
 }

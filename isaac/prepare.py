@@ -67,6 +67,17 @@ def build_model(profile: dict) -> dict:
     joint("neck_yaw", torso, neck, (0, 0, d["neck_height"]-d["waist_height"]), (0, 0, 1), (-1.1, 1.1), "neck", "neck_01")
     head = link("head", (.18, .20, .24), masses["head"], (0, 0, .145), "white")
     joint("neck_pitch", neck, head, (0, 0, 0), (0, 1, 0), (-.6, .6), "neck", "Head")
+    # THE HALO'S FOUR ROTORS as real bodies: separate links frozen to the
+    # head by ±0.001-rad joints (a fixed joint would weld them away in PhysX,
+    # and external wrenches only reach force-at-CoM in this build — so the
+    # rotors must be their OWN bodies for their thrust to be applicable at
+    # their own centers). The hover autopilot pushes here.
+    for corner, (cx, cy) in (("front_left", (1, 1)), ("front_right", (1, -1)),
+                             ("rear_left", (-1, 1)), ("rear_right", (-1, -1))):
+        thruster = link(f"halo_{corner}_thruster", (.035, .035, .03), masses["carrier"],
+                        (cx*d["halo_half_width"], cy*d["halo_half_width"], .28), "gold", collision=False)
+        joint(f"halo_{corner}_mount", head, thruster,
+              (cx*d["halo_half_width"], cy*d["halo_half_width"], .28), (0, 0, 1), (-.001, .001), "neck", None)
 
     for side, sign, suffix in (("left", 1, "l"), ("right", -1, "r")):
         shoulder_pitch = carrier(f"{side}_shoulder_pitch_link")

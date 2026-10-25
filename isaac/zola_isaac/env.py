@@ -8,6 +8,7 @@ from collections.abc import Sequence
 
 import torch
 from isaaclab.envs import DirectRLEnv
+from isaaclab.utils.math import quat_apply, quat_apply_inverse, quat_rotate
 
 from .env_cfg import MODEL, ZolaBalanceCfg
 
@@ -56,6 +57,24 @@ class ZolaPrototypeEnv(DirectRLEnv):
         self.env_steps = 0
         self.drop_ramp_steps = getattr(cfg, "drop_ramp_steps", 1_500_000)
         self.escape_radius = getattr(cfg, "escape_radius", 3.0)
+        # THE REAL HALO: the four thruster links are REAL BODIES now, so the
+        # one wrench path this build honors (force-at-CoM, body frame) reaches
+        # them — each rotor's thrust is a legal wrench at its own center, and
+        # because the forces are body-frame they TILT WITH HER: attitude steers
+        # the flight, for real. A scripted differential-thrust autopilot holds
+        # altitude and attitude; the POLICY owns the body.
+        self.rotors = getattr(cfg, "halo_rotors", False)
+        self.root_body_ids = [0]  # the pelvis: body 0 in any ordering
+        if self.rotors:
+            self.rotor_body_ids, self.rotor_body_names = self.robot.find_bodies("halo_.*_thruster")
+            self.rotor_body_ids = torch.as_tensor(self.rotor_body_ids, device=self.device, dtype=torch.long)
+            self.hover_target_z = MODEL["base_height"]+.12
+            self.kp_z, self.kd_z = 40.0, 8.0
+            self.kp_att, self.kd_att = 4.0, 1.5
+            self.mass = MODEL["total_mass_kg"]
+            self.gust_step = 0
+            self.gust_mag = getattr(cfg, "gust_force", 0.0)
+            self.gust_vec = torch.zeros((self.num_envs, 3), device=self.device)
 
     def _pre_physics_step(self, actions):
         self.env_steps += self.num_envs
@@ -77,12 +96,50 @@ class ZolaPrototypeEnv(DirectRLEnv):
 
     def _apply_action(self):
         self.robot.actuators.target_command.set_position_index(value=self.targets)
-        # NOTE: the rotor-wrench experiments (four halo forces, differential
-        # mixing, world/body-frame variants, positioned forces) were probed and
-        # RETIRED — in this Isaac build the wrench composer reliably applies
-        # only force-at-CoM in the body frame; torques, offset positions, and
-        # world-frame wrenches all fail silently. The full record is in
-        # TRAINING_RUN; honest coupled flight needs the thruster-URDF phase.
+        if self.rotors:
+            data = self.robot.data
+            z = data.root_link_pose_w.torch[:, 2]
+            vel_w = data.root_link_lin_vel_w.torch
+            # ALTITUDE: total thrust = weight + PD toward the hover height
+            thrust = (self.mass*9.81
+                      + self.kp_z*(self.hover_target_z-z)
+                      - self.kd_z*vel_w[:, 2]).clamp(0.0, 2*self.mass*9.81)
+            # ATTITUDE: PD on the tilt (axis that rotates the measured world
+            # gravity direction back to straight down), expressed in the BODY
+            # frame for the rotor mixing
+            q_xyzw = data.root_link_quat_w.torch
+            q_wxyz = torch.stack((q_xyzw[:, 3], q_xyzw[:, 0], q_xyzw[:, 1], q_xyzw[:, 2]), dim=1)
+            g_w = quat_rotate(q_wxyz, data.projected_gravity_b.torch)
+            down = torch.tensor((0., 0., -1.), device=self.device).expand_as(g_w)
+            tau_w = self.kp_att*torch.cross(g_w, down, dim=1)-self.kd_att*data.root_link_ang_vel_w.torch
+            tau_b = quat_apply_inverse(q_wxyz, tau_w)
+            # QUADROTOR MIXING: rotor i at (±d, ±d): δF_i = (τ_x·y_i + τ_y·x_i)/(4d²)
+            d = 0.065
+            rx = torch.tensor((d, d, -d, -d), device=self.device)
+            ry = torch.tensor((d, -d, d, -d), device=self.device)
+            delta = (tau_b[:, 0:1]*ry + tau_b[:, 1:2]*rx)/(4*d*d)
+            f_i = (thrust/4).unsqueeze(1)+delta
+            f_i = f_i.clamp(min=0.0)  # props push, they do not pull
+            forces = torch.zeros((self.num_envs, 4, 3), device=self.device)
+            forces[:, :, 2] = f_i  # thrust along each thruster's up: tilt = steer
+            zeros_t = torch.zeros_like(forces)
+            # force-at-CoM on four REAL bodies — the one path this build honors
+            self.robot.instantaneous_wrench_composer.set_forces_and_torques_index(
+                forces=forces, torques=zeros_t, body_ids=self.rotor_body_ids, is_global=False)
+            # GUSTS + DRAG: rotated into the body frame (the world-frame path
+            # drops silently)
+            self.gust_step += 1
+            if self.gust_step % 30 == 1:
+                dirs = torch.randn((self.num_envs, 2), device=self.device)
+                dirs = dirs/(dirs.norm(dim=1, keepdim=True)+1e-8)
+                self.gust_vec[:, :2] = dirs*self.gust_mag*torch.rand((self.num_envs, 1), device=self.device)
+            extra_w = torch.zeros((self.num_envs, 3), device=self.device)
+            extra_w[:, 0] = self.gust_vec[:, 0]-2.0*vel_w[:, 0]
+            extra_w[:, 1] = self.gust_vec[:, 1]-2.0*vel_w[:, 1]
+            extra_w[:, 2] = -2.0*vel_w[:, 2]
+            extra_b = quat_apply_inverse(q_wxyz, extra_w).unsqueeze(1)
+            self.robot.instantaneous_wrench_composer.add_forces_and_torques_index(
+                forces=extra_b, body_ids=self.root_body_ids, is_global=False)
 
     def _get_observations(self):
         data = self.robot.data

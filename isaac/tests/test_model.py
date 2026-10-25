@@ -25,9 +25,13 @@ class PrototypeTests(unittest.TestCase):
         self.model = build_model(self.profile)
 
     def test_articulation_tree_and_action_contract(self):
-        self.assertEqual(len(self.model["joints"]), 37)
-        self.assertEqual(len(self.model["links"]), 38)
+        # 37 body joints + 4 frozen halo-thruster mounts (separate bodies so
+        # the rotor wrenches can reach force-at-CoM in this build)
+        self.assertEqual(len(self.model["joints"]), 41)
+        self.assertEqual(len(self.model["links"]), 42)
         self.assertEqual(len(CONTROLLED_JOINTS), 12)
+        thrusters = [l for l in self.model["links"] if "_thruster" in l["name"]]
+        self.assertEqual(len(thrusters), 4)
         self.assertFalse(self.model["hardware_calibrated"])
         validate_model(self.model)
 
@@ -103,8 +107,8 @@ class PrototypeTests(unittest.TestCase):
             self.assertEqual(stage.GetDefaultPrim().GetPath().pathString, "/Zola")
             bodies = [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.RigidBodyAPI)]
             joints = [p for p in stage.Traverse() if p.IsA(UsdPhysics.RevoluteJoint)]
-            self.assertEqual(len(bodies), 38)
-            self.assertEqual(len(joints), 37)
+            self.assertEqual(len(bodies), 42)
+            self.assertEqual(len(joints), 41)
             for prim in bodies:
                 self.assertGreater(UsdPhysics.MassAPI(prim).GetMassAttr().Get(), 0)
             for prim in joints:

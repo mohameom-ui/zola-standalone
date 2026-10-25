@@ -199,6 +199,95 @@ class ZolaTakeoffCfg(ZolaHoverCfg):
     gust_force = 3.0
 
 
+# ===================== THE EXPRESSION LIBRARY =====================
+# Body language as named, trainable poses and routines — the social layer.
+# Amplitudes respect the two hard lessons of this repo: the COM stays over
+# the feet (a crouch past the holdable depth is a fall), and the flourish
+# ARRIVES (the approach ramp) rather than snapping.
+
+SIT_POSE = {
+    # the ground sit: a deep squat with the ankle closing the chain
+    # (ankle = knee - hip), hands resting on the knees
+    "left_hip_pitch": .9, "right_hip_pitch": .9,
+    "left_knee": 1.6, "right_knee": 1.6,
+    "left_ankle_pitch": .7, "right_ankle_pitch": .7,
+    "left_shoulder_pitch": .7, "right_shoulder_pitch": .7,
+    "left_elbow": -1.0, "right_elbow": -1.0,
+    "left_wrist_pitch": .2, "right_wrist_pitch": .2,
+}
+
+PICTURE_POSE = {
+    # the photo pose: weight shifted, one hand at the hip, head turned
+    # to the lens, chin level — confidence as geometry
+    "left_hip_roll": .08, "right_hip_roll": -.08,
+    "right_shoulder_roll": .9, "right_elbow": -1.8,
+    "left_shoulder_pitch": .12,
+    "neck_yaw": .3, "waist_yaw": -.2,
+}
+
+THUMBS_UP_POSE = {
+    # FINGER DEXTERITY: the thumb holds up while the other four curl to a
+    # fist — five independent joints doing five different things
+    "right_thumb_flex": -1.1,
+    "right_index_flex": .08, "right_middle_flex": .08,
+    "right_ring_flex": .08, "right_pinky_flex": .08,
+    "right_shoulder_pitch": -.55, "right_elbow": -.35,
+    "neck_yaw": -.2,
+}
+
+# THE HALOBEAT — her dance routine: a four-count at 2 s per bar. Arms pump,
+# hips answer, the count repeats. The song is the period; the steps are the
+# keyframes; the policy learns to dance on the beat.
+HALOBEAT = [
+    {"left_shoulder_pitch": .5, "right_shoulder_pitch": .5, "left_elbow": -.6, "right_elbow": -.6, "left_hip_yaw": .22, "right_hip_yaw": .22},
+    {"left_shoulder_pitch": -.15, "right_shoulder_pitch": -.15, "left_elbow": -.2, "right_elbow": -.2, "left_hip_yaw": -.1, "right_hip_yaw": -.1},
+    {"left_shoulder_roll": .45, "right_shoulder_roll": -.45, "left_elbow": -.9, "right_elbow": -.9, "left_hip_yaw": -.22, "right_hip_yaw": -.22},
+    {"left_shoulder_pitch": .15, "right_shoulder_pitch": .15, "left_elbow": -.3, "right_elbow": -.3},
+]
+
+
+@configclass
+class ZolaSitCfg(ZolaHandsCfg):
+    """She sits down and holds it — the social baseline of a companion."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    fixed_pose = SIT_POSE
+    pose_approach_s = 1.2
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaPictureCfg(ZolaHandsCfg):
+    """Pose for a picture: weight shift, hand at the hip, head to the lens."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    fixed_pose = PICTURE_POSE
+    pose_approach_s = .8
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaThumbsCfg(ZolaHandsCfg):
+    """THUMBS UP — five finger joints, five different angles: dexterity."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    fixed_pose = THUMBS_UP_POSE
+    pose_approach_s = .6
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaDanceCfg(ZolaHandsCfg):
+    """THE HALOBEAT — she dances on the beat: a four-count keyframe routine
+    at 2 s per bar, cosine-eased between steps. Faster and smoother: the
+    choreography itself teaches fluid motion."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    pose_sequence = HALOBEAT
+    pose_period_s = 2.0
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
 @configclass
 class ZolaTouchdownCfg(ZolaHandsCfg):
     """The Halo Touchdown: a short real drop (6 cm — contact physics on),

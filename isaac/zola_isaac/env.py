@@ -46,6 +46,21 @@ class ZolaPrototypeEnv(DirectRLEnv):
             self.pos_targets[:] = self.fixed_offsets
         else:
             self.fixed_offsets = None
+        # THE CHOREOGRAPHY ENGINE: a sequence of keyframe poses cycled at a
+        # fixed period — the pose TARGET moves through the routine, and the
+        # policy learns to dance it. This is how "dance to a known song"
+        # becomes a training signal: the song is the period, the steps are
+        # the keyframes.
+        self.pose_sequence = getattr(cfg, "pose_sequence", None)
+        self.pose_period_s = getattr(cfg, "pose_period_s", 2.0)
+        if self.pose_sequence:
+            frames = torch.tensor(
+                [[kf.get(n, 0.0) for n in pose_joints] for kf in self.pose_sequence],
+                device=self.device)
+            self.pose_keyframes = frames
+            self.pos_targets[:] = frames[0]
+        else:
+            self.pose_keyframes = None
         # the probe record for the (retired) wrench-based halo experiments
         # lives in TRAINING_RUN — this build's composer applies only
         # force-at-CoM in the body frame; everything else fails silently
@@ -86,6 +101,16 @@ class ZolaPrototypeEnv(DirectRLEnv):
             # ramp is also the realistic motion: body language arrives smoothly.
             frac = (self.episode_length_buf.to(torch.float32)*self.step_dt/self.pose_approach_s).clamp(0.0, 1.0).unsqueeze(1)
             self.pos_targets[:] = self.fixed_offsets*frac
+        elif self.pose_keyframes is not None:
+            # DANCE: the target walks the keyframes at the routine's tempo —
+            # cosine easing between steps so the motion is fluid, not robotic
+            t = self.episode_length_buf.to(torch.float32)*self.step_dt
+            phase = (t % self.pose_period_s)/self.pose_period_s*(self.pose_keyframes.shape[0])
+            i0 = phase.floor().long() % self.pose_keyframes.shape[0]
+            i1 = (i0+1) % self.pose_keyframes.shape[0]
+            f = (phase - phase.floor()).unsqueeze(1)
+            ease = 0.5-0.5*torch.cos(f*math.pi)  # ease-in-out between steps
+            self.pos_targets[:] = (self.pose_keyframes[i0]*(1-ease) + self.pose_keyframes[i1]*ease)
         self.previous_actions.copy_(self.actions)
         self.actions.mul_(.6).add_(actions.clamp(-1, 1), alpha=.4)
         self.targets.copy_(self.robot.data.default_joint_pos.torch)
@@ -228,7 +253,7 @@ class ZolaPrototypeEnv(DirectRLEnv):
         self.previous_actions[env_ids] = 0
         for column, (low, high) in enumerate(self.cfg.command_ranges):
             self.commands[env_ids, column] = low+(high-low)*torch.rand(count, device=self.device)
-        if self.track_pose and not self.fixed_pose:
+        if self.track_pose and not self.fixed_pose and not self.pose_sequence:
             # a fresh arm/hand pose per episode: a DELIBERATE pose — each
             # controlled joint offset by up to cfg.pose_target_scale radians
             # around its default, clamped to the soft limits the actuators

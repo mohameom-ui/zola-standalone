@@ -59,6 +59,30 @@ class ZolaTakeoffPPORunnerCfg(ZolaPPORunnerCfg):
 
 
 @configclass
+class ZolaSitPPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_sit"
+    max_iterations = 1200
+
+
+@configclass
+class ZolaPicturePPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_picture"
+    max_iterations = 1200
+
+
+@configclass
+class ZolaThumbsPPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_thumbs"
+    max_iterations = 1200
+
+
+@configclass
+class ZolaDancePPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_dance"
+    max_iterations = 2000
+
+
+@configclass
 class ZolaTouchdownPPORunnerCfg(ZolaPPORunnerCfg):
     experiment_name = "zola_touchdown"
     max_iterations = 1500

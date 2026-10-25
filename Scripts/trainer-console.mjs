@@ -117,13 +117,37 @@ const PAGES = {
     el.innerHTML = '<table style="border-collapse:collapse;width:calc(100% - 36px);margin:12px 18px">' +
       ENGINES.map(([n, m]) => '<tr><td style="border:1px solid #1a2233;padding:6px;color:#f0b90b;white-space:nowrap">' + n + '</td><td style="border:1px solid #1a2233;padding:6px">' + m + '</td></tr>').join("") + '</table>';
   }},
+  sensors: { title: "📡 sensors", render(el) {
+    el.innerHTML = '<pre id="sensorsbox" style="background:#0d1117;border:1px solid #1a2233;padding:10px;color:#9fe8c8;font-size:12px;margin:12px 18px;white-space:pre-wrap">reading her live sensors…</pre>';
+    const pull = async () => {
+      try {
+        const r = await (await fetch("/sensors")).json();
+        const box = document.getElementById("sensorsbox");
+        if (!r.ok) { box.textContent = r.reason; return; }
+        const s = r.sensors.state ?? r.sensors;
+        box.textContent = [
+          "MOOD        " + (s.mood ?? "—"),
+          "PERSONA     " + (s.persona ?? "—"),
+          "ACTIVITY    " + (s.activity ?? "—"),
+          "BATTERY     " + (s.battery == null ? "—" : Math.round(s.battery * 100) + "%"),
+          "ALTITUDE    " + (s.alt == null ? "—" : s.alt.toFixed(3) + " m"),
+          "TASK        " + (s.task ?? "none"),
+          "BOND        " + (s.bond ?? "—") + "   TRUST " + (s.trust ?? "—"),
+          "ITEMS       " + (s.items ?? 0) + "   OWNER " + (s.owner ?? "unnamed"),
+          "LAST SAY    " + (s.lastSay ?? "—"),
+          "UPDATED     " + new Date(s.at).toLocaleTimeString(),
+        ].join("\n");
+      } catch { const b = document.getElementById("sensorsbox"); if (b) b.textContent = "sensor link down"; }
+    };
+    pull(); window.__pageIv = setInterval(pull, 2000);
+  }},
 };
 let active = "control";
 for (const [k, p] of Object.entries(PAGES)) {
   const b = document.createElement("button");
   b.textContent = p.title; b.dataset.k = k;
   b.style.cssText = "padding:6px 12px;background:transparent;border:1px solid #233;color:#8b93a5;cursor:pointer";
-  b.onclick = () => { active = k; for (const n of document.getElementById("nav").children) n.style.background = n.dataset.k === k ? "#132038" : "transparent", n.style.color = n.dataset.k === k ? "#cfe3ff" : "#8b93a5"; document.getElementById("pages").innerHTML = ""; p.render(document.getElementById("pages")); tick(); };
+  b.onclick = () => { active = k; for (const n of document.getElementById("nav").children) { n.style.background = n.dataset.k === k ? "#132038" : "transparent"; n.style.color = n.dataset.k === k ? "#cfe3ff" : "#8b93a5"; } if (window.__pageIv) clearInterval(window.__pageIv); document.getElementById("pages").innerHTML = ""; p.render(document.getElementById("pages")); if (el.dataset && document.querySelector("#sensorsbox")) { /* sensors tab repolls itself */ } tick(); };
   document.getElementById("nav").append(b);
 }
 async function tick() {
@@ -145,6 +169,22 @@ document.getElementById("nav").children[0].click();
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost:3002");
+  if (url.pathname === "/sensors") {
+    // proxy her panel's live state relay (the pair token is disclosed to the
+    // desktop operator — this console IS the desktop)
+    try {
+      const pairRes = await fetch("http://localhost:3001/api/zola/pair");
+      const { token } = await pairRes.json();
+      const stateRes = await fetch("http://localhost:3001/api/zola", { headers: { "x-zola-pair": token ?? "" } });
+      const state = await stateRes.json();
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: true, sensors: state }));
+    } catch {
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: false, reason: "her panel is not running — start it on :3001" }));
+    }
+    return;
+  }
   if (url.pathname === "/status") {
     const p = progress();
     res.writeHead(200, { "content-type": "application/json" });
@@ -166,8 +206,9 @@ const server = http.createServer(async (req, res) => {
     const out = openSync(consoleLog, "a");
     const proc = spawn(isaaclab, ["train", "--rl_library", "rsl_rl", "--task", t.id,
       "--num_envs", "64", "--max_iterations", String(t.iters), "--run_name", runName],
-      { cwd: repo, detached: false, stdio: ["ignore", out, out],
+      { cwd: repo, detached: true, stdio: ["ignore", out, out],
         env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
+    proc.unref(); // a training round survives console restarts — she does not stop because the dashboard blinked
     current = { name: t.label, exp, proc, startedAt: Date.now(), consoleLog };
     proc.on("exit", () => {
       current = null;
@@ -181,7 +222,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === "/stop" && req.method === "POST") {
-    if (current) { current.proc.kill(); current = null; }
+    if (current) { try { execFileSync("taskkill", ["/F", "/PID", String(current.proc.pid), "/T"]); } catch {} current = null; }
     res.writeHead(200); res.end("stopped");
     return;
   }
@@ -202,7 +243,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200); res.end("viewer closed");
     return;
   }
-  res.writeHead(200, { "content-type": "text/html" });
+  res.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" });
   res.end(page());
 });
 

@@ -33,6 +33,12 @@ async function loadGestureClip(name: string): Promise<THREE.AnimationClip | null
     const gltf = await loader.loadAsync(`/assets/models/zola-anims/v3/${name}.glb`);
     const clip = gltf.animations[0];
     if (!clip) return null;
+    // ROOT MOTION STRIP: retargeted clips carry their own root translation —
+    // played here it makes her glide/lurch (the weird moves). The clip stays
+    // in place; the world moves her instead.
+    clip.tracks = clip.tracks.filter(
+      (t) => !(t.name.endsWith(".position") && /hips|pelvis|root|spine_01/i.test(t.name)),
+    );
     clipCache.set(key, clip);
     return clip;
   } catch {
@@ -64,6 +70,7 @@ function SceneRig({
   accentColor,
   mood,
   flight,
+  speaking,
   activity,
   stretchCue,
   onTelemetry,
@@ -74,6 +81,7 @@ function SceneRig({
   accentColor: string;
   mood: string;
   flight?: { alt: number; rpm: number; x?: number; y?: number; yaw?: number; pitch?: number; roll?: number };
+  speaking?: boolean;
   activity?: string;
   stretchCue?: number;
   onTelemetry?: (fps: number) => void;
@@ -129,7 +137,12 @@ function SceneRig({
   const neutral = useMemo(() => {
     const poses: { bone: THREE.Bone; position: THREE.Vector3; rotation: THREE.Quaternion; scale: THREE.Vector3 }[] = [];
     scene.traverse((bone) => {
-      if (bone instanceof THREE.Bone) poses.push({ bone, position: bone.position.clone(), rotation: bone.quaternion.clone(), scale: bone.scale.clone() });
+      if (!(bone instanceof THREE.Bone)) return;
+      // THE SLIM DESIGN: the head/neck assembly slims down at load — the
+      // bulkier humanoid proportions read wrong on a drone-bodied companion
+      if (bone.name === "neck_01") bone.scale.set(0.7, 1, 0.7);
+      if (/^head$/i.test(bone.name)) bone.scale.set(0.86, 1, 0.86);
+      poses.push({ bone, position: bone.position.clone(), rotation: bone.quaternion.clone(), scale: bone.scale.clone() });
     });
     return poses;
   }, [scene]);
@@ -200,9 +213,14 @@ function SceneRig({
   const ringRef = useRef<THREE.Mesh>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const propsRef = useRef<THREE.Group>(null);
-  // Mirror the latest HAL pose for the animation frame loop.
+  // Mirror the latest HAL pose + the speaking state for the frame loop.
   const flightRef = useRef(flight);
   flightRef.current = flight;
+  const speakingRef = useRef(!!speaking);
+  speakingRef.current = !!speaking;
+  // the talk-expression layer: a gentle conversational nod/sway while she
+  // speaks — delta-encoded so it never accumulates under the mixer
+  const talkSway = useRef({ yaw: 0, pitch: 0 });
 
   const clearGestureTimers = () => {
     for (const timer of gestureTimers.current) clearTimeout(timer);
@@ -239,6 +257,19 @@ function SceneRig({
     // animation, before the render, every frame
     guardArm("l", 0.105);
     guardArm("r", 0.105);
+    // TALKING EXPRESSION on the web body: while she speaks, a soft nod and
+    // head turn punctuate the line (the Isaac policy trains the full routine)
+    {
+      const neck = solidBones.get("neck_01");
+      if (neck) {
+        const wantYaw = speakingRef.current ? Math.sin(sway.current.t * 2.4) * 0.06 : 0;
+        const wantPitch = speakingRef.current ? Math.sin(sway.current.t * 3.7) * 0.035 : 0;
+        neck.rotation.y += wantYaw - talkSway.current.yaw;
+        neck.rotation.x += wantPitch - talkSway.current.pitch;
+        talkSway.current.yaw = wantYaw;
+        talkSway.current.pitch = wantPitch;
+      }
+    }
     // FLIGHT: one body, grounded and airborne — she lifts off her pad with
     // real altitude (cm resolution from the HAL) and her cranial halo —
     // her actual propulsion array — brightens as the motors spool up.
@@ -254,8 +285,11 @@ function SceneRig({
         Math.sin(targetYaw - bodyRef.current.rotation.y),
         Math.cos(targetYaw - bodyRef.current.rotation.y),
       ) * k;
-      if (f && f.alt > 0.02) {
-        const lift = Math.min(f.alt, 1.2) * 0.8;
+      // GROUNDED BY DEFAULT: she stopped floating — only clearly-airborne
+      // altitude lifts her off the pad; a hover-in-place reads as standing
+      // with the props spinning (the One-Body Directive, made visible)
+      if (f && f.alt > 0.12) {
+        const lift = Math.min(f.alt - 0.1, 1.2) * 0.8;
         const spin = Math.min(f.rpm / 12000, 1);
         bodyRef.current.position.y = lift + Math.sin(sway.current.t * 3.1) * 0.012 * (0.3 + spin);
         bodyRef.current.rotation.x = THREE.MathUtils.degToRad(f.pitch ?? 0);
@@ -279,7 +313,7 @@ function SceneRig({
           const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
           mat.emissiveIntensity = ringIntensity;
         }
-        if (propsRef.current) propsRef.current.visible = false; // her fans STOP when she is not flying (owner directive)
+        if (propsRef.current) propsRef.current.visible = true; // the drone is PART of her now — props mounted, still when grounded
       }
     }
     if (activeAction.current) return; // a gesture owns her body right now
@@ -454,7 +488,7 @@ function SceneRig({
         {/* the four 2.5-inch folding props at the Quad-Halo corners — the
             visual proxy for her real 1204/1303.5 motors, spinning with the
             live HAL RPM when she flies */}
-        <group ref={propsRef} visible={false}>
+        <group ref={propsRef}>
           {[[-0.17, 0.17], [0.17, 0.17], [-0.17, -0.17], [0.17, -0.17]].map(([x, z], i) => (
             <mesh key={i} position={[x, 1.0, z]} rotation={[Math.PI / 2, 0, 0]}>
               <torusGeometry args={[0.11, 0.012, 8, 24]} />
@@ -537,6 +571,7 @@ export default function DroneBody3D({
             accentColor={accentColor}
             mood={mood}
             flight={flight}
+            speaking={!!speech}
             activity={activity}
             stretchCue={stretchCue}
             onTelemetry={setFpsLive}

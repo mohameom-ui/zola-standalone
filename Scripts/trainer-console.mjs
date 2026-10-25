@@ -68,51 +68,78 @@ const ENGINES = [
 ];
 
 const page = () => `<!doctype html><meta charset="utf-8"><title>ZOLA TRAINER</title>
-<body style="background:#0b0e13;color:#cfd6e4;font-family:Consolas,monospace;max-width:1000px;margin:24px auto;padding:0 16px">
-<h1 style="color:#f0b90b;margin-bottom:4px">🛸 ZOLA TRAINER CONSOLE</h1>
-<p style="color:#8b93a5;margin-top:0">one dashboard: her live links, her training, her 3D body, her engines</p>
-<p>
-  <a href="http://localhost:3001" style="color:#5ac8fa">her panel :3001</a> ·
-  <a href="http://localhost:6006" style="color:#5ac8fa">training curves :6006</a> ·
-  <a href="/status" style="color:#5ac8fa">status json</a>
-</p>
-<div id="status" style="border:1px solid #233;padding:10px;margin:10px 0;min-height:22px"></div>
-<pre id="logtail" style="background:#0d1117;border:1px solid #1a2233;padding:8px;color:#7ee787;font-size:11px;max-height:150px;overflow:auto;margin:0 0 14px"></pre>
-<h2>▶ start a training round</h2>
-<div id="tasks" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-<h2>🎬 watch her live, in 3D</h2>
-<p style="color:#8b93a5">opens the real Isaac Sim window rendering her trained policy — the 3D window and a training round share the GPU, so pause one for the other</p>
-<div id="viewers" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-<div style="margin-top:12px"><button onclick="post('/killviewer')" style="padding:8px 12px;background:#331122;color:#ff9ab0;border:0;cursor:pointer">close 3D window</button></div>
-<h2>🧠 her engines — what training each one means</h2>
-<table style="border-collapse:collapse;width:100%">${ENGINES.map(([n, m]) =>
-  `<tr><td style="border:1px solid #1a2233;padding:6px;color:#f0b90b;white-space:nowrap">${n}</td><td style="border:1px solid #1a2233;padding:6px">${m}</td></tr>`).join("")}</table>
-<pre id="shelf" style="color:#6d7588;font-size:11px"></pre>
+<body style="background:#0b0e13;color:#cfd6e4;font-family:Consolas,monospace;margin:0">
+<div style="display:flex;align-items:center;gap:18px;padding:10px 18px;border-bottom:1px solid #1a2233;position:sticky;top:0;background:#0b0e13;z-index:9">
+  <b style="color:#f0b90b">🛸 ZOLA TRAINER</b>
+  <nav id="nav" style="display:flex;gap:6px"></nav>
+  <span style="margin-left:auto;color:#8b93a5" id="statusmini"></span>
+</div>
+<div id="status" style="padding:8px 18px;color:#ffd27a;min-height:20px"></div>
+<div id="pages"></div>
 <script>
 const TASKS = ${JSON.stringify(TASKS)};
-function post(u) { return fetch(u, { method: "POST" }).then(r => r.text()).then(t => { document.getElementById("status").innerHTML = "<b style='color:#ffd27a'>" + t + "</b>"; tick(); }); }
-for (const [k, t] of Object.entries(TASKS)) {
+const ENGINES = ${JSON.stringify(ENGINES)};
+function post(u) { return fetch(u, { method: "POST" }).then(r => r.text()).then(t => { document.getElementById("status").textContent = t; tick(); }); }
+const PAGES = {
+  control: { title: "⏺ control", render(el) {
+    el.innerHTML = '<div id="status2" style="padding:4px 18px"></div><pre id="logtail" style="background:#0d1117;border:1px solid #1a2233;padding:8px;color:#7ee787;font-size:11px;max-height:140px;overflow:auto;margin:8px 18px"></pre><h3 style="padding:0 18px">start a round</h3><div id="tasks" style="display:flex;flex-wrap:wrap;gap:8px;padding:0 18px"></div><pre id="shelf" style="color:#6d7588;font-size:11px;padding:12px 18px"></pre>';
+    for (const [k, t] of Object.entries(TASKS)) {
+      const b = document.createElement("button");
+      b.textContent = "▶ " + t.label;
+      b.style.cssText = "padding:8px 12px;background:#132038;border:1px solid #2a4a7a;color:#cfe3ff;cursor:pointer";
+      b.onclick = () => post("/start?task=" + k);
+      el.querySelector("#tasks").append(b);
+    }
+    const stop = document.createElement("button");
+    stop.textContent = "■ stop round";
+    stop.style.cssText = "padding:8px 12px;background:#331122;color:#ff9ab0;border:0;cursor:pointer";
+    stop.onclick = () => post("/stop");
+    el.querySelector("#tasks").append(stop);
+  }},
+  view3d: { title: "🎬 3D her", render(el) {
+    el.innerHTML = '<p style="padding:0 18px;color:#8b93a5">the real Isaac Sim window renders her trained policy live — one 3D window at a time (it shares the GPU with training)</p><div id="viewers" style="display:flex;flex-wrap:wrap;gap:8px;padding:0 18px"></div><div style="padding:12px 18px"><button onclick=\"post(\'/killviewer\')\" style="padding:8px 12px;background:#331122;color:#ff9ab0;border:0;cursor:pointer">close the 3D window</button></div>';
+    for (const [k, t] of Object.entries(TASKS)) {
+      const v = document.createElement("button");
+      v.textContent = "🎬 " + t.label;
+      v.style.cssText = "padding:8px 12px;background:#231a10;border:1px solid #7a5a2a;color:#ffe8c0;cursor:pointer";
+      v.onclick = () => post("/viewer?task=" + k);
+      el.querySelector("#viewers").append(v);
+    }
+  }},
+  curves: { title: "📈 curves", render(el) {
+    el.innerHTML = '<iframe src="http://localhost:6006" style="width:100%;height:calc(100vh - 110px);border:0;background:#0b0e13"></iframe>';
+  }},
+  panel: { title: "🤖 her panel", render(el) {
+    el.innerHTML = '<iframe src="http://localhost:3001" style="width:100%;height:calc(100vh - 110px);border:0;background:#0b0e13"></iframe>';
+  }},
+  engines: { title: "🧠 engines", render(el) {
+    el.innerHTML = '<table style="border-collapse:collapse;width:calc(100% - 36px);margin:12px 18px">' +
+      ENGINES.map(([n, m]) => '<tr><td style="border:1px solid #1a2233;padding:6px;color:#f0b90b;white-space:nowrap">' + n + '</td><td style="border:1px solid #1a2233;padding:6px">' + m + '</td></tr>').join("") + '</table>';
+  }},
+};
+let active = "control";
+for (const [k, p] of Object.entries(PAGES)) {
   const b = document.createElement("button");
-  b.textContent = "▶ " + t.label;
-  b.style.cssText = "padding:8px 12px;background:#132038;border:1px solid #2a4a7a;color:#cfe3ff;cursor:pointer";
-  b.onclick = () => post("/start?task=" + k);
-  document.getElementById("tasks").append(b);
-  const v = document.createElement("button");
-  v.textContent = "🎬 3D";
-  v.title = "live 3D window: " + t.label;
-  v.style.cssText = "padding:8px 12px;background:#231a10;border:1px solid #7a5a2a;color:#ffe8c0;cursor:pointer";
-  v.onclick = () => post("/viewer?task=" + k);
-  document.getElementById("viewers").append(v);
+  b.textContent = p.title; b.dataset.k = k;
+  b.style.cssText = "padding:6px 12px;background:transparent;border:1px solid #233;color:#8b93a5;cursor:pointer";
+  b.onclick = () => { active = k; for (const n of document.getElementById("nav").children) n.style.background = n.dataset.k === k ? "#132038" : "transparent", n.style.color = n.dataset.k === k ? "#cfe3ff" : "#8b93a5"; document.getElementById("pages").innerHTML = ""; p.render(document.getElementById("pages")); tick(); };
+  document.getElementById("nav").append(b);
 }
 async function tick() {
   const s = await (await fetch("/status")).json();
-  document.getElementById("status").innerHTML = s.training
-    ? "TRAINING <b style='color:#ffd27a'>" + s.training.label + "</b> — iteration " + (s.progress?.iteration ?? "?") + " / " + (s.progress?.total ?? "?") + " · started " + new Date(s.training.startedAt).toLocaleTimeString()
-    : "idle — no training round running";
-  document.getElementById("logtail").textContent = s.logtail || "(no live training log)";
-  document.getElementById("shelf").textContent = "policy shelf (" + s.shelf.length + "): " + s.shelf.join("  ·  ");
+  const line = s.training
+    ? "TRAINING " + s.training.label + " — " + (s.progress?.iteration ?? "?") + "/" + (s.progress?.total ?? "?")
+    : "idle";
+  document.getElementById("statusmini").textContent = line;
+  const st = document.getElementById("status2");
+  if (st) st.textContent = s.training ? "TRAINING " + s.training.label + " — iteration " + (s.progress?.iteration ?? "?") + " / " + (s.progress?.total ?? "?") + " · started " + new Date(s.training.startedAt).toLocaleTimeString() : "idle — no round running";
+  const lt = document.getElementById("logtail");
+  if (lt) lt.textContent = (s.logtail || []).join("\n") || "(no live training log)";
+  const sh = document.getElementById("shelf");
+  if (sh) sh.textContent = "policy shelf (" + s.shelf.length + "): " + s.shelf.join("  ·  ");
 }
-setInterval(tick, 2000); tick();
+setInterval(tick, 2000);
+document.getElementById("nav").children[0].click();
 </script>`;
 
 const server = http.createServer(async (req, res) => {

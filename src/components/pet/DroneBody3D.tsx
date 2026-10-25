@@ -276,9 +276,10 @@ function SceneRig({
     const requestId = ++playbackId.current;
     clearGestureTimers();
     if (!fromQueue) gestureQueue.current = [];
-    activeAction.current?.fadeOut(0.2);
-    activeAction.current = null;
-    activeName.current = null;
+    // THE GLITCH FIX: the previous move keeps playing while the new clip
+    // loads — killing it here left a load-gap where she snapped to the base
+    // pose and then snapped into the new move (the jerky double-motion you
+    // see while she talks). The crossfade happens on arrival instead.
     scanAsset(`movement:${name}`); // the aura ledger counts her movement repertoire
     const flying = flightClips.has(name);
     if (ringRef.current) {
@@ -295,6 +296,9 @@ function SceneRig({
         return;
       }
       const action = mixer.clipAction(clip);
+      // crossfade ON ARRIVAL: the old move fades as the new one fades in —
+      // no load-gap, no snap (the glitch while talking is gone)
+      activeAction.current?.fadeOut(0.25);
       action.reset().setEffectiveWeight(1).setLoop(THREE.LoopOnce, 1).fadeIn(0.25).play();
       action.clampWhenFinished = true;
       activeAction.current = action;

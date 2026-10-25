@@ -2074,6 +2074,9 @@ export default function DronePetPanel() {
       const idleS = (performance.now() - lastInteractionRef.current) / 1000;
       const rand = Math.random();
       if (!shouldSelfMove(persona, mood, idleS, rand)) return;
+      // THE SPEECH RULE: while she is actually talking, her body waits —
+      // a spontaneous move mid-sentence reads as a glitch, not personality
+      if ((lastSayRef.current?.until ?? 0) > performance.now()) return;
       const move = pickSpontaneous(persona, mood, rand);
       if (!move) return;
       lastInteractionRef.current = performance.now(); // the move counts as activity

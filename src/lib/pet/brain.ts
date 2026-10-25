@@ -12,7 +12,7 @@ import type { RoutineData } from "./memory";
 import { PersonaEngine, type PersonaName } from "./persona";
 import { correctHeard, lev, describeAppearance } from "./lexicon";
 import { pickVisualTrick } from "./visualTricks";
-import { isaacTrainingReport, mentionsIsaacTraining } from "./isaacPolicies";
+import { bodyMapReport, isaacTrainingReport, mentionsBodyMap, mentionsIsaacTraining } from "./isaacPolicies";
 
 const IDLE_LED = "#f0b90b";
 const HAPPY_LED = "#35d0a5";
@@ -590,6 +590,11 @@ export class PetBrain {
     const planned = this.runner.plan(text);
     if (planned) return this.runner.start(planned, performance.now());
 
+    // THE BODY MAP — she knows her own parts, from her own physics profile.
+    // Also before the suggest fallback (which guesses at "your body").
+    if (mentionsBodyMap(t)) {
+      return bodyMapReport();
+    }
     // ISAAC TRAINING REPORT — her simulation skills, served from the generated
     // manifests (single source of truth: the export pipeline). Before the
     // suggest fallback, or it would guess at "policies". Never "training" —
@@ -811,7 +816,7 @@ export class PetBrain {
       }
     }
     if (has("what can you do", "help", "abilities", "capabilit")) {
-      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance, walking, and arm-and-hand policies from Isaac Sim (ask about my policies). Try me.";
+      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance, walking, arm-and-hand, and flight-posture policies from Isaac Sim (ask about my policies). Try me.";
     }
     if (has("goodbye", "bye", "see you", "later")) {
       this.setMood("happy");

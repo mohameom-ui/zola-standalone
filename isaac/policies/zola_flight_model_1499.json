@@ -1,0 +1,23 @@
+{
+  "task": "zola_flight",
+  "run": "2026-10-25_04-17-02_flight_v4",
+  "checkpoint": "model_1499.pt",
+  "iteration": 1499,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.02633470483124256,
+    "std_head": 0.10307619720697403,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "e1a19e84854816a414a0ece50f8326a9438f38b74d4a8ef8cf24caf2fbc8712e",
+  "roundtrip_max_abs_drift": 7.152557373046875e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller"
+}

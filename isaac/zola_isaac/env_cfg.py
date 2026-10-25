@@ -107,3 +107,83 @@ class ZolaHandsCfg(ZolaBalanceCfg):
     action_scale = .3
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*len(ARM_JOINTS)+48  # 2*(34) states + 12 base + 22 targets + 34 actions
+    # the named body-language layer: a FIXED pose held every episode, halo
+    # thrust at the head, wind gusts, aero drag, an air spawn for landings
+    fixed_pose: dict[str, float] | None = None
+    halo_thrust = False
+    gust_force = 0.0
+    aero_drag = 2.0
+    spawn_drop_m = 0.0
+    # the escape fence — a GROUND artifact; the airborne tasks widen it
+    escape_radius = 3.0
+
+
+# THE FLIGHT POSTURE — compact and still, and BALANCEABLE: a mild tuck that
+# keeps her COM over her feet (the first draft crouched — hip .2/knee .45/
+# arms forward — and the COM walked straight out of the support polygon;
+# she faceplants in 11 steps with ZERO actions. The lesson of the flight
+# pose is compactness, not crouching.)
+FLIGHT_POSE = {
+    "left_shoulder_pitch": .08, "right_shoulder_pitch": .08,
+    "left_shoulder_roll": .1, "right_shoulder_roll": -.1,
+    "left_elbow": -.3, "right_elbow": -.3,
+    "left_wrist_pitch": .05, "right_wrist_pitch": .05,
+    "left_thumb_flex": -.25, "right_thumb_flex": -.25,
+    "left_index_flex": -.25, "right_index_flex": -.25,
+    "left_middle_flex": -.25, "right_middle_flex": -.25,
+    "left_ring_flex": -.25, "right_ring_flex": -.25,
+    "left_pinky_flex": -.25, "right_pinky_flex": -.25,
+    "left_hip_pitch": .05, "right_hip_pitch": .05,
+    "left_knee": .15, "right_knee": .15,
+    "left_ankle_pitch": .03, "right_ankle_pitch": .03,
+}
+
+# THE HALO TOUCHDOWN — her invented signature landing. From a short drop she
+# folds into a one-knee hero crouch: right knee deep, left leg braced, left
+# arm planted down, right arm swept back, chin up. Body language for the
+# moment the props stop.
+HERO_POSE = {
+    # legs SYMMETRIC — an athletic squat keeps the COM over the feet (the
+    # one-knee crouch was unholdable: asymmetric leg loading walks the COM
+    # out of the support polygon, and no position-target policy can recover
+    # that). The ARMS carry the drama — they are light enough to style with.
+    "left_hip_pitch": .35, "right_hip_pitch": .35,
+    "left_knee": .7, "right_knee": .7,
+    # the ankle CLOSES the chain: flat feet need ankle ≈ knee − hip (0.35).
+    # The 0.15 draft left her rocking on the foot edges — another topple.
+    "left_ankle_pitch": .35, "right_ankle_pitch": .35,
+    "left_shoulder_pitch": .9, "left_elbow": -.6, "left_wrist_pitch": .15,
+    "right_shoulder_pitch": -1.2, "right_elbow": -.9,
+    "waist_yaw": .15, "neck_pitch": .1,
+}
+
+
+@configclass
+class ZolaFlightCfg(ZolaHandsCfg):
+    """The flight-posture DISCIPLINE, trained on the stable ground platform:
+    hold the compact tuck under reset noise. The airborne base-coupled
+    dynamics (halo thrust, gusts as base wrenches) are deliberately NOT in
+    this prototype — the probe record in TRAINING_RUN documents why: the
+    wrench tooling in this Isaac build can't carry them honestly yet. The
+    neuromuscular skill is the same either way: in the air, she does not
+    flail."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    fixed_pose = FLIGHT_POSE
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaTouchdownCfg(ZolaHandsCfg):
+    """The Halo Touchdown: a short real drop (6 cm — contact physics on),
+    then fold into the hero crouch and HOLD it — body language for the
+    moment the props stop."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    fixed_pose = HERO_POSE
+    spawn_drop_m = .06
+    # curriculum: the drop grows from zero — first she learns the hero crouch
+    # from standing, then the drop arrives (touchdown_v2 without it: reward
+    # 2.58, episodes 96/600 — the whole skill at once was too big a bite)
+    drop_curriculum = True
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12

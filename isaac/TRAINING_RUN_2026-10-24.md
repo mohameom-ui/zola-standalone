@@ -82,6 +82,39 @@ The env now generalizes: `controlled_joints` (everything actuated),
 `pose_joints` (the tracked subset), `pose_tracking_weight` (0 keeps the
 balance/walk contracts byte-identical), and `pose_target_scale`.
 
+## Runs 5–6 — the flight posture and the probe record (2026-10-25)
+
+`Isaac-Zola-Flight-Prototype-v0` trains the air discipline: hold the compact
+tuck, don't flail. Getting there honestly took a probe campaign worth
+recording:
+
+- The deprecated `set_external_force_and_torque` is a **silent no-op** in
+  this build — she free-fell with it "applied" (probe evidence).
+- The `WrenchComposer` force path works (verified: stable hover), but its
+  **torque path silently drops** — A/B/C stiffness probes (0/−80/+80) were
+  byte-identical.
+- A thrust point ABOVE the total COM is an **inverted pendulum** — diverging
+  at sqrt(mgh/I) ≈ 3.7 rad/s, matching the observed ~1 s deaths exactly.
+- State-level attitude writes fought the integrator (orientation/velocity
+  mismatch pumped a roll oscillation).
+
+Conclusion: the airborne base-coupled dynamics need a proper thruster model
+(halo thruster links in the URDF with per-rotor forces) — next phase. The
+flight-posture policy trains the same neuromuscular discipline on the stable
+platform: **reward 34.03, episodes 596/600**, exported with drift 7.15e-07.
+
+The body-language layer generalized the env: `fixed_pose` (named poses held
+every episode), `spawn_drop_m` (+ `drop_curriculum`), `escape_radius` (the
+fence is a ground artifact — the air needs a bigger one).
+
+## The Touchdown record (2026-10-25)
+
+`Isaac-Zola-Touchdown-Prototype-v0` — the invented hero landing — remains
+**untrained after five named attempts** (COM outside the support polygon
+twice; the ankle-chain mismatch; impact absorption beyond position-target
+policies). `HERO_POSE` (symmetric power stance, dramatic arms) and the drop
+curriculum are in the code; the policy is the open item.
+
 ## Notes / caveats
 
 - Windows console: the CLI loading screen can raise `UnicodeEncodeError`

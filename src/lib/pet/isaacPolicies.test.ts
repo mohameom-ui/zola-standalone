@@ -27,6 +27,20 @@ describe("the isaac report — her simulation skills, served honestly", () => {
     expect(line).not.toContain("Isaac Sim training report");
   });
 
+  it("she knows her own body parts — from the physics profile, not memory", () => {
+    const brain = new PetBrain();
+    const line = brain.command("what are your body parts", 0.9);
+    expect(line).toContain("37 actuated joints");
+    expect(line).toMatch(/12 legs and feet/);
+    expect(line).toMatch(/22 arms and hands/);
+    expect(line).toMatch(/pendulum/);
+    expect(line).toMatch(/Flailing is danger/);
+  });
+
+  it("the isaac report now counts the hands policy", () => {
+    expect(isaacPolicyLines().some((l) => l.includes("arm and hand pose control"))).toBe(true);
+  });
+
   it("the help line now mentions her simulation training", () => {
     const brain = new PetBrain();
     expect(brain.command("what can you do", 0.9)).toMatch(/Isaac Sim/);

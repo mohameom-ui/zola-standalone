@@ -296,6 +296,28 @@ task, never asleep, never without a body.
 never announced — she only speaks a trick line after her body actually plays
 the clip.
 
+**The flight-posture discipline (2026-10-25):** the halo in her head is a
+quad-drone; its flight controller holds altitude and attitude, and her
+body's ONLY job in the air is to not fight it — limbs tucked, elbows soft,
+fingers curled clear of the props, knees slightly loaded. The
+`Isaac-Zola-Flight-Prototype-v0` task trains exactly that hold; final policy:
+reward 34.03, episodes 596/600. The aerial body-coupled dynamics (thrust
+wrenches, gusts at the base) are documented as a next-phase item — the
+neuromuscular discipline is what transfers.
+
+**THE HALO TOUCHDOWN — her invented signature move (2026-10-25):** when the
+props stop, she folds into a hero crouch — knees loaded symmetrically (the
+balance-carrying part), left arm planted down, right arm swept back, chin
+up (the drama-carrying part — arms are light enough to style with). Designed
+WITH Isaac across five attempts, each failure named: full-flourish knee 2.0
+put the COM outside her feet (faceplant in 11 steps with zero actions); the
+one-knee variant did the same by asymmetric leg loading; the 0.15-ankle
+draft left her rocking on the foot edges (the ankle must close the kinematic
+chain: ankle ≈ knee − hip); and the drop-landing itself needs
+impact-absorbing dynamics beyond this prototype's position-target policies.
+**The pose spec lives here and in `HERO_POSE`; the policy is the open item**
+— it needs torque-level control or a proper contact-rich curriculum.
+
 **Her hands, in simulation (2026-10-25):** the Isaac proxy has 22 actuated
 upper-limb joints — shoulders, elbows, wrists, and five finger-flex joints
 per hand. The `Isaac-Zola-Hands-Prototype-v0` task trains WHOLE-BODY control

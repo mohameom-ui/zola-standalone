@@ -38,3 +38,15 @@ class ZolaWalkPPORunnerCfg(ZolaPPORunnerCfg):
 class ZolaHandsPPORunnerCfg(ZolaPPORunnerCfg):
     experiment_name = "zola_hands_prototype"
     max_iterations = 1500
+
+
+@configclass
+class ZolaFlightPPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_flight_posture"
+    max_iterations = 1500
+
+
+@configclass
+class ZolaTouchdownPPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_touchdown"
+    max_iterations = 1500

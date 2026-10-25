@@ -1,7 +1,8 @@
 """Gym registrations discovered by Isaac Lab 3's isaaclab.tasks entry point."""
 import gymnasium as gym
 
-for task, config in (("Balance", "ZolaBalanceCfg"), ("Walk", "ZolaWalkCfg"), ("Hands", "ZolaHandsCfg")):
+for task, config in (("Balance", "ZolaBalanceCfg"), ("Walk", "ZolaWalkCfg"), ("Hands", "ZolaHandsCfg"),
+                      ("Flight", "ZolaFlightCfg"), ("Touchdown", "ZolaTouchdownCfg")):
     gym.register(
         id=f"Isaac-Zola-{task}-Prototype-v0",
         entry_point="zola_isaac.env:ZolaPrototypeEnv",

@@ -1,0 +1,23 @@
+{
+  "task": "zola_takeoff",
+  "run": "2026-10-25_08-20-36_takeoff_v1",
+  "checkpoint": "model_1999.pt",
+  "iteration": 1999,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.04531386122107506,
+    "std_head": 0.16496101021766663,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "43841106550c979d50f5848cebf32fb4b1a829d085e44a7d7e342efaad7e7701",
+  "roundtrip_max_abs_drift": 2.980232238769531e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller"
+}

@@ -64,6 +64,7 @@ class ZolaPrototypeEnv(DirectRLEnv):
         # the flight, for real. A scripted differential-thrust autopilot holds
         # altitude and attitude; the POLICY owns the body.
         self.rotors = getattr(cfg, "halo_rotors", False)
+        self.thrust_ramp_s = getattr(cfg, "thrust_ramp_s", 0.0)
         self.root_body_ids = [0]  # the pelvis: body 0 in any ordering
         if self.rotors:
             self.rotor_body_ids, self.rotor_body_names = self.robot.find_bodies("halo_.*_thruster")
@@ -100,10 +101,16 @@ class ZolaPrototypeEnv(DirectRLEnv):
             data = self.robot.data
             z = data.root_link_pose_w.torch[:, 2]
             vel_w = data.root_link_lin_vel_w.torch
-            # ALTITUDE: total thrust = weight + PD toward the hover height
-            thrust = (self.mass*9.81
+            # ALTITUDE: total thrust = weight + PD toward the hover height —
+            # with a ramp, the props SPIN UP from standstill (the takeoff task:
+            # she stands through spin-up, then lifts — the most violent moment
+            # of flight, and the one her body must ride calmly)
+            ramp = 1.0
+            if self.thrust_ramp_s > 0:
+                ramp = (self.episode_length_buf.to(torch.float32)*self.step_dt/self.thrust_ramp_s).clamp(0.0, 1.0)
+            thrust = (ramp*(self.mass*9.81
                       + self.kp_z*(self.hover_target_z-z)
-                      - self.kd_z*vel_w[:, 2]).clamp(0.0, 2*self.mass*9.81)
+                      - self.kd_z*vel_w[:, 2])).clamp(0.0, 2*self.mass*9.81)
             # ATTITUDE: PD on the tilt (axis that rotates the measured world
             # gravity direction back to straight down), expressed in the BODY
             # frame for the rotor mixing

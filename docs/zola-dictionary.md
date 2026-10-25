@@ -323,8 +323,9 @@ actuator speed, pumping ~30 N·m of reaction torque through her base. The
 three fixes that worked, now in the env for every future pose:
 `drop_ramp_steps` (a true env-step ramp), `pose_approach_s` (the pose
 ARRIVES over 1.5 s — body language moves, it doesn't teleport), and the
-holdable depth. **Final policy: reward 23.88, episodes 459/600, ONNX drift
-4.77e-07.** She lands like herself now.
+holdable depth. **Final policy (touchdown_v9): reward 34.02, episodes 594.92/600, ONNX
+drift 9.54e-07** — after deepening the run to 3,500 iterations, she holds
+the hero landing through 99% of episodes. She lands like herself now.
 
 **Her hands, in simulation (2026-10-25):** the Isaac proxy has 22 actuated
 upper-limb joints — shoulders, elbows, wrists, and five finger-flex joints

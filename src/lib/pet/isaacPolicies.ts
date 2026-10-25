@@ -14,8 +14,9 @@ import walkManifest from "../../../isaac/policies/zola_walk_model_1499.json";
 import walkV2Manifest from "../../../isaac/policies/zola_walk_model_2499.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1499.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1499.json";
-import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_2499.json";
+import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3499.json";
 import hoverManifest from "../../../isaac/policies/zola_hover_model_1999.json";
+import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1999.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -38,6 +39,7 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   flightManifest,
   touchdownManifest,
   hoverManifest,
+  takeoffManifest,
 ] as unknown as IsaacPolicyManifest[];
 
 const TASK_NAMES: Record<string, string> = {
@@ -47,7 +49,11 @@ const TASK_NAMES: Record<string, string> = {
   zola_flight: "flight-posture discipline (hold still in the air — the halo does the flying)",
   zola_touchdown: "THE HALO TOUCHDOWN — her signature hero landing",
   zola_hover: "coupled hover flight (real rotor physics — her body rides the halo)",
+  zola_takeoff: "the takeoff transition (riding the prop spin-up and lift-off)",
 };
+
+export const TOUCHDOWN_CHECKPOINT_NOTE =
+  "zola_touchdown_model_3499 = touchdown_v9 (3500 iters, reward 34.02, episodes 595/600) — supersedes the v8 export";
 
 /** One honest spoken line per policy — what she trained, and what it is NOT. */
 export function isaacPolicyLines(): string[] {

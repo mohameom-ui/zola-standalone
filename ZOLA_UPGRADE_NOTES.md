@@ -689,3 +689,9 @@ Format: [date] slice — action — library source → destination.
 - **Why it was the unblock:** this build's wrench composer honors exactly one path — force-at-CoM in the body frame — so rotor thrust needed rotors as real bodies. The refined composer law (with the body_ids-count rule) is in TRAINING_RUN.
 - **`Isaac-Zola-Hover-Prototype-v0` — she flies on real coupled physics:** four body-frame rotor forces tilt with her (attitude steers flight), a scripted differential-thrust autopilot holds altitude+attitude, gusts shove, and her limb motion genuinely shifts the COM under the thrust. Probe: level and stable with zero actions. Trained hover_v1: reward 13.95, episodes 416/600 under gusts — she learned to ride the halo still, because now flailing can genuinely crash the flight.
 - Her shelf: SEVEN verified ONNX policies — balance, walk ×2, hands, flight posture, Halo Touchdown, coupled hover. Her body map, policy report, help line, and LLM persona all carry the flight truth.
+
+### 2026-10-25 (9) — THE HARDENING PASS: hover doubled gusts, the takeoff, the touchdown at 99%
+- **hover_v2** (gusts doubled to 6 N, 3000 iters): peak 15.18 / 464 — beats hover_v1 under twice the disturbance; both checkpoints archived.
+- **NEW TASK `Isaac-Zola-Takeoff-Prototype-v0`**: `thrust_ramp_s` spins the props up from standstill over 1.2 s while she stands, then the ground lets go — the most violent moment of flight. takeoff_v1: 9.36 / 291, exported (drift 2.98e-07).
+- **touchdown_v9** (3500 iters): the Halo Touchdown hardened from 23.88/459 to **34.02 / 594.92** — she holds the hero landing through 99% of episodes. Export supersedes v8 (`zola_touchdown_model_3499.onnx`).
+- Her shelf: EIGHT verified ONNX policies — balance, walk ×2, hands, flight posture, Halo Touchdown, coupled hover, takeoff.

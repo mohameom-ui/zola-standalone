@@ -183,10 +183,20 @@ class ZolaHoverCfg(ZolaFlightCfg):
     motion moves the COM she must keep under the thrust. The policy owns the
     body: hold the flight posture while the platform is alive underneath."""
     halo_rotors = True
-    gust_force = 3.0
+    # doubled gusts for hover_v2 — the first policy learned at 3 N
+    gust_force = 6.0
     escape_radius = 12.0
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaTakeoffCfg(ZolaHoverCfg):
+    """The violent moment: props spin up from standstill over 1.2 s while she
+    stands, then the ground lets go. Her body rides the transition — the
+    flight posture held through spin-up, lift-off, and settle."""
+    thrust_ramp_s = 1.2
+    gust_force = 3.0
 
 
 @configclass

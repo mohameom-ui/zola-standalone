@@ -146,6 +146,20 @@ depth sweep). The three fixes that generalized into the env:
 3. **The holdable depth** — knee 0.45 between the stable 0.15 and the
    unholdable 0.7, with the ankle closing the chain.
 
+## Runs 7–10 — the hardening pass (2026-10-25)
+
+| Run | Task | Result |
+|---|---|---|
+| hover_v2 | hover, gusts DOUBLED to 6 N, 3000 iters | peak 15.18 / 464.23 — beats v1 under 2× the disturbance |
+| takeoff_v1 | NEW: thrust ramps 0→hover over 1.2 s while she stands, then the ground lets go | 9.36 / 290.89 — she rides the spin-up and lift-off |
+| touchdown_v9 | the signature move, deepened to 3500 iters | **34.02 / 594.92** — the hero landing now holds through 99% of episodes (was 459) |
+
+`thrust_ramp_s` entered the autopilot for the takeoff task: the props spin
+up from standstill while she stands — the most violent moment of flight, and
+the one her body must ride calmly.
+
+The Touchdown export supersedes v8: `zola_touchdown_model_3499.onnx`.
+
 ## Notes / caveats
 
 - Windows console: the CLI loading screen can raise `UnicodeEncodeError`

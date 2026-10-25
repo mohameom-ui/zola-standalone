@@ -135,6 +135,62 @@ function SceneRig({
   }, [scene]);
   const poseScratch = useMemo(() => ({ position: new THREE.Vector3(), rotation: new THREE.Quaternion(), delta: new THREE.Quaternion(), euler: new THREE.Euler() }), []);
 
+  // THE SOLID BODY: bones needed for the hand-vs-torso penetration guard —
+  // her visual clips are retargeted human motion and can fold a hand INTO
+  // the torso mesh; the guard pushes it back out through the elbow, every
+  // frame, so the body reads solid instead of interpenetrating.
+  const solidBones = useMemo(() => {
+    const map = new Map<string, THREE.Bone>();
+    for (const { bone } of neutral) map.set(bone.name, bone);
+    return map;
+  }, [neutral]);
+  const solidScratch = useMemo(() => ({
+    hand: new THREE.Vector3(), elbow: new THREE.Vector3(), mid: new THREE.Vector3(),
+    s0: new THREE.Vector3(), s1: new THREE.Vector3(), close: new THREE.Vector3(),
+    u: new THREE.Vector3(), w: new THREE.Vector3(), axis: new THREE.Vector3(), corr: new THREE.Quaternion(), pq: new THREE.Quaternion(), fix: new THREE.Quaternion(),
+  }), []);
+  const guardArm = (side: "l" | "r", R: number) => {
+    const s = solidScratch;
+    const upper = solidBones.get(`upperarm_${side}`);
+    const lower = solidBones.get(`lowerarm_${side}`);
+    const hand = solidBones.get(`hand_${side}`) ?? solidBones.get(`palm_${side}`);
+    const top = solidBones.get("neck_01");
+    const bottom = solidBones.get("spine_01");
+    if (!upper || !lower || !hand || !top || !bottom) return;
+    top.getWorldPosition(s.s0);
+    bottom.getWorldPosition(s.s1);
+    lower.getWorldPosition(s.elbow);
+    hand.getWorldPosition(s.hand);
+    s.mid.copy(s.elbow).add(s.hand).multiplyScalar(0.5); // the forearm's midpoint clips too
+    for (const point of [s.hand, s.mid]) {
+      // closest point on the spine segment (the torso capsule's axis)
+      const seg = s.s1.clone().sub(s.s0);
+      const t = THREE.MathUtils.clamp(point.clone().sub(s.s0).dot(seg) / Math.max(seg.lengthSq(), 1e-8), 0, 1);
+      s.close.copy(s.s0).addScaledVector(seg, t);
+      const dist = point.distanceTo(s.close);
+      if (dist >= R) continue;
+      const pen = R - dist;
+      s.u.copy(s.close).sub(s.elbow);
+      if (s.u.lengthSq() < 1e-8) continue;
+      s.u.normalize();
+      s.w.copy(point).sub(s.elbow);
+      if (s.w.lengthSq() < 1e-8) continue;
+      s.w.normalize();
+      // rotating the forearm about cross(u, w) moves the hand AWAY from the spine
+      s.axis.crossVectors(s.u, s.w);
+      if (s.axis.lengthSq() < 1e-6) continue;
+      s.axis.normalize();
+      const theta = Math.min(0.3, 10 * pen);
+      s.corr.setFromAxisAngle(s.axis, theta);
+      lower.parent!.getWorldQuaternion(s.pq);
+      // world-frame correction → the elbow bone's local frame:
+      // qLocal' = parentQ⁻¹ · corr · parentQ · qLocal, then ease halfway (no jitter)
+      s.fix.copy(s.pq).invert().multiply(s.corr).multiply(s.pq);
+      const q = lower.quaternion;
+      q.slerp(s.fix.multiply(q), 0.5);
+    }
+  };
+
   const activeAction = useRef<THREE.AnimationAction | null>(null);
   const activeName = useRef<string | null>(null);
   const playbackId = useRef(0);
@@ -179,6 +235,10 @@ function SceneRig({
   // the procedural balancer — runs whenever no gesture owns her body
   useFrame((_, delta) => {
     mixer.update(delta);
+    // THE SOLID BODY: hands never enter the torso — the guard runs after the
+    // animation, before the render, every frame
+    guardArm("l", 0.105);
+    guardArm("r", 0.105);
     // FLIGHT: one body, grounded and airborne — she lifts off her pad with
     // real altitude (cm resolution from the HAL) and her cranial halo —
     // her actual propulsion array — brightens as the motors spool up.

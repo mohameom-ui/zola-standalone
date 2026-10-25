@@ -83,6 +83,12 @@ class ZolaDancePPORunnerCfg(ZolaPPORunnerCfg):
 
 
 @configclass
+class ZolaTalkPPORunnerCfg(ZolaPPORunnerCfg):
+    experiment_name = "zola_talk"
+    max_iterations = 1500
+
+
+@configclass
 class ZolaTouchdownPPORunnerCfg(ZolaPPORunnerCfg):
     experiment_name = "zola_touchdown"
     max_iterations = 1500

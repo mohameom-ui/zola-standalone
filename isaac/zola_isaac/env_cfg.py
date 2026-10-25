@@ -235,6 +235,16 @@ THUMBS_UP_POSE = {
     "neck_yaw": -.2,
 }
 
+# THE TALKING ROUTINE — conversational body expression: small head tilts,
+# a gentle hand emphasis, shoulder life — the way a person punctuates speech
+# with their body. Gentle amplitudes: conversation, not a performance.
+TALKING_ROUTINE = [
+    {"neck_yaw": .18, "right_shoulder_pitch": .3, "right_elbow": -.7, "left_elbow": -.2},
+    {"neck_yaw": -.14, "right_elbow": -.35, "left_shoulder_pitch": .18},
+    {"neck_pitch": .1, "right_shoulder_pitch": .12, "left_elbow": -.55},
+    {"neck_yaw": .06, "right_elbow": -.6, "left_shoulder_pitch": .05},
+]
+
 # THE HALOBEAT — her dance routine: a four-count at 2 s per bar. Arms pump,
 # hips answer, the count repeats. The song is the period; the steps are the
 # keyframes; the policy learns to dance on the beat.
@@ -284,6 +294,18 @@ class ZolaDanceCfg(ZolaHandsCfg):
     pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
     pose_sequence = HALOBEAT
     pose_period_s = 2.0
+    action_space = len(ARM_JOINTS)+12
+    observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaTalkCfg(ZolaHandsCfg):
+    """BODY EXPRESSION WHILE TALKING: the conversational routine — head tilts
+    and soft hand emphasis cycling at 1.6 s, the body punctuating speech the
+    way a person does. Gentle by design: emphasis, not performance."""
+    pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
+    pose_sequence = TALKING_ROUTINE
+    pose_period_s = 1.6
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*(len(ARM_JOINTS)+12)+12
 

@@ -23,6 +23,7 @@ import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1850.jso
 import pictureManifest from "../../../isaac/policies/zola_picture_model_1450.json";
 import thumbsManifest from "../../../isaac/policies/zola_thumbs_model_1499.json";
 import danceManifest from "../../../isaac/policies/zola_dance_model_1999.json";
+import talkManifest from "../../../isaac/policies/zola_talk_model_1450.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -58,6 +59,7 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   pictureManifest,
   thumbsManifest,
   danceManifest,
+  talkManifest,
 ] as unknown as IsaacPolicyManifest[];
 
 const TASK_NAMES: Record<string, string> = {
@@ -72,6 +74,7 @@ const TASK_NAMES: Record<string, string> = {
   zola_picture: "posing for a picture",
   zola_thumbs: "thumbs up (finger dexterity)",
   zola_dance: "the halobeat — dancing on the beat",
+  zola_talk: "talking body expression (the conversational routine)",
 };
 
 

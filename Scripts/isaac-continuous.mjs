@@ -39,6 +39,7 @@ const ROTATION = [
   ["Isaac-Zola-Picture-Prototype-v0", "zola_picture", "picture-pose"],
   ["Isaac-Zola-Thumbs-Prototype-v0", "zola_thumbs", "thumbs-up"],
   ["Isaac-Zola-Dance-Prototype-v0", "zola_dance", "the halobeat (dance)"],
+  ["Isaac-Zola-Talk-Prototype-v0", "zola_talk", "talking expression"],
   ["Isaac-Zola-Touchdown-Prototype-v0", "zola_touchdown", "the halo touchdown"],
 ];
 

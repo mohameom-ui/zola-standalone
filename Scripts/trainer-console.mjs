@@ -34,6 +34,7 @@ const TASKS = {
   picture: { id: "Isaac-Zola-Picture-Prototype-v0", label: "picture pose", iters: 1200 },
   thumbs: { id: "Isaac-Zola-Thumbs-Prototype-v0", label: "thumbs up", iters: 1200 },
   dance: { id: "Isaac-Zola-Dance-Prototype-v0", label: "the halobeat (dance)", iters: 2000 },
+  talk: { id: "Isaac-Zola-Talk-Prototype-v0", label: "talking expression", iters: 1500 },
   touchdown: { id: "Isaac-Zola-Touchdown-Prototype-v0", label: "the halo touchdown", iters: 2500 },
 };
 

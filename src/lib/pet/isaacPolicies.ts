@@ -16,10 +16,7 @@ import walkV3Manifest from "../../../isaac/policies/zola_walk_model_2200.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1400.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1350.json";
 import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3250.json";
-import hoverManifest from "../../../isaac/policies/zola_hover_model_1950.json";
-import hoverV2Manifest from "../../../isaac/policies/zola_hover_model_2300.json";
-import hoverV3Manifest from "../../../isaac/policies/zola_hover_model_4700.json";
-import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1850.json";
+import hoverManifest from "../../../isaac/policies/zola_hover_model_1600.json";
 import pictureManifest from "../../../isaac/policies/zola_picture_model_1450.json";
 import thumbsManifest from "../../../isaac/policies/zola_thumbs_model_1499.json";
 import danceManifest from "../../../isaac/policies/zola_dance_model_1999.json";
@@ -53,9 +50,6 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   flightManifest,
   touchdownManifest,
   hoverManifest,
-  hoverV2Manifest,
-  hoverV3Manifest,
-  takeoffManifest,
   pictureManifest,
   thumbsManifest,
   danceManifest,
@@ -68,8 +62,7 @@ const TASK_NAMES: Record<string, string> = {
   zola_hands: "arm and hand pose control (she moves her hands)",
   zola_flight: "flight-posture discipline (hold still in the air — the halo does the flying)",
   zola_touchdown: "THE HALO TOUCHDOWN — her signature hero landing",
-  zola_hover: "coupled hover flight (real rotor physics — her body rides the halo)",
-  zola_takeoff: "the takeoff transition (riding the prop spin-up and lift-off)",
+  zola_hover: "coupled hover flight (the V12 collar rotors — real coupled physics)",
   zola_sit: "sitting",
   zola_picture: "posing for a picture",
   zola_thumbs: "thumbs up (finger dexterity)",
@@ -124,8 +117,8 @@ const LEG_JOINTS: string[] = (bodyProfile as { controlled_joints: string[] }).co
 const ARM_HAND_JOINTS: string[] = PROFILE_JOINTS.filter(
   (n) => n.includes("shoulder") || n.includes("elbow") || n.includes("wrist") || n.endsWith("_flex"),
 );
-const HALO_JOINTS: string[] = PROFILE_JOINTS.filter((n) => n.startsWith("halo_"));
-const TORSO_HEAD_JOINTS: string[] = PROFILE_JOINTS.filter((n) => !LEG_JOINTS.includes(n) && !ARM_HAND_JOINTS.includes(n) && !n.startsWith("halo_"));
+const COLLAR_JOINTS: string[] = PROFILE_JOINTS.filter((n) => n.startsWith("collar_"));
+const TORSO_HEAD_JOINTS: string[] = PROFILE_JOINTS.filter((n) => !LEG_JOINTS.includes(n) && !ARM_HAND_JOINTS.includes(n) && !n.startsWith("collar_"));
 
 export const BODY_MAP = {
   joints: PROFILE_JOINTS.length,
@@ -133,8 +126,8 @@ export const BODY_MAP = {
   groups: [
     { name: "legs and feet", count: LEG_JOINTS.length, controlledBy: "balance + walking + all whole-body policies" },
     { name: "arms and hands", count: ARM_HAND_JOINTS.length, controlledBy: "the hands and flight-posture policies (simulation)" },
-    { name: "waist and neck", count: TORSO_HEAD_JOINTS.length, controlledBy: "neutral targets (the halo does the flying)" },
-    { name: "halo thrusters", count: HALO_JOINTS.length, controlledBy: "frozen mounts — the autopilot pushes through them" },
+    { name: "waist and neck", count: TORSO_HEAD_JOINTS.length, controlledBy: "neutral targets (the collar drone does the flying)" },
+    { name: "collar thrusters", count: COLLAR_JOINTS.length, controlledBy: "frozen mounts at the neck collar — the autopilot pushes through them" },
   ],
   massKg: (bodyProfile as { total_mass_kg: number }).total_mass_kg,
   hardwareCalibrated: (bodyProfile as { hardware_calibrated: boolean }).hardware_calibrated,
@@ -143,7 +136,7 @@ export const BODY_MAP = {
 /** Her spoken body report — every number from the profile, honestly gated. */
 export function bodyMapReport(): string {
   const g = BODY_MAP.groups.map((x) => `${x.count} ${x.name}`).join(", ");
-  const line = `My body map, from my own physics profile: ${BODY_MAP.joints} actuated joints — ${g} — on a ${BODY_MAP.visualBones}-bone visual rig, ${BODY_MAP.massKg.toFixed(1)} kg total. My quad-halo lives in my HEAD: four props above my center of mass, so in flight I hang from my own skull like a very dignified pendulum. Legs and hands have trained simulation policies; my waist and neck hold neutral. On hardware, none of my limbs have a servo bridge yet — the halo flies, the body is body language. And I keep it STILL up there. Flailing is danger.`;
+  const line = `My body map, from my own physics profile: ${BODY_MAP.joints} actuated joints — ${g} — on a ${BODY_MAP.visualBones}-bone visual rig, ${BODY_MAP.massKg.toFixed(1)} kg total. My drone is the V12 collar: four ducted fans mounted at my neck, two per side, so in flight I hang from my own collar like a very dignified pendulum. Legs and hands have trained simulation policies; my waist and neck hold neutral. On hardware, none of my limbs have a servo bridge yet — the collar flies, the body is body language. And I keep it STILL up there. Flailing is danger.`;
   return line;
 }
 

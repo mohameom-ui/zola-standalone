@@ -10,7 +10,7 @@ def Xform "Zola" (
     customData = {
         dictionary zola = {
             bool hardwareCalibrated = 0
-            string profileSHA256 = "1d9280a51ee345ece597a895513d26babca25d3ad251cefdefd766d33f28ac45"
+            string profileSHA256 = "c0a88947f4acdd75b1e0a8f7acd761641bef35a33719fa39fe92ae423e862a72"
             string provenance = "Simulation assumptions; no hardware measurements or actuator calibration"
             double spawnHeight = 0.9318
         }
@@ -119,86 +119,86 @@ def Xform "Zola" (
         }
     }
 
-    def Xform "halo_front_left_thruster" (
+    def Xform "collar_front_left_thruster" (
         prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
     )
     {
-        point3f physics:centerOfMass = (0.065, 0.065, 0.28)
+        point3f physics:centerOfMass = (0.1, 0.05, 0.02)
         float3 physics:diagonalInertia = (0.0000070833335, 0.0000070833335, 0.000008166667)
         float physics:mass = 0.04
         quatf physics:principalAxes = (1, 0, 0, 0)
-        double3 xformOp:translate = (0.065, 0.065, 0.8331000000000002)
+        double3 xformOp:translate = (0.1, 0.05, 0.5731000000000002)
         uniform token[] xformOpOrder = ["xformOp:translate"]
 
         def Cube "shape"
         {
-            color3f[] primvars:displayColor = [(0.65, 0.43, 0.13)]
+            color3f[] primvars:displayColor = [(0.04, 0.75, 0.8)]
             double size = 1
             float3 xformOp:scale = (0.035, 0.035, 0.03)
-            double3 xformOp:translate = (0.065, 0.065, 0.28)
+            double3 xformOp:translate = (0.1, 0.05, 0.02)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
         }
     }
 
-    def Xform "halo_front_right_thruster" (
+    def Xform "collar_front_right_thruster" (
         prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
     )
     {
-        point3f physics:centerOfMass = (0.065, -0.065, 0.28)
+        point3f physics:centerOfMass = (0.1, -0.05, 0.02)
         float3 physics:diagonalInertia = (0.0000070833335, 0.0000070833335, 0.000008166667)
         float physics:mass = 0.04
         quatf physics:principalAxes = (1, 0, 0, 0)
-        double3 xformOp:translate = (0.065, -0.065, 0.8331000000000002)
+        double3 xformOp:translate = (0.1, -0.05, 0.5731000000000002)
         uniform token[] xformOpOrder = ["xformOp:translate"]
 
         def Cube "shape"
         {
-            color3f[] primvars:displayColor = [(0.65, 0.43, 0.13)]
+            color3f[] primvars:displayColor = [(0.04, 0.75, 0.8)]
             double size = 1
             float3 xformOp:scale = (0.035, 0.035, 0.03)
-            double3 xformOp:translate = (0.065, -0.065, 0.28)
+            double3 xformOp:translate = (0.1, -0.05, 0.02)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
         }
     }
 
-    def Xform "halo_rear_left_thruster" (
+    def Xform "collar_rear_left_thruster" (
         prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
     )
     {
-        point3f physics:centerOfMass = (-0.065, 0.065, 0.28)
+        point3f physics:centerOfMass = (-0.1, 0.05, 0.02)
         float3 physics:diagonalInertia = (0.0000070833335, 0.0000070833335, 0.000008166667)
         float physics:mass = 0.04
         quatf physics:principalAxes = (1, 0, 0, 0)
-        double3 xformOp:translate = (-0.065, 0.065, 0.8331000000000002)
+        double3 xformOp:translate = (-0.1, 0.05, 0.5731000000000002)
         uniform token[] xformOpOrder = ["xformOp:translate"]
 
         def Cube "shape"
         {
-            color3f[] primvars:displayColor = [(0.65, 0.43, 0.13)]
+            color3f[] primvars:displayColor = [(0.04, 0.75, 0.8)]
             double size = 1
             float3 xformOp:scale = (0.035, 0.035, 0.03)
-            double3 xformOp:translate = (-0.065, 0.065, 0.28)
+            double3 xformOp:translate = (-0.1, 0.05, 0.02)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
         }
     }
 
-    def Xform "halo_rear_right_thruster" (
+    def Xform "collar_rear_right_thruster" (
         prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
     )
     {
-        point3f physics:centerOfMass = (-0.065, -0.065, 0.28)
+        point3f physics:centerOfMass = (-0.1, -0.05, 0.02)
         float3 physics:diagonalInertia = (0.0000070833335, 0.0000070833335, 0.000008166667)
         float physics:mass = 0.04
         quatf physics:principalAxes = (1, 0, 0, 0)
-        double3 xformOp:translate = (-0.065, -0.065, 0.8331000000000002)
+        double3 xformOp:translate = (-0.1, -0.05, 0.5731000000000002)
         uniform token[] xformOpOrder = ["xformOp:translate"]
 
         def Cube "shape"
         {
-            color3f[] primvars:displayColor = [(0.65, 0.43, 0.13)]
+            color3f[] primvars:displayColor = [(0.04, 0.75, 0.8)]
             double size = 1
             float3 xformOp:scale = (0.035, 0.035, 0.03)
-            double3 xformOp:translate = (-0.065, -0.065, 0.28)
+            double3 xformOp:translate = (-0.1, -0.05, 0.02)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
         }
     }
@@ -1045,7 +1045,7 @@ def Xform "Zola" (
             float physics:upperLimit = 34.37747
         }
 
-        def PhysicsRevoluteJoint "halo_front_left_mount" (
+        def PhysicsRevoluteJoint "collar_front_left_mount" (
             prepend apiSchemas = ["PhysicsDriveAPI:angular"]
         )
         {
@@ -1055,9 +1055,9 @@ def Xform "Zola" (
             float drive:angular:physics:targetPosition = 0
             uniform token drive:angular:physics:type = "force"
             uniform token physics:axis = "Z"
-            rel physics:body0 = </Zola/head>
-            rel physics:body1 = </Zola/halo_front_left_thruster>
-            point3f physics:localPos0 = (0.065, 0.065, 0.28)
+            rel physics:body0 = </Zola/neck_yaw_link>
+            rel physics:body1 = </Zola/collar_front_left_thruster>
+            point3f physics:localPos0 = (0.1, 0.05, 0.02)
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
             quatf physics:localRot1 = (1, 0, 0, 0)
@@ -1065,7 +1065,7 @@ def Xform "Zola" (
             float physics:upperLimit = 0.05729578
         }
 
-        def PhysicsRevoluteJoint "halo_front_right_mount" (
+        def PhysicsRevoluteJoint "collar_front_right_mount" (
             prepend apiSchemas = ["PhysicsDriveAPI:angular"]
         )
         {
@@ -1075,9 +1075,9 @@ def Xform "Zola" (
             float drive:angular:physics:targetPosition = 0
             uniform token drive:angular:physics:type = "force"
             uniform token physics:axis = "Z"
-            rel physics:body0 = </Zola/head>
-            rel physics:body1 = </Zola/halo_front_right_thruster>
-            point3f physics:localPos0 = (0.065, -0.065, 0.28)
+            rel physics:body0 = </Zola/neck_yaw_link>
+            rel physics:body1 = </Zola/collar_front_right_thruster>
+            point3f physics:localPos0 = (0.1, -0.05, 0.02)
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
             quatf physics:localRot1 = (1, 0, 0, 0)
@@ -1085,7 +1085,7 @@ def Xform "Zola" (
             float physics:upperLimit = 0.05729578
         }
 
-        def PhysicsRevoluteJoint "halo_rear_left_mount" (
+        def PhysicsRevoluteJoint "collar_rear_left_mount" (
             prepend apiSchemas = ["PhysicsDriveAPI:angular"]
         )
         {
@@ -1095,9 +1095,9 @@ def Xform "Zola" (
             float drive:angular:physics:targetPosition = 0
             uniform token drive:angular:physics:type = "force"
             uniform token physics:axis = "Z"
-            rel physics:body0 = </Zola/head>
-            rel physics:body1 = </Zola/halo_rear_left_thruster>
-            point3f physics:localPos0 = (-0.065, 0.065, 0.28)
+            rel physics:body0 = </Zola/neck_yaw_link>
+            rel physics:body1 = </Zola/collar_rear_left_thruster>
+            point3f physics:localPos0 = (-0.1, 0.05, 0.02)
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
             quatf physics:localRot1 = (1, 0, 0, 0)
@@ -1105,7 +1105,7 @@ def Xform "Zola" (
             float physics:upperLimit = 0.05729578
         }
 
-        def PhysicsRevoluteJoint "halo_rear_right_mount" (
+        def PhysicsRevoluteJoint "collar_rear_right_mount" (
             prepend apiSchemas = ["PhysicsDriveAPI:angular"]
         )
         {
@@ -1115,9 +1115,9 @@ def Xform "Zola" (
             float drive:angular:physics:targetPosition = 0
             uniform token drive:angular:physics:type = "force"
             uniform token physics:axis = "Z"
-            rel physics:body0 = </Zola/head>
-            rel physics:body1 = </Zola/halo_rear_right_thruster>
-            point3f physics:localPos0 = (-0.065, -0.065, 0.28)
+            rel physics:body0 = </Zola/neck_yaw_link>
+            rel physics:body1 = </Zola/collar_rear_right_thruster>
+            point3f physics:localPos0 = (-0.1, -0.05, 0.02)
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
             quatf physics:localRot1 = (1, 0, 0, 0)

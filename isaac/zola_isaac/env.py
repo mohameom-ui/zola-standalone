@@ -83,7 +83,9 @@ class ZolaPrototypeEnv(DirectRLEnv):
         self.thrust_ramp_s = getattr(cfg, "thrust_ramp_s", 0.0)
         self.root_body_ids = [0]  # the pelvis: body 0 in any ordering
         if self.rotors:
-            self.rotor_body_ids, self.rotor_body_names = self.robot.find_bodies("halo_.*_thruster")
+            # the V12 collar mount: the rotors live at the NECK now (two per
+            # side), not the head — the find matches the renamed thrusters
+            self.rotor_body_ids, self.rotor_body_names = self.robot.find_bodies("collar_.*_thruster")
             self.rotor_body_ids = torch.as_tensor(self.rotor_body_ids, device=self.device, dtype=torch.long)
             self.hover_target_z = MODEL["base_height"]+.12
             self.kp_z, self.kd_z = 40.0, 8.0
@@ -146,11 +148,14 @@ class ZolaPrototypeEnv(DirectRLEnv):
             down = torch.tensor((0., 0., -1.), device=self.device).expand_as(g_w)
             tau_w = self.kp_att*torch.cross(g_w, down, dim=1)-self.kd_att*data.root_link_ang_vel_w.torch
             tau_b = quat_apply_inverse(q_wxyz, tau_w)
-            # QUADROTOR MIXING: rotor i at (±d, ±d): δF_i = (τ_x·y_i + τ_y·x_i)/(4d²)
-            d = 0.065
-            rx = torch.tensor((d, d, -d, -d), device=self.device)
-            ry = torch.tensor((d, -d, d, -d), device=self.device)
-            delta = (tau_b[:, 0:1]*ry + tau_b[:, 1:2]*rx)/(4*d*d)
+            # QUADROTOR MIXING for the collar's rectangular X layout
+            # (±dx, ±dy): δF_i = τ_x·y_i/(4dy²) + τ_y·x_i/(4dx²)
+            # dx = 0.1 (the pitch arm), dy = 0.05 (the roll arm) — the V12
+            # collar geometry from the physics profile
+            dx, dy = 0.1, 0.05
+            rx = torch.tensor((dx, dx, -dx, -dx), device=self.device)
+            ry = torch.tensor((dy, -dy, dy, -dy), device=self.device)
+            delta = (tau_b[:, 0:1]*ry)/(4*dy*dy) + (tau_b[:, 1:2]*rx)/(4*dx*dx)
             f_i = (thrust/4).unsqueeze(1)+delta
             f_i = f_i.clamp(min=0.0)  # props push, they do not pull
             forces = torch.zeros((self.num_envs, 4, 3), device=self.device)

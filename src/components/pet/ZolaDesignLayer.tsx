@@ -98,8 +98,8 @@ export default function ZolaDesignLayer({ scene, accentColor, flight }: Props) {
       collar.add(collarRing);
       // two fans per side — tight around the neck, extending outward
       const mounts: [number, number, number][] = [
-        [-0.2, 0.05, 0.02], [0.2, 0.05, 0.02],
-        [-0.16, -0.02, -0.05], [0.16, -0.02, -0.05],
+        [-0.22, 0.06, 0.02], [0.22, 0.06, 0.02],
+        [-0.18, -0.02, -0.06], [0.18, -0.02, -0.06],
       ];
       for (const [x, y, z] of mounts) {
         const fan = keep(new THREE.Group());
@@ -111,7 +111,7 @@ export default function ZolaDesignLayer({ scene, accentColor, flight }: Props) {
         fan.add(arm);
         // the duct ring — cyan glowing
         const ductGlow = glowMat(1.8); // the duct's cyan ring glow
-        const duct = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.018, 10, 40), ductGlow);
+        const duct = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.021, 10, 40), ductGlow);
         duct.rotation.x = Math.PI / 2 - 0.14;
         fan.add(duct);
         // the multi-blade impeller inside the duct — spins with the RPM

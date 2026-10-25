@@ -35,7 +35,7 @@ describe("the isaac report — her simulation skills, served honestly", () => {
     expect(line).toContain("41 actuated joints");
     expect(line).toMatch(/12 legs and feet/);
     expect(line).toMatch(/22 arms and hands/);
-    expect(line).toMatch(/4 halo thrusters/);
+    expect(line).toMatch(/4 collar thrusters/);
     expect(line).toMatch(/pendulum/);
     expect(line).toMatch(/Flailing is danger/);
   });

@@ -22,7 +22,9 @@
     "foot_length": 0.23,
     "foot_width": 0.11,
     "foot_height": 0.07,
-    "halo_half_width": 0.065
+    "halo_half_width": 0.065,
+    "collar_half_width": 0.1,
+    "collar_half_depth": 0.05
   },
   "masses_kg": {
     "pelvis": 6.0,

@@ -743,3 +743,10 @@ Format: [date] slice — action — library source → destination.
 - **The weird-reply threshold**: the suggest fallback matched two-word candidates at 0.5 — ONE common word ("what's up" → "Did you mean: wake up?" via the lone "up"). Raised to 0.6 + a regression test.
 - **The voice-load window**: while the neural voice is still loading (first ~2 min), her early lines fell to the robotic Piper pack. Now: silence + a log line beat the robotic voice; Piper speaks only when the neural engine is switched OFF.
 - The routing audit (LLM tier 1 → on-device tier 2 → deep-eyes → wake word → missions → storytelling → reflexes) is verified connected; the LLM's decision grammar already carries gesture:<clip> so speech and body travel together.
+
+### 2026-10-25 (18) — THE V12 BODY RETRAIN: the collar rotors replace the head halo
+- **The physics profile updated:** the four thrusters moved from the head halo to the NECK COLLAR (two per side, collar_half_width 0.1 / half_depth 0.05) — URDF/JSON/USD regenerated, all physics tests pass.
+- **The mixing updated** for the collar's rectangular X layout (dx 0.1 pitch arm, dy 0.05 roll arm — the asymmetric arms change the differential-thrust authority).
+- **hover_v4 trained ON THE NEW GEOMETRY** (2500 iters): the run was unstable late (final 10.27/340 — the short roll arm is harder) — and the best-checkpoint selector did its exact job: exported the SMOOTHED PEAK (model_1600, ~16-17/495) instead of the broken tail.
+- **THE HONEST SHELF CLEANUP:** the head-geometry hover exports (1950/2300/4700) and the head-geometry takeoff export are RETIRED — they fly a body that no longer exists. The shelf now carries only collar-geometry flight. Takeoff is queued for collar retraining.
+- **Her body map updated:** "4 collar thrusters", the V12 collar in her spoken report. The old "halo in my head" text is retired.

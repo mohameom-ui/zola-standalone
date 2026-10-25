@@ -68,7 +68,7 @@
       "collision": true
     },
     {
-      "name": "halo_front_left_thruster",
+      "name": "collar_front_left_thruster",
       "size": [
         0.035,
         0.035,
@@ -76,15 +76,15 @@
       ],
       "mass": 0.04,
       "center": [
-        0.065,
-        0.065,
-        0.28
+        0.1,
+        0.05,
+        0.02
       ],
-      "color": "gold",
+      "color": "cyan",
       "collision": false
     },
     {
-      "name": "halo_front_right_thruster",
+      "name": "collar_front_right_thruster",
       "size": [
         0.035,
         0.035,
@@ -92,15 +92,15 @@
       ],
       "mass": 0.04,
       "center": [
-        0.065,
-        -0.065,
-        0.28
+        0.1,
+        -0.05,
+        0.02
       ],
-      "color": "gold",
+      "color": "cyan",
       "collision": false
     },
     {
-      "name": "halo_rear_left_thruster",
+      "name": "collar_rear_left_thruster",
       "size": [
         0.035,
         0.035,
@@ -108,15 +108,15 @@
       ],
       "mass": 0.04,
       "center": [
-        -0.065,
-        0.065,
-        0.28
+        -0.1,
+        0.05,
+        0.02
       ],
-      "color": "gold",
+      "color": "cyan",
       "collision": false
     },
     {
-      "name": "halo_rear_right_thruster",
+      "name": "collar_rear_right_thruster",
       "size": [
         0.035,
         0.035,
@@ -124,11 +124,11 @@
       ],
       "mass": 0.04,
       "center": [
-        -0.065,
-        -0.065,
-        0.28
+        -0.1,
+        -0.05,
+        0.02
       ],
-      "color": "gold",
+      "color": "cyan",
       "collision": false
     },
     {
@@ -750,13 +750,13 @@
       "source_bone": "Head"
     },
     {
-      "name": "halo_front_left_mount",
-      "parent": "head",
-      "child": "halo_front_left_thruster",
+      "name": "collar_front_left_mount",
+      "parent": "neck_yaw_link",
+      "child": "collar_front_left_thruster",
       "origin": [
-        0.065,
-        0.065,
-        0.28
+        0.1,
+        0.05,
+        0.02
       ],
       "axis": [
         0,
@@ -774,13 +774,13 @@
       "source_bone": null
     },
     {
-      "name": "halo_front_right_mount",
-      "parent": "head",
-      "child": "halo_front_right_thruster",
+      "name": "collar_front_right_mount",
+      "parent": "neck_yaw_link",
+      "child": "collar_front_right_thruster",
       "origin": [
-        0.065,
-        -0.065,
-        0.28
+        0.1,
+        -0.05,
+        0.02
       ],
       "axis": [
         0,
@@ -798,13 +798,13 @@
       "source_bone": null
     },
     {
-      "name": "halo_rear_left_mount",
-      "parent": "head",
-      "child": "halo_rear_left_thruster",
+      "name": "collar_rear_left_mount",
+      "parent": "neck_yaw_link",
+      "child": "collar_rear_left_thruster",
       "origin": [
-        -0.065,
-        0.065,
-        0.28
+        -0.1,
+        0.05,
+        0.02
       ],
       "axis": [
         0,
@@ -822,13 +822,13 @@
       "source_bone": null
     },
     {
-      "name": "halo_rear_right_mount",
-      "parent": "head",
-      "child": "halo_rear_right_thruster",
+      "name": "collar_rear_right_mount",
+      "parent": "neck_yaw_link",
+      "child": "collar_rear_right_thruster",
       "origin": [
-        -0.065,
-        -0.065,
-        0.28
+        -0.1,
+        -0.05,
+        0.02
       ],
       "axis": [
         0,
@@ -1683,6 +1683,6 @@
     "dynamic_friction": 0.7,
     "restitution": 0.0
   },
-  "profile_sha256": "1d9280a51ee345ece597a895513d26babca25d3ad251cefdefd766d33f28ac45",
+  "profile_sha256": "c0a88947f4acdd75b1e0a8f7acd761641bef35a33719fa39fe92ae423e862a72",
   "total_mass_kg": 42.18
 }

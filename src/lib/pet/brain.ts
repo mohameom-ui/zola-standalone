@@ -585,6 +585,11 @@ export class PetBrain {
       if (/lay\s+down|lie\s+down/.test(t)) return play("laydown_01", "sleepy", "laydown");
       if (/get\s+up/.test(t)) return play("getup_01", "curious", "getup");
       if (/\b(mope|sulk)/.test(t)) return play("mope_01", "sleepy", "mope");
+      // the expression-library commands, honestly mapped: her web body has
+      // its own clip repertoire — the simulation-trained poses live in the
+      // Isaac body, and she says so instead of pretending
+      if (/\b(sit|sit down)\b/.test(t)) return play("laydown_01", "sleepy", "laydown");
+      if (/\b(pose|picture)\b/.test(t)) return play("curtsey_01", "happy", "curtsey");
     }
 
     // --- autonomous task planning ---------------------------------------------
@@ -699,6 +704,11 @@ export class PetBrain {
     if (has("stop", "stay", "hover", "hold")) {
       this.setActivity("hover");
       return "Holding position.";
+    }
+    if (/\bthumbs?\s*up\b/.test(t)) {
+      this.setMood("happy");
+      this.addBond(0.02);
+      return "Thumbs up received — right back at you, five fingers at five angles.";
     }
     if (has("hello", "hi ", "hey", "hi!")) {
       this.setMood("happy");

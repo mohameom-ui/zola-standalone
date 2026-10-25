@@ -479,22 +479,25 @@ export default function DronePetPanel() {
   const say = useCallback((text: string, opts?: { interrupt?: boolean }) => {
     if (!text) return;
     const persona = brainRef.current?.getPersona() ?? "SWEET";
-    // PIPER PACK first: her authentic drone-body voice for known lines
+    // THE VOICE FIX: the NEURAL voice speaks first — the pre-rendered Piper
+    // pack (a small Pi-TTS voice) reads robotic in the browser and was
+    // swallowing every known line before the good voice could speak. The
+    // neural engine handles everything; the Piper pack is the fallback.
     void (async () => {
-      const packReady = await piperPackRef.current.ensureLoaded();
-      if (packReady) {
-        const spoken = await piperPackRef.current.speak(text);
-        if (spoken) return; // her real Pi voice handled it
-      }
-      // fallback: neural (Kokoro) only — no browser TTS
       if (neuralRef.current.loaded && neuralRef.current.enabled) {
         const speedByPersona: Record<string, number> = { GRUMPY: 0.9, DREAMING: 0.88, HYPER: 1.1, "ROAST MODE": 1.08, SULKING: 0.9, SKITTISH: 1.06 };
         neuralRef.current.setRate(speedByPersona[persona] ?? 1.0);
         const spoken = await neuralRef.current.speak(text, opts);
-        if (!spoken) pushLog("sys", "neural voice unavailable — line shown in log only");
-      } else {
-        pushLog("sys", "no voice engine active — line shown in log only");
+        if (spoken) return; // her real neural voice handled it
+        pushLog("sys", "neural voice unavailable — trying her Pi voice pack");
       }
+      // fallback: the Piper pack (her authentic drone-body voice)
+      const packReady = await piperPackRef.current.ensureLoaded();
+      if (packReady) {
+        const spoken = await piperPackRef.current.speak(text);
+        if (spoken) return;
+      }
+      pushLog("sys", "no voice engine active — line shown in log only");
     })();
     pushLog("aura", text);
     const until = performance.now() + 3200 + Math.min(3000, text.length * 45);
@@ -2020,6 +2023,7 @@ export default function DronePetPanel() {
         llm.enabled = true;
         setLlmOn(true);
         pushLog("sys", `brain auto-connected: ${llm.model} (found running on this machine — no click needed)`);
+        pushLog("sys", "her trainer console: localhost:3002 — command her training, watch her live in 3D");
       }
     })();
   }, [pushLog]);

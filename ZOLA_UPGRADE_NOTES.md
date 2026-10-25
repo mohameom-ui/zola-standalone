@@ -730,3 +730,10 @@ Format: [date] slice — action — library source → destination.
 - **The root-motion strip ate the walk's bounce**: now only the HORIZONTAL drift is zeroed — the vertical bob is kept (a walk without bounce reads broken), and the world moves her forward.
 - **The props clipped the slimmed head**: the halo mounts raised to (±0.2, y 1.08) — clear of the cranium.
 - Full-body check re-run with the fixes live: ALL ORGANS VERIFIED, no page errors, perception events 6 → 10.
+
+### 2026-10-25 (16) — THE VOICE FIX + THE INTEGRATION PASS
+- **THE ROBOTIC VOICE, root-caused:** her say() routed EVERY known line through the pre-rendered Piper pack (en_US-amy-medium — a small Pi-TTS voice that reads robotic in the browser) before the good neural voice ever got a turn. Reordered: the NEURAL voice (Kokoro, af_heart) speaks everything; the Piper pack is the fallback for when the neural engine is unavailable.
+- **The disconnect audit found the biggest one:** the panel's gesture:<clip> route existed but her LLM ACTION grammar offered no body-language path — now reinforced explicitly in the core prompt (gesture:<clip> to punctuate emotional lines), so her speech and her body travel together through the same decision.
+- **The new skills wired into the reflex layer:** "sit down" (honestly mapped to her lie-down — the trained sit lives in the simulation body and she says so), "pose"/"picture" (her curtsey for the camera), "thumbs up" (mood + bond + the five-finger line). Lexicon keywords added.
+- **The trainer console is announced in her panel boot log** — the operator learns :3002 exists from inside her own panel.
+- Full-body check re-verified with the voice fix live: ALL ORGANS, no page errors.

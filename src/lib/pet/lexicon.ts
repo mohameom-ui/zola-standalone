@@ -35,7 +35,7 @@ const KEYWORDS = [
   "name", "stop", "hover", "power", "up", "room", "me", "the", "what",
   // THE TRICKS (2026-10-25): every body clip can be asked for by voice
   "bow", "curtsey", "peekaboo", "rollover", "stretch", "shrug", "march",
-  "laydown", "getup", "mope", "sulk",
+  "laydown", "getup", "mope", "sulk", "sit", "picture", "pose", "thumbs",
 ];
 
 export function lev(a: string, b: string): number {

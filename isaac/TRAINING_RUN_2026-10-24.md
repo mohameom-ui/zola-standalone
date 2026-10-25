@@ -44,6 +44,22 @@ backend (`isaacsim_physx` preset), Windows host.
 - `isaac/logs/rsl_rl/zola_balance_prototype/2026-10-24_balance_v1/`
 - `isaac/logs/rsl_rl/zola_walk_prototype/2026-10-24_walk_v1/`
 
+## Run 3 — walk_v2 (2026-10-25)
+
+64 envs (double), 2,500 iterations: 3,840,000 steps in 19 m 40 s, final mean
+reward 21.91, episode length pinned at 599/600 (no falls in the final phase).
+Exported with `isaac/export_policy_onnx.py` — round-trip drift 5.96e-07.
+
+## Policy export — the deployment hook (2026-10-25)
+
+`isaac/export_policy_onnx.py` loads a checkpoint's actor (48→128→128→12 MLP,
+ELU, running obs normalizer folded into the graph), exports the deterministic
+Gaussian mean as ONNX, and round-trip-verifies against torch with
+IN-DISTRIBUTION probes (mean + n·std) before shipping. The balance task's
+command inputs are always zero (std = 0 exactly) — naive randn probes
+normalize to ±1e8 and measure fp32 chaos, not graph fidelity; that cost one
+failed verification before the fix. Artifacts + manifests in `isaac/policies/`.
+
 ## Notes / caveats
 
 - Windows console: the CLI loading screen can raise `UnicodeEncodeError`

@@ -1,0 +1,23 @@
+{
+  "task": "zola_balance",
+  "run": "2026-10-24_23-10-59_balance_v1",
+  "checkpoint": "model_1499.pt",
+  "iteration": 1499,
+  "obs_dim": 48,
+  "action_dim": 12,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.01164613850414753,
+    "std_head": 0.045012325048446655,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "de7a6e9b14defad253a56e0e69950fea9bb5729fe92a45881ca76a7deb459343",
+  "roundtrip_max_abs_drift": 7.152557373046875e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller"
+}

@@ -1,0 +1,23 @@
+{
+  "task": "zola_walk",
+  "run": "2026-10-25_00-39-42_walk_v2",
+  "checkpoint": "model_2499.pt",
+  "iteration": 2499,
+  "obs_dim": 48,
+  "action_dim": 12,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": -0.0006803186261095107,
+    "std_head": 0.027369536459445953,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "2258acb39eb7475c26c1d76a59ffd2440c2bd347d6a8ffffdca3a62bf2af638b",
+  "roundtrip_max_abs_drift": 5.960464477539062e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller"
+}

@@ -11,6 +11,7 @@ import { TaskRunner, type TickResult, wrapAngle } from "./tasks";
 import type { RoutineData } from "./memory";
 import { PersonaEngine, type PersonaName } from "./persona";
 import { correctHeard, lev, describeAppearance } from "./lexicon";
+import { pickVisualTrick } from "./visualTricks";
 
 const IDLE_LED = "#f0b90b";
 const HAPPY_LED = "#35d0a5";
@@ -33,6 +34,22 @@ const WALK_LINES = [
 const LOST_LINES = ["Where did you go?", "I cannot see you anymore.", "Hello? Anyone there?"];
 const FOUND_LINES = ["There you are.", "Found you.", "I see you now."];
 const STATUS = (b: number) => `Battery at ${Math.round(b * 100)} percent.`;
+
+// THE TRICKS — her spoken personality for each body clip she can play on
+// command (2026-10-25: every clip got a voice; the dictionary PART V is canon).
+const BODY_TRICK_LINES: Record<string, string[]> = {
+  dance: ["Dance mode. Rhythm AND rotors.", "Watch the footwork. All four feet.", "My victory dance. Learn it."],
+  bow: ["A bow. For you, always.", "Bowing. Formality protocol engaged.", "I take a bow. Applause is optional but encouraged."],
+  curtsey: ["A curtsey. Very proper.", "The curtsey. Elegance is a flight spec too.", "Curtsey delivered. You are welcome."],
+  peekaboo: ["Peekaboo! I was here the whole time.", "Found me? I never left.", "Peekaboo. Optimal surprise, delivered."],
+  rollover: ["Rolling over. Do not try this with props spinning.", "One full roll. Zero scratches.", "Rollover complete. Award ceremony pending."],
+  stretch: ["Stretching. Limber servos are happy servos.", "A good stretch before the next flight.", "Flexibility check: passed."],
+  shrug: ["*shrug* The data was inconclusive.", "I shrug. It is my honest answer.", "Unknown. Hence: the shrug."],
+  march: ["Marching. The parade is me.", "Left, right, left. Servos in step.", "Marching orders: mine."],
+  laydown: ["Laying down. Ground mode, maximum comfort.", "Horizontal mode engaged.", "Down I go. Wake me for the good stuff."],
+  getup: ["Getting up. Systems re-engaging.", "Back on my feet. Or foot pads.", "Recovery complete. As if I ever fell."],
+  mope: ["*mope* Low aura today.", "I am moping. It is a whole thing.", "Mope mode. Do not mind me."],
+};
 
 const JOKES = [
   "Why did the drone break up with the kite? It needed someone more grounded.",
@@ -160,6 +177,10 @@ export interface BrainHooks {
   wherePos?: (target: string) => { x: number; y: number; z: number } | null;
   /** where the charging dock lives */
   dockPose?: () => { x: number; y: number; z: number };
+  /** Ground travel is available in the simulator, but needs a limb-servo HAL on hardware. */
+  canWalk?: () => boolean;
+  /** THE TRICKS: play a named body clip right now (returns false if no body is attached). */
+  playGesture?: (clip: string) => boolean;
   // routines (persisted in memory)
   addRoutine?: (label: string, task: string, everyMin: number) => string;
   getRoutines?: () => RoutineData[];
@@ -190,6 +211,10 @@ export class PetBrain {
   private walkUntil = 0;
   private lastTrickDir = 1;
   private lastSmileReact = 0;
+  /** VISUAL TRICKS: last time the pixels made her perform (dictionary PART V).
+   * -Infinity: performance.now() is SMALL early in a session — 0 would mean
+   * "just performed" and mute her for the first 45 seconds of every boot. */
+  private lastVisualTrick = -Infinity;
   private lastFrownReact = 0;
   private lastBrowReact = 0;
   private lastClapReact = 0;
@@ -220,6 +245,8 @@ export class PetBrain {
   /** behavior attribution: who is currently in front of me */
   private lastIdentityId: string | null = null;
   private presenceNoteAt: Record<string, number> = {};
+  /** Observation buffer: stores the last known set of visible items to detect changes. */
+  private lastVisibleItems: string[] = [];
   /** 0..1 — grows with interactions; could persist to memory later */
   bond = 0;
 
@@ -259,6 +286,28 @@ export class PetBrain {
   /** She initiates: ambient chatter, REINFORCEMENT-WEIGHTED by what you respond to. */
   proactiveTick(ctx: { now: number; faceSeen: boolean; visibleItems: string[]; unknownObject?: string }): { line: string; category: string } | null {
     if (this.activity === "sleep" || this.runner.current || this.quietMode || this.humanFocused) return null;
+
+    // --- CONTEXTUAL AWARENESS: Detect scene changes to trigger smart comments ---
+    const currentItems = ctx.visibleItems || [];
+    const added = currentItems.filter(i => !this.lastVisibleItems.includes(i));
+    const removed = this.lastVisibleItems.filter(i => !currentItems.includes(i));
+    this.lastVisibleItems = [...currentItems];
+
+    if (added.length > 0 && ctx.faceSeen) {
+      const item = added[0];
+      return {
+        line: `Oh! I just noticed a ${item} appeared. Did you bring that in, or was it always there and I was just daydreaming?`,
+        category: "curious",
+      };
+    }
+    if (removed.length > 0 && ctx.faceSeen) {
+      const item = removed[0];
+      return {
+        line: `And there goes the ${item}. Now the room feels a bit more... empty.`,
+        category: "curious",
+      };
+    }
+
     // WAVE 5 — COUNTERFACTUAL CURIOSITY: something she cannot place earns ONE
     // targeted hypothesis question (rate-limited to ~1 per 10 min).
     if (ctx.unknownObject && ctx.now - this.lastCuriousAt > 10 * 60_000) {
@@ -307,6 +356,7 @@ export class PetBrain {
     const t = text.toLowerCase().trim();
     if (!t) return null;
     const has = (...words: string[]) => words.some((w) => t.includes(w));
+    const canWalk = this.hooks.canWalk?.() !== false;
 
     // v5.3 — THE BATTERY GATE: flight-shaped commands get refused below the
     // policy line, in her own words. Walking and dock commands pass freely.
@@ -316,7 +366,7 @@ export class PetBrain {
         // she keeps her own promise: "I walk, I do not fly" — if the
         // destination is known on the map, she strolls there instead
         const m = /(?:take me to|go to|fly to|navigate to|walk to|stroll to)\s+(?!sleep)(?:my |the |a |an )?(.{2,30})/i.exec(text);
-        if (m) {
+        if (m && canWalk) {
           const target = m[1].replace(/[.!?]+$/, "").trim();
           const isDock = /dock|home|charger|pad/i.test(target);
           const pos = isDock ? this.hooks.dockPose?.() ?? null : this.hooks.wherePos?.(target) ?? null;
@@ -326,11 +376,14 @@ export class PetBrain {
           }
         }
         // a refused patrol becomes a GROUND patrol — the perimeter is the same
-        if (has("patrol", "guard", "watch over")) {
+        if (has("patrol", "guard", "watch over") && canWalk) {
           this.setActivity("walk");
           this.walkUntil = performance.now() + 30_000;
           this.setMood("curious");
           return "Can't fly on this charge — ground patrol instead. Walking the perimeter, same watchfulness, slower feet.";
+        }
+        if (!canWalk) {
+          return "Battery is below the takeoff limit. My real flight relay has no leg-servo connection, so I need to stay grounded until charged.";
         }
         return gate.refusal ?? null; // the panel speaks her refusal
       }
@@ -340,12 +393,14 @@ export class PetBrain {
     // see the text: a stroll is a known verb, not an unknown phrase (the old
     // ordering let "take a stroll" get suggestion-matched to "wake up"!)
     if (has("walk home", "stroll home", "walk to the dock", "stroll to the dock")) {
+      if (!canWalk) return this.walkUnavailableLine();
       const dock = this.hooks.dockPose?.() ?? { x: -1.2, y: -1.2, z: 0 };
       this.walkUntil = 0;
       return this.runner.start(this.runner.planWalkGoto("the dock", null, { x: dock.x, y: dock.y, z: 0 }), performance.now());
     }
     const walkToMatch = /(?:walk|stroll)\s+(?:to|over to)\s+(?:my |the |a |an )?(.{2,30})/i.exec(text);
     if (walkToMatch) {
+      if (!canWalk) return this.walkUnavailableLine();
       const target = walkToMatch[1].replace(/[.!?]+$/, "").trim();
       const isDock = /dock|home|charger|pad/i.test(target);
       const pos = isDock ? this.hooks.dockPose?.() ?? null : this.hooks.wherePos?.(target) ?? null;
@@ -354,6 +409,7 @@ export class PetBrain {
       return this.runner.start(this.runner.planWalkGoto(isDock ? "the dock" : target, yaw, pos ? { x: pos.x, y: pos.y, z: 0 } : null), performance.now());
     }
     if (has("stroll", "walk")) {
+      if (!canWalk) return this.walkUnavailableLine();
       this.setActivity("walk");
       this.walkUntil = performance.now() + 14_000 + Math.random() * 8_000;
       this.setMood("curious");
@@ -504,13 +560,39 @@ export class PetBrain {
       return ok ? `Routine removed: ${which || "the last one"}.` : which ? `I have no routine matching "${which}".` : "Which routine? Say: list routines.";
     }
 
+    // THE TRICKS — every clip has a voice (2026-10-25). Body tricks play
+    // through the playGesture hook; they need no flight, no battery gate,
+    // no task slot. Grounded showmanship, not actuation. Placed BEFORE the
+    // task planner so a direct trick request plays the real clip instead of
+    // being re-planned into generic trick steps.
+    if (this.hooks.playGesture) {
+      const play = (clip: string, mood: Mood | null, key: string): string => {
+        const ok = this.hooks.playGesture?.(clip);
+        if (ok === false) return "My stage is not loaded yet — attach my body and ask me again.";
+        if (mood) this.setMood(mood);
+        return this.pickFresh(BODY_TRICK_LINES[key]);
+      };
+      if (/\bdance/.test(t)) return play(Math.random() < 0.5 ? "dance_01" : "dance_02", "excited", "dance");
+      if (/\bbow\b/.test(t)) return play(Math.random() < 0.5 ? "bow_01" : "bow_02", "happy", "bow");
+      if (/\bcurtse?y\b/.test(t)) return play("curtsey_01", "happy", "curtsey");
+      if (/peekaboo/.test(t)) return play("peekaboo_01", "happy", "peekaboo");
+      if (/roll\s*over/.test(t)) return play("rollover_01", "happy", "rollover");
+      if (/stretch/.test(t)) return play("stretch_01", "idle", "stretch");
+      if (/shrug/.test(t)) return play("shrug_01", "curious", "shrug");
+      if (/\bmarch/.test(t)) return play("march_01", "excited", "march");
+      if (/lay\s+down|lie\s+down/.test(t)) return play("laydown_01", "sleepy", "laydown");
+      if (/get\s+up/.test(t)) return play("getup_01", "curious", "getup");
+      if (/\b(mope|sulk)/.test(t)) return play("mope_01", "sleepy", "mope");
+    }
+
     // --- autonomous task planning ---------------------------------------------
     const planned = this.runner.plan(text);
     if (planned) return this.runner.start(planned, performance.now());
 
     // --- never shrug: suggest what the human probably meant --------------------
     const guess = this.suggest(text);
-    if (guess) {
+    // an exact echo is not a suggestion — "wake up" must WAKE, not ask itself
+    if (guess && guess.toLowerCase() !== t) {
       this.lastHeard = text; // remembered so "no, I said ..." can teach her
       return `I did not quite catch that. Did you mean: ${guess}? If not — just say: no, I said, and then the words.`;
     }
@@ -829,6 +911,26 @@ export class PetBrain {
             : "I do not think we have met. Say: my name is, and then your name.");
           this.lastLine = p.say;
         }
+      }
+    }
+
+    // --- VISUAL TRICKS: dictionary PART V wired to her eyes ---------------------
+    // A known label in the scanner feed, or maneuver words in her deep-eyes
+    // description, earns a throttled performance. She never interrupts a task,
+    // never performs asleep, and needs a body (playGesture hook) to do it.
+    if (
+      this.hooks.playGesture
+      && this.activity !== "sleep"
+      && !taskActive
+      && now - this.lastVisualTrick > 45_000
+    ) {
+      const trick = pickVisualTrick(p.visibleItems, p.deepSight ? [p.deepSight] : []);
+      if (trick && this.hooks.playGesture?.(trick.clip) !== false) {
+        // the honest stage rule: she only claims (and throttles) what her body played
+        this.lastVisualTrick = now;
+        this.setMood("happy");
+        p.say = p.say ?? trick.line;
+        this.lastLine = p.say;
       }
     }
 
@@ -1331,6 +1433,10 @@ export class PetBrain {
   /** Public since the v2.4 CORTEX — brain-level decisions may set her mood. */
   setMood(m: Mood) { this.mood = m; }
   private setActivity(a: Activity) { this.activity = a; }
+
+  private walkUnavailableLine(): string {
+    return "I can animate my legs in the 3D hangar, but physical leg servos are not connected to this flight relay yet.";
+  }
 
   private ledColor(): string {
     switch (this.mood) {

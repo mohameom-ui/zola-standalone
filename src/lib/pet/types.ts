@@ -71,6 +71,9 @@ export interface Percept {
   identities: FaceIdentity[];
   /** expression read from your face (null if no face / vision off) */
   expression: Expression | null;
+  /** VISUAL TRICKS — her deep eyes' latest description, if any. Maneuver words
+   * in the pixels trigger the matching body clip (dictionary PART V). */
+  deepSight?: string | null;
   /** items currently visible from the last scanner pass (may be empty) */
   visibleItems: string[];
   /** current drone heading (radians) — used for spatial navigation */

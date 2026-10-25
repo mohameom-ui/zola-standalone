@@ -22,6 +22,10 @@ const BIGRAM_FIXES: [RegExp, string][] = [
   [/\bwhere\s+ist?\b/gi, "where is"],
   [/\btake\s+me\s+too\b/gi, "take me to"],
   [/\bgo\s+too\b/gi, "go to"],
+  [/\bcourtesy\b/gi, "curtsey"], // the trick, not the noun
+  [/\bpeek\s+a\s+boo\b/gi, "peekaboo"],
+  [/\broll\s+over\b/gi, "rollover"],
+  [/\bmac\s+h\b/gi, "march"],
 ];
 
 const KEYWORDS = [
@@ -29,6 +33,9 @@ const KEYWORDS = [
   "wake", "status", "battery", "hello", "hey", "scan", "joke", "sing", "calm",
   "relax", "goodbye", "bye", "remember", "forget", "where", "find", "patrol",
   "name", "stop", "hover", "power", "up", "room", "me", "the", "what",
+  // THE TRICKS (2026-10-25): every body clip can be asked for by voice
+  "bow", "curtsey", "peekaboo", "rollover", "stretch", "shrug", "march",
+  "laydown", "getup", "mope", "sulk",
 ];
 
 export function lev(a: string, b: string): number {

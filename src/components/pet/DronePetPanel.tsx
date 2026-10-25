@@ -1,10 +1,10 @@
 "use client";
 
 // ============================================================================
-// DronePetPanel — F7 · AURA, the drone AI pet
+// DronePetPanel — Zola's humanoid companion console
 // Safety-first design:
 //   • EXPLICIT consent gate before any camera/mic/face-index use
-//   • ALL learning is local-only; face data = non-reversible numeric signature
+//   • Persistent memory is browser-local; face data uses a non-reversible numeric signature
 //   • SafetyGovernor hard-limits every actuation (speed, stand-off, battery)
 //   • One-click kill switch, one-click full memory wipe
 // ============================================================================
@@ -25,10 +25,9 @@ import { ollamaVision } from "@/lib/pet/llm";
 import { emotionFromTrack } from "@/lib/pet/advancedSensors";
 import { checkForUpdates, installPack } from "@/lib/pet/updates";
 import { pickSpontaneous, shouldSelfMove, chooseGesture } from "@/lib/pet/spontanea";
-import { drain, drainState, shouldAutoReturn } from "@/lib/pet/batteryPolicy";
+import { canTakeOff, drain, drainState, REFUSE_TAKEOFF_BELOW, shouldAutoReturn } from "@/lib/pet/batteryPolicy";
 import { Cortex } from "@/lib/pet/cortex";
 import { allPersonas, modeByName } from "@/lib/pet/modes";
-import { scanAsset, scanWorldManifest } from "@/lib/pet/auraCache";
 import { buildActionCapabilities, parseReminder, parseTimeExpression, TaskList } from "@/lib/pet/capabilities";
 import { compileVlog, spokenDaySummary, type VlogInput } from "@/lib/pet/vlog";
 import { sunReport, isGoldenHour, circadianVoice } from "@/lib/pet/suncalc";
@@ -43,7 +42,7 @@ import { SafetyGovernor, DEFAULT_LIMITS } from "@/lib/pet/safety";
 import { LlmConsultant, LocalGenie, type LlmDecision } from "@/lib/pet/llm";
 import { HealthMonitor } from "@/lib/pet/healthMonitor";
 import { parseSelfBuild, installCapability, validateCapability, normalizeDraft, type GeneratedCapability } from "@/lib/pet/selfBuilder";
-import { loadTheme, saveTheme, themeVars, THEME_PRESETS, type ZolaTheme } from "@/lib/pet/theme";
+import { loadTheme, saveTheme, THEME_PRESETS, type ZolaTheme } from "@/lib/pet/theme";
 import { SoundWatch, PetChirps } from "@/lib/pet/sound";
 import { LocalEars } from "@/lib/pet/earsLocal";
 import { SfxFiles } from "@/lib/pet/sfxFiles";
@@ -141,6 +140,9 @@ export default function DronePetPanel() {
   const healthRef = useRef<HealthMonitor>(new HealthMonitor());
   const genieRef = useRef<LocalGenie>(new LocalGenie());
   const deepEyesRef = useRef<DeepEyes>(new DeepEyes());
+  // VISUAL TRICKS — her latest deep-eyes description, fed to the brain so the
+  // pixels can trigger the matching body clip (dictionary PART V).
+  const lastDeepSightRef = useRef<string | null>(null);
   const piperPackRef = useRef<PiperPack>(new PiperPack());
   const soundWatchRef = useRef<SoundWatch>(new SoundWatch());
   const chirpsRef = useRef<PetChirps>(new PetChirps());
@@ -344,6 +346,14 @@ export default function DronePetPanel() {
         return hit?.pos ?? null;
       },
       dockPose: () => DOCK,
+      canWalk: () => bodyModeRef.current === "sim",
+      // THE TRICKS — a heard command can play any clip in her repertoire;
+      // false when no 3D body is attached yet (she says so rather than lie).
+      playGesture: (clip) => {
+        if (!GESTURE_REPERTOIRE.includes(clip) || !gestureApiRef.current) return false;
+        gestureApiRef.current.playGesture(clip);
+        return true;
+      },
       profile: {
         get: () => memory.getProfile(),
         update: (dw, db, bondAbs) => memory.updateProfile(dw, db, bondAbs),
@@ -389,7 +399,7 @@ export default function DronePetPanel() {
   const [bond, setBond] = useState(0);
   const [safetyFlags, setSafetyFlags] = useState("");
   const [taskInfo, setTaskInfo] = useState<{ desc: string; step: string; done: number; total: number } | null>(null);
-  const [flightStats, setFlightStats] = useState({ alt: 0, pitch: 0, roll: 0, rpm: 0 });
+  const [flightStats, setFlightStats] = useState({ alt: 0, pitch: 0, roll: 0, rpm: 0, x: 0, y: 0, yaw: 0 });
   const [bubble, setBubble] = useState<string | null>(null); // what she's saying, drawn on her body
   const [nowPlaying, setNowPlaying] = useState<string | null>(null); // her current movement
   const lastTaskKeyRef = useRef("");
@@ -419,6 +429,11 @@ export default function DronePetPanel() {
   const [earQuality, setEarQuality] = useState<"fast" | "deep">("fast");
   const [bodyMode, setBodyMode] = useState<"sim" | "real">("sim");
   const [wsUrl, setWsUrl] = useState("ws://localhost:8765");
+  const [relayToken, setRelayToken] = useState("");
+  const relayTokenRef = useRef(relayToken);
+  relayTokenRef.current = relayToken;
+  const [realBatteryAvailable, setRealBatteryAvailable] = useState(false);
+  const realBatterySeenRef = useRef(false);
   const [linkState, setLinkState] = useState<"-" | "LINKED" | "NO LINK">("-");
   const [voices, setVoices] = useState<{ name: string; lang: string }[]>([]);
   const [voiceName, setVoiceName] = useState("");
@@ -452,7 +467,7 @@ export default function DronePetPanel() {
   const [neuralVoiceId, setNeuralVoiceId] = useState("af_heart");
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [log, setLog] = useState<LogEntry[]>([
-    { who: "sys", text: "Zola online. Learning is LOCAL-ONLY; nothing leaves this device.", at: Date.now() },
+    { who: "sys", text: "Zola online. Memory and inference are local-first; network lookups and update checks are separate.", at: Date.now() },
   ]);
 
   const pushLog = useCallback((who: LogEntry["who"], text: string) => {
@@ -941,13 +956,23 @@ export default function DronePetPanel() {
       if (bodyModeRef.current === "real") {
         // real drone: battery comes from telemetry, not simulation
         const b = poseRef.current.battery;
-        if (typeof b === "number" && b > 0) {
+        if (typeof b === "number" && Number.isFinite(b) && b >= 0 && b <= 1) {
           batteryRef.current = b;
+          if (!realBatterySeenRef.current) {
+            realBatterySeenRef.current = true;
+            setRealBatteryAvailable(true);
+          }
           // WAVE 7 — feed the flight-time estimator with REAL drain (1 Hz)
           if (now - estSampleAtRef.current > 1000) {
             estSampleAtRef.current = now;
             estimatorRef.current.sample(b * 100, Date.now(), actName !== "sleep" && actName !== "dock");
           }
+        } else if (realBatterySeenRef.current) {
+          // Missing or stale relay telemetry must never reuse the last reading
+          // as if it were still a current takeoff clearance.
+          realBatterySeenRef.current = false;
+          batteryRef.current = 0;
+          setRealBatteryAvailable(false);
         }
       } else {
         const perched = actName === "sleep" || (actName === "dock" && poseRef.current.z < 0.06);
@@ -1020,6 +1045,7 @@ export default function DronePetPanel() {
         py: poseNow.y,
         pz: poseNow.z,
         expression: t.expression,
+        deepSight: lastDeepSightRef.current,
       };
       const brainAct = brain.perceive(percept);
       // WAVE 10 — MISSION EXECUTOR: proposes actuation; the governor still decides.
@@ -1203,10 +1229,10 @@ export default function DronePetPanel() {
 
       // attitude telemetry (throttled state updates)
       const ps = poseRef.current;
-      const key = `${ps.z.toFixed(2)}|${(ps.pitch * 57.3 / 4).toFixed(0)}|${(ps.roll * 57.3 / 4).toFixed(0)}|${(halRef.current.propsRpm() / 120).toFixed(0)}`;
+      const key = `${ps.z.toFixed(2)}|${(ps.pitch * 57.3 / 4).toFixed(0)}|${(ps.roll * 57.3 / 4).toFixed(0)}|${(halRef.current.propsRpm() / 120).toFixed(0)}|${ps.x.toFixed(2)}|${ps.y.toFixed(2)}|${ps.yaw.toFixed(2)}`;
       if (key !== flightStatsKeyRef.current) {
         flightStatsKeyRef.current = key;
-        setFlightStats({ alt: ps.z, pitch: ps.pitch * 57.3, roll: ps.roll * 57.3, rpm: halRef.current.propsRpm() });
+        setFlightStats({ alt: ps.z, pitch: ps.pitch * 57.3, roll: ps.roll * 57.3, rpm: halRef.current.propsRpm(), x: ps.x, y: ps.y, yaw: ps.yaw });
       }
     };
 
@@ -1581,7 +1607,7 @@ export default function DronePetPanel() {
     pushLog("sys", "micro-vlog compiled — markdown saved locally (her day, in her words)");
   }, [buildVlogInput, pushLog]);
 
-  // ---- AIR-GAP INTEGRITY AUDITOR — prove her local assets are untouched ----
+  // ---- LOCAL ASSET INTEGRITY AUDITOR ---------------------------------------
   const runIntegrity = useCallback(async () => {
     try {
       const r = await fetch("/api/zola/integrity");
@@ -1862,7 +1888,7 @@ export default function DronePetPanel() {
             mood: brain.getMood(),
             persona: brain.getPersona(),
             activity: brain.getActivity(),
-            battery: batteryRef.current,
+            battery: bodyModeRef.current === "real" && !realBatterySeenRef.current ? null : batteryRef.current,
             alt: poseRef.current.z,
             task: brain.runner.current?.description ?? null,
             bond: brain.bond,
@@ -1910,6 +1936,7 @@ export default function DronePetPanel() {
     say("Looking carefully...");
     const description = await deepEyesRef.current.describe(videoRef.current, question);
     if (description) {
+      lastDeepSightRef.current = description; // the brain scans it for maneuvers
       say(description.length > 200 ? description.slice(0, 200) : description);
       setBond((b) => Math.min(1, b + 0.01));
     } else {
@@ -2103,13 +2130,17 @@ export default function DronePetPanel() {
   // mode re-dial automatically (no more "typed the address but nothing happened")
   useEffect(() => {
     if (bodyMode !== "real") return;
+    realBatterySeenRef.current = false;
+    setRealBatteryAvailable(false);
+    batteryRef.current = 0;
+    setBattery(0);
     let hal: MavLinkBridgeHAL | null = null;
     const t = setTimeout(() => {
-      hal = new MavLinkBridgeHAL(wsUrl);
+      hal = new MavLinkBridgeHAL(wsUrl, relayTokenRef.current);
       hal.avoid = (from, to, altitude) => petMapRef.current.steer(from, to, altitude);
       setLinkState("NO LINK");
       hal.connect(
-        () => { setLinkState("LINKED"); pushLog("sys", `linked to ${wsUrl} — offboard start sent; she should arm and lift`); },
+        () => { setLinkState("LINKED"); pushLog("sys", `linked to ${wsUrl} — flight remains disarmed until ARM & TAKE OFF is pressed`); },
         () => { setLinkState("NO LINK"); pushLog("sys", "real-drone link lost — check the relay, or re-enter the address"); },
       );
       halRef.current = hal;
@@ -2121,6 +2152,10 @@ export default function DronePetPanel() {
   const toggleBody = useCallback(() => {
     if (bodyModeRef.current === "sim") {
       bodyModeRef.current = "real";
+      if (brain.getActivity() === "walk") {
+        brain.command("cancel task", batteryRef.current);
+        pushLog("sys", "stopped the simulated walk on entering REAL mode; physical limb servos are not connected");
+      }
       setBodyMode("real");
       pushLog("sys", `flight body → REAL (${wsUrl})`);
     } else {
@@ -2130,25 +2165,84 @@ export default function DronePetPanel() {
       halRef.current = sim;
       bodyModeRef.current = "sim";
       setBodyMode("sim");
+      realBatterySeenRef.current = false;
+      setRealBatteryAvailable(false);
+      batteryRef.current = 0.86;
+      setBattery(0.86);
       pushLog("sys", "flight body → SIM");
     }
-  }, [wsUrl, pushLog]);
+  }, [wsUrl, pushLog, brain]);
+
+  const startRealFlight = useCallback(() => {
+    if (bodyModeRef.current !== "real" || linkState !== "LINKED") {
+      pushLog("sys", "flight start unavailable — connect the real flight relay first");
+      return;
+    }
+    if (killed) {
+      pushLog("sys", "flight start blocked — press DOCK to re-arm the safety governor first");
+      return;
+    }
+    const measuredBattery = poseRef.current.battery;
+    if (typeof measuredBattery !== "number" || !Number.isFinite(measuredBattery)) {
+      pushLog("sys", "flight start blocked — the relay has not reported real battery telemetry");
+      return;
+    }
+    const gate = canTakeOff(measuredBattery);
+    if (!gate.ok) {
+      say(gate.refusal ?? "Flight is blocked by the battery safety limit.");
+      return;
+    }
+    if (!window.confirm("Request the flight relay to arm and take off now? Keep Zola in a clear, supervised area.")) return;
+    const hal = halRef.current;
+    if (!(hal instanceof MavLinkBridgeHAL) || !hal.startFlight()) {
+      pushLog("sys", "flight start request could not be sent — check the relay link");
+      return;
+    }
+    pushLog("sys", "arm + takeoff request sent to the relay; waiting for real position telemetry");
+  }, [linkState, killed, pushLog, say]);
+
+  const landRealFlight = useCallback(() => {
+    const hal = halRef.current;
+    if (bodyModeRef.current !== "real" || !(hal instanceof MavLinkBridgeHAL) || !hal.stopFlight()) {
+      pushLog("sys", "landing request could not be sent — check the real flight relay link");
+      return;
+    }
+    pushLog("sys", "land + disarm request sent to the relay");
+  }, [pushLog]);
 
   const dock = useCallback(() => {
-    batteryRef.current = 1;
+    if (bodyModeRef.current === "sim") {
+      batteryRef.current = 1;
+      setBattery(1);
+    }
     governorRef.current.arm();
     setKilled(false);
-    pushLog("sys", "docked — battery 100%, safety system re-armed");
-    say("Charged up and ready.");
+    pushLog("sys", bodyModeRef.current === "real"
+      ? "safety governor re-armed — real battery remains telemetry-controlled"
+      : "docked — simulated battery 100%, safety system re-armed");
+    say(bodyModeRef.current === "real" ? "Safety controls re-armed. I still need current battery telemetry before flight." : "Charged up and ready.");
   }, [pushLog, say]);
 
   const kill = useCallback(() => {
     governorRef.current.kill();
     setKilled(true);
-    pushLog("sys", "KILL SWITCH — all motion frozen, hover-idle");
+    if (bodyModeRef.current === "real") {
+      const hal = halRef.current;
+      const landingSent = hal instanceof MavLinkBridgeHAL && hal.stopFlight();
+      pushLog("sys", landingSent
+        ? "KILL SWITCH — brain commands frozen; landing and disarm requested from the real relay"
+        : "KILL SWITCH — brain commands frozen; real relay is unavailable, use the flight controller failsafe");
+      const message = landingSent
+        ? "Emergency hold. I have requested a controlled landing."
+        : "Emergency hold. My relay is unavailable; use the flight controller's failsafe.";
+      pushLog("aura", message);
+      say(message);
+      return;
+    }
+    pushLog("sys", "KILL SWITCH — simulated motion frozen");
     pushLog("aura", "Emergency hold. I will stay put until you re-arm me.");
     say("Emergency hold. I will stay put until you re-arm me.");
-  }, [pushLog]);
+  }, [pushLog, say]);
 
   const wipeMemory = useCallback(() => {
     if (window.confirm("Erase everything Zola has learned (names, facts, face signatures)? This cannot be undone.")) {
@@ -2180,34 +2274,35 @@ export default function DronePetPanel() {
 
   const people = memory.snapshot.people;
 
+  const avatarStage = mounted ? (
+    <DroneBody3D
+      accentColor={theme.b}
+      flight={flightStats}
+      speech={bubble}
+      onPet={petZola}
+      mood={mood}
+      activity={activity}
+      stretchCue={stretchCue}
+      gestureApiRef={gestureApiRef}
+      onGestureChange={setNowPlaying}
+    />
+  ) : undefined;
+
   // THE MOUNT GATE — her panel reads a persisted life (memory, ledger,
   // blackbox): server HTML for that is fiction, and fiction collides with
   // reality at hydration. Until mount she renders the quiet shell; her real
   // self appears the moment the client owns the DOM.
   if (!mounted) {
     return (
-      <ZolaShell title="SOVEREIGN · ZOLA" subtitle="waking — everything stays on this machine">
-        <div className="p-6 text-[10px] text-[#8b8f9c] animate-pulse">waking…</div>
+      <ZolaShell title="ZOLA" subtitle="Starting companion console" primaryColor={theme.a} accentColor={theme.b}>
+        <div className="p-6 text-[10px] text-[#8b8f9c] animate-pulse">Initializing controls…</div>
       </ZolaShell>
     );
   }
 
   return (
-    <ZolaShell title="SOVEREIGN · ZOLA" subtitle="sees · hears · learns — everything stays on this machine">
-      <style>{`
-        @font-face { font-family: 'Rajdhani'; src: url('/fonts/Rajdhani-Bold.ttf'); font-weight: 700; }
-        @font-face { font-family: 'Cairo'; src: url('/fonts/Cairo-Variable.ttf'); }
-      `}</style>
-      <div
-        className={`p-4 space-y-4 text-xs ${theme.calm ? "zola-calm" : ""}`}
-        style={{
-          fontFamily: "'Rajdhani', 'Cairo', monospace",
-          ...themeVars(theme), // the whole panel speaks the theme's color language
-          // WAVE 5 — theme sync: the panel breathes in her accent; dim at night
-          boxShadow: `0 0 48px ${theme.a}${sunReport().phase === "night" ? "18" : String(theme.glow).padStart(2, "0")}`,
-          transition: theme.calm ? "none" : "box-shadow 1.2s ease",
-        }}
-      >
+    <ZolaShell title="ZOLA" subtitle="Humanoid companion · voice, vision, motion" stage={avatarStage} primaryColor={theme.a} accentColor={theme.b}>
+      <div className={`p-4 space-y-4 text-xs ${theme.calm ? "zola-calm" : ""}`}>
         {/* --- tab bar ---------------------------------------------------------- */}
         <div className="flex gap-1 sticky top-0 z-10 -mx-1 px-1 py-1 bg-[rgba(8,10,16,0.9)] rounded-lg items-center">
           <span
@@ -2218,7 +2313,7 @@ export default function DronePetPanel() {
               boxShadow: `0 0 10px ${LED_FOR_PERSONA[persona] ?? "#35d0a5"}`,
             }}
           />
-          <span className="hud-label tracking-[0.3em]">ONE VIEW · HER WHOLE SELF, SCROLL BY SCROLL</span>
+          <span className="hud-label tracking-[0.2em]">SYSTEM STATUS · LIVE SESSION</span>
         </div>
 
         {/* --- consent gate ---------------------------------------------------- */}
@@ -2271,24 +2366,11 @@ export default function DronePetPanel() {
         {(<>
         {/* --- flight body + safety HUD ------------------------------------------ */}
         <div className="glass-soft rounded-xl p-2">
-          <div className="hud-label px-1 pb-1">FLIGHT BODY · ONE BODY, GROUNDED &amp; AIRBORNE (MAVLink HAL for real hardware)</div>
-          <div className="mt-2">
-            <DroneBody3D
-              accentColor={theme.b}
-              flight={flightStats}
-              speech={bubble}
-              onPet={petZola}
-              mood={mood}
-              activity={activity}
-              stretchCue={stretchCue}
-              gestureApiRef={gestureApiRef}
-              onGestureChange={setNowPlaying}
-            />
-          </div>
+          <div className="hud-label px-1 pb-1">FLIGHT TELEMETRY · {bodyMode === "real" ? "REAL LINK" : "SIMULATION"}</div>
           <div className="grid grid-cols-4 gap-2 mt-2 px-1">
             <Stat label="MOOD" value={MOOD_LABEL[mood]} tone="var(--z-a)" />
             <Stat label="ACTIVITY" value={activity.toUpperCase()} tone="var(--z-info)" />
-            <Stat label="BATTERY" value={`${Math.round(battery * 100)}%`} tone={battery < 0.2 ? "#ff4d4f" : "#35d0a5"} />
+            <Stat label="BATTERY" value={bodyMode === "real" && !realBatteryAvailable ? "—" : `${Math.round(battery * 100)}%`} tone={bodyMode === "real" && !realBatteryAvailable ? "#8b8f9c" : battery < 0.2 ? "#ff4d4f" : "#35d0a5"} />
             <Stat label="BOND" value={`${Math.round(bond * 100)}%`} tone="var(--z-warn)" />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-1 px-1">
@@ -2347,18 +2429,17 @@ export default function DronePetPanel() {
               <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.15)] text-[var(--z-b)] tracking-widest">LIMITS ACTIVE</span>
             )}
             {safetyFlags && <span className="text-[9px] text-[var(--z-warn)] tracking-wider">{safetyFlags}</span>}
-            {integrity === "OK" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.12)] text-[var(--z-b)] tracking-widest" title="SHA-256 of all local models/runtimes verified against baseline">AIR-GAP VERIFIED</span>}
+            {integrity === "OK" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.12)] text-[var(--z-b)] tracking-widest" title="SHA-256 of local models and runtimes matches the saved baseline">ASSETS VERIFIED</span>}
             {integrity === "DRIFT" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[var(--z-danger)] tracking-widest" title="A local asset changed since baseline — investigate">INTEGRITY DRIFT</span>}
-            {(integrity === "" || integrity === "BASELINE_CREATED") && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(139,143,156,0.15)] text-[#8b8f9c] tracking-widest">AIR-GAP {integrity === "BASELINE_CREATED" ? "BASELINE SET" : "CHECKING…"}</span>}
+            {(integrity === "" || integrity === "BASELINE_CREATED") && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(139,143,156,0.15)] text-[#8b8f9c] tracking-widest">ASSET {integrity === "BASELINE_CREATED" ? "BASELINE SET" : "CHECKING…"}</span>}
           </div>
         </div>
 
-        {/* --- body language (merged into the ONE body) ---------------------------
-             the GestureStage's second canvas is retired: these chips drive
-             her actual rigged hangar body via the shared gesture API. IMPROV
-             chains 2-3 movements; her mood picks body language on its own. */}
+        {/* --- body language -------------------------------------------------------
+             These clips animate her hands, fingers, arms, torso, and legs on
+             the shared humanoid rig. The real flight relay has no limb-servo bus. */}
         <div className="glass-soft rounded-xl p-2">
-          <div className="hud-label px-1 pb-1">BODY LANGUAGE · ON THE ONE BODY (brain-driven, IMPROV chains 2-3 moves)</div>
+          <div className="hud-label px-1 pb-1">ARTICULATED 3D BODY · HANDS / ARMS / LEGS · IMPROV CHAINS 2–3 MOVES</div>
           <div className="flex flex-wrap gap-1.5 px-1">
             {GESTURE_REPERTOIRE.map((g) => (
               <button
@@ -2655,6 +2736,7 @@ export default function DronePetPanel() {
           {(<>
           <button
             onClick={toggleBody}
+            title="SIM animates the body and moves across the simulator. REAL connects the flight relay but does not arm the flight controller."
             className={`px-3 py-1.5 rounded-lg border tracking-widest transition-colors ${
               bodyMode === "real"
                 ? "border-[var(--z-danger)] text-[var(--z-danger)] bg-[rgba(255,77,79,0.12)]"
@@ -2672,9 +2754,41 @@ export default function DronePetPanel() {
             value={wsUrl}
             onChange={(e) => setWsUrl(e.target.value)}
             placeholder="ws://localhost:8765"
-            title="relay address — edits reconnect automatically while in REAL mode"
+            title="Ground relay WebSocket address. Editing it reconnects while in REAL mode."
             className="w-44 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-mono text-[#e9e7dc] outline-none focus:border-[var(--z-b)]/60"
           />
+          <input
+            type="password"
+            value={relayToken}
+            onChange={(e) => setRelayToken(e.target.value)}
+            placeholder="relay token (optional)"
+            autoComplete="off"
+            title="Shared token for a relay exposed beyond localhost. Takes effect the next time REAL mode connects."
+            className="w-36 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-mono text-[#e9e7dc] outline-none focus:border-[var(--z-b)]/60"
+          />
+          {bodyMode === "real" && (
+            <>
+              <button
+                onClick={startRealFlight}
+                disabled={linkState !== "LINKED" || killed || !realBatteryAvailable || battery < REFUSE_TAKEOFF_BELOW}
+                title="Explicitly request arm + takeoff. Connecting to the relay alone never arms Zola."
+                className="px-3 py-1.5 rounded-lg border border-[var(--z-warn)]/70 text-[var(--z-warn)] disabled:opacity-35 disabled:cursor-not-allowed tracking-widest transition-colors"
+              >
+                ARM &amp; TAKE OFF
+              </button>
+              <button
+                onClick={landRealFlight}
+                disabled={linkState !== "LINKED"}
+                title="Request the relay to land and disarm."
+                className="px-3 py-1.5 rounded-lg border border-[var(--z-danger)]/70 text-[var(--z-danger)] disabled:opacity-35 disabled:cursor-not-allowed tracking-widest transition-colors"
+              >
+                LAND &amp; DISARM
+              </button>
+              <span className="w-full px-1 text-[9px] text-[#8b8f9c]">
+                REAL mode controls the flight controller. Limb movement is visual until a servo bridge is connected.
+              </span>
+            </>
+          )}
           </>)}
         </div></div>
         </details>
@@ -2952,7 +3066,7 @@ export default function DronePetPanel() {
           {log.slice(-10).map((e, i) => (
             <div key={i} className="leading-relaxed">
               <span className={e.who === "you" ? "text-[var(--z-info)]" : e.who === "aura" ? "text-[var(--z-a)]" : "text-[#8b8f9c]"}>
-                {e.who === "you" ? "you:" : e.who === "aura" ? "aura:" : "sys:"}
+                {e.who === "you" ? "you:" : e.who === "aura" ? "Zola:" : "sys:"}
               </span>{" "}
               <span className={e.who === "sys" ? "text-[#8b8f9c]" : "text-[#e9e7dc]"}>{e.text}</span>
             </div>

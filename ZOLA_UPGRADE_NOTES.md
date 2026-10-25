@@ -707,3 +707,10 @@ Format: [date] slice — action — library source → destination.
 - **hover_v3 trained** at 5000 iterations: final mean 20.31 / 538.57 episodes — the best flight policy yet (v1: 13.95/416, v2 peak: 15.18/464), at DOUBLE hover_v1's gust level. The best-checkpoint selector picked model_4700 at the smoothed peak (drift 5.96e-07); all three hover checkpoints archived.
 - Her skill report dedupes by skill and now names hover (3 runs) at its best.
 - Shelf: 10 exported peak-selected artifacts across 7 skills.
+
+### 2026-10-25 (12) — THE EXPRESSION LIBRARY + 24/7 TRAINING + LIVE TRACKING
+- **The choreography engine:** `pose_sequence` keyframes at a fixed period with cosine easing — dance and body-expression routines became trainable signals (the song is the period, the steps are the keyframes). The engine also enabled snappier `pose_approach_s` values (0.6-0.8 s) — faster, more human transitions.
+- **Three new skills trained:** THE PICTURE POSE (34.16, 595/600), THUMBS UP (33.28, 588/600 — five finger joints, five angles; the coordination clicked at ~iteration 1100), THE HALOBEAT dance (32.92, 599/600 — a full four-count routine with zero falls). The SIT (deep squat) remains open — the depth family. All three exported at their peaks (drift ≤ 4.77e-07).
+- **24/7 background trainer:** `Scripts/isaac-continuous.mjs` — a rotation over every registered skill (train a slice → best-select-export → next), `ZOLA_ROUNDS=0` for forever mode.
+- **LIVE TRACKING:** TensorBoard on :6006 serving every training curve as she trains.
+- **The brain reads the shelf live:** `/api/zola/policies` (pair-authenticated) serves the policy directory from disk — new background rounds appear without a rebuild. Her core prompt stamps the 2026 era.

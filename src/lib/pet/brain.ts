@@ -816,7 +816,7 @@ export class PetBrain {
       }
     }
     if (has("what can you do", "help", "abilities", "capabilit")) {
-      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance, walking, arm-and-hand, flight-posture, and my signature Halo Touchdown landing from Isaac Sim (ask about my policies). Try me.";
+      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance, walking, arm-and-hand, flight-posture, my signature Halo Touchdown, a coupled hover, the takeoff, the photo pose, a thumbs-up with real finger work, and the Halobeat dance from Isaac Sim (ask about my policies). Try me.";
     }
     if (has("goodbye", "bye", "see you", "later")) {
       this.setMood("happy");

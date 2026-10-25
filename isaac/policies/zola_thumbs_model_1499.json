@@ -1,0 +1,34 @@
+{
+  "task": "zola_thumbs",
+  "run": "2026-10-25_13-00-24_thumbs_v1",
+  "checkpoint": "model_1499.pt",
+  "iteration": 1499,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.06424564868211746,
+    "std_head": 0.15374670922756195,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "5877f8f7da3581c649054deed202bc95b1ad1a56b950b5fe571493e831463e56",
+  "roundtrip_max_abs_drift": 2.980232238769531e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "best",
+    "metric": "smoothed_mean_reward",
+    "window_readings": 5,
+    "peak_iteration": 1499,
+    "peak_mean_reward": 33.28,
+    "peak_smoothed": 33.276,
+    "selected_checkpoint": "model_1499.pt",
+    "candidates_on_disk": 31,
+    "log": "training.log"
+  }
+}

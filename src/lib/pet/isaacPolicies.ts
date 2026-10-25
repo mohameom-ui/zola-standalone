@@ -20,6 +20,9 @@ import hoverManifest from "../../../isaac/policies/zola_hover_model_1950.json";
 import hoverV2Manifest from "../../../isaac/policies/zola_hover_model_2300.json";
 import hoverV3Manifest from "../../../isaac/policies/zola_hover_model_4700.json";
 import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1850.json";
+import pictureManifest from "../../../isaac/policies/zola_picture_model_1450.json";
+import thumbsManifest from "../../../isaac/policies/zola_thumbs_model_1499.json";
+import danceManifest from "../../../isaac/policies/zola_dance_model_1999.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -52,6 +55,9 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   hoverV2Manifest,
   hoverV3Manifest,
   takeoffManifest,
+  pictureManifest,
+  thumbsManifest,
+  danceManifest,
 ] as unknown as IsaacPolicyManifest[];
 
 const TASK_NAMES: Record<string, string> = {
@@ -62,6 +68,10 @@ const TASK_NAMES: Record<string, string> = {
   zola_touchdown: "THE HALO TOUCHDOWN — her signature hero landing",
   zola_hover: "coupled hover flight (real rotor physics — her body rides the halo)",
   zola_takeoff: "the takeoff transition (riding the prop spin-up and lift-off)",
+  zola_sit: "sitting",
+  zola_picture: "posing for a picture",
+  zola_thumbs: "thumbs up (finger dexterity)",
+  zola_dance: "the halobeat — dancing on the beat",
 };
 
 

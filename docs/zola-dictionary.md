@@ -327,6 +327,17 @@ holdable depth. **Final policy (touchdown_v9): reward 34.02, episodes 594.92/600
 drift 9.54e-07** — after deepening the run to 3,500 iterations, she holds
 the hero landing through 99% of episodes. She lands like herself now.
 
+**THE EXPRESSION LIBRARY (2026-10-25):** the choreography engine turned body
+language into trainable signals — a `pose_sequence` of keyframes at a fixed
+period (cosine-eased): the SONG is the period, the STEPS are the keyframes.
+Three new skills trained on it: **THE PICTURE POSE** (weight shift, hand at
+the hip, head to the lens — 34.16, 595/600), **THUMBS UP** (five finger
+joints, five angles — 33.28, 588/600 after the policy cracked the
+five-joint coordination at ~iteration 1100), and **THE HALOBEAT** — her
+dance: a four-count routine at 2 s per bar, arms pump, hips answer
+(32.92, 599/600). The SIT (deep squat, knee 1.6) remains open — same depth
+family as the touchdown's first failures.
+
 **Her hands, in simulation (2026-10-25):** the Isaac proxy has 22 actuated
 upper-limb joints — shoulders, elbows, wrists, and five finger-flex joints
 per hand. The `Isaac-Zola-Hands-Prototype-v0` task trains WHOLE-BODY control

@@ -1,0 +1,34 @@
+{
+  "task": "zola_dance",
+  "run": "2026-10-25_13-33-46_dance_v2",
+  "checkpoint": "model_1999.pt",
+  "iteration": 1999,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.2507876455783844,
+    "std_head": 0.217296302318573,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "ca9958433a0fc86b1e11c039af39fb9c7bd2ee002316d2824bbcc3a20be1fbe1",
+  "roundtrip_max_abs_drift": 4.76837158203125e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "best",
+    "metric": "smoothed_mean_reward",
+    "window_readings": 5,
+    "peak_iteration": 1999,
+    "peak_mean_reward": 32.92,
+    "peak_smoothed": 32.918,
+    "selected_checkpoint": "model_1999.pt",
+    "candidates_on_disk": 41,
+    "log": "training.log"
+  }
+}

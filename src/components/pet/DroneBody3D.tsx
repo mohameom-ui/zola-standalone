@@ -34,11 +34,17 @@ async function loadGestureClip(name: string): Promise<THREE.AnimationClip | null
     const clip = gltf.animations[0];
     if (!clip) return null;
     // ROOT MOTION STRIP: retargeted clips carry their own root translation —
-    // played here it makes her glide/lurch (the weird moves). The clip stays
-    // in place; the world moves her instead.
-    clip.tracks = clip.tracks.filter(
-      (t) => !(t.name.endsWith(".position") && /hips|pelvis|root|spine_01/i.test(t.name)),
-    );
+    // played here it makes her glide/lurch (the weird moves). Only the
+    // HORIZONTAL drift is removed: the vertical bob of the walk cycle is
+    // kept (a walk without bounce reads broken), and the world moves her
+    // forward instead of the clip.
+    for (const t of clip.tracks) {
+      if (t.name.endsWith(".position") && /hips|pelvis|root|spine_01/i.test(t.name)) {
+        const values = t.values as unknown as Float32Array;
+        const x0 = values[0], z0 = values[2];
+        for (let i = 0; i < values.length; i += 3) { values[i] = x0; values[i + 2] = z0; }
+      }
+    }
     clipCache.set(key, clip);
     return clip;
   } catch {
@@ -157,12 +163,17 @@ function SceneRig({
     for (const { bone } of neutral) map.set(bone.name, bone);
     return map;
   }, [neutral]);
+  // the guard radius is MEASURED from her rest pose, not hardcoded: the first
+  // draft used a fixed 0.105 m — larger than where her hands naturally hang —
+  // so the guard fought her idle pose every frame (the arm jitter glitch).
+  // R = 90% of the rest distance: real penetrations fire, rest never does.
+  const guardRadius = useRef<{ l: number; r: number } | null>(null);
   const solidScratch = useMemo(() => ({
     hand: new THREE.Vector3(), elbow: new THREE.Vector3(), mid: new THREE.Vector3(),
     s0: new THREE.Vector3(), s1: new THREE.Vector3(), close: new THREE.Vector3(),
     u: new THREE.Vector3(), w: new THREE.Vector3(), axis: new THREE.Vector3(), corr: new THREE.Quaternion(), pq: new THREE.Quaternion(), fix: new THREE.Quaternion(),
   }), []);
-  const guardArm = (side: "l" | "r", R: number) => {
+  const guardArm = (side: "l" | "r") => {
     const s = solidScratch;
     const upper = solidBones.get(`upperarm_${side}`);
     const lower = solidBones.get(`lowerarm_${side}`);
@@ -170,6 +181,20 @@ function SceneRig({
     const top = solidBones.get("neck_01");
     const bottom = solidBones.get("spine_01");
     if (!upper || !lower || !hand || !top || !bottom) return;
+    // measure her REST hand distance ONCE per side (the first frame after
+    // mount, before any clip pulls her around); a radius that re-measured
+    // every frame would shrink to match a deep pose and never fire again
+    if (!guardRadius.current) guardRadius.current = { l: 0, r: 0 };
+    if (guardRadius.current[side] <= 0) {
+      hand.getWorldPosition(s.hand);
+      bottom.getWorldPosition(s.s1);
+      top.getWorldPosition(s.s0);
+      const seg = s.s1.clone().sub(s.s0);
+      const t = THREE.MathUtils.clamp(s.hand.clone().sub(s.s0).dot(seg) / Math.max(seg.lengthSq(), 1e-8), 0, 1);
+      const restDist = s.hand.distanceTo(s.s0.clone().addScaledVector(seg, t));
+      guardRadius.current[side] = Math.max(0.05, restDist * 0.9);
+    }
+    const R = guardRadius.current[side];
     top.getWorldPosition(s.s0);
     bottom.getWorldPosition(s.s1);
     lower.getWorldPosition(s.elbow);
@@ -255,8 +280,8 @@ function SceneRig({
     mixer.update(delta);
     // THE SOLID BODY: hands never enter the torso — the guard runs after the
     // animation, before the render, every frame
-    guardArm("l", 0.105);
-    guardArm("r", 0.105);
+    guardArm("l");
+    guardArm("r");
     // TALKING EXPRESSION on the web body: while she speaks, a soft nod and
     // head turn punctuate the line (the Isaac policy trains the full routine)
     {
@@ -489,8 +514,10 @@ function SceneRig({
             visual proxy for her real 1204/1303.5 motors, spinning with the
             live HAL RPM when she flies */}
         <group ref={propsRef}>
-          {[[-0.17, 0.17], [0.17, 0.17], [-0.17, -0.17], [0.17, -0.17]].map(([x, z], i) => (
-            <mesh key={i} position={[x, 1.0, z]} rotation={[Math.PI / 2, 0, 0]}>
+          {/* raised clear of the slimmed head — the props hover at the halo,
+              not through the cranium */}
+          {[[-0.2, 0.2], [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2]].map(([x, z], i) => (
+            <mesh key={i} position={[x, 1.08, z]} rotation={[Math.PI / 2, 0, 0]}>
               <torusGeometry args={[0.11, 0.012, 8, 24]} />
               <meshStandardMaterial color="#9fb2c8" emissive={accentColor} emissiveIntensity={0.25} transparent opacity={0.55} toneMapped={false} />
             </mesh>

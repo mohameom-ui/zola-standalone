@@ -724,3 +724,9 @@ Format: [date] slice — action — library source → destination.
 - **THE GLITCH FIX:** gestures crossfade ON ARRIVAL now — the old code killed the playing clip before the new one loaded, leaving a load-gap where she snapped to base and snapped into the new move (the jerky double-motion while talking). Plus THE SPEECH RULE: spontaneous moves wait while she is actually speaking.
 - **THE SOLID BODY:** a per-frame penetration guard in DroneBody3D — hands and forearms are checked against a spine capsule every frame; a hand inside the torso is rotated back out through the elbow (world-frame corrective quaternion, eased halfway). The retargeted clips can no longer fold her hands into her body.
 - **THE TALKING EXPRESSION policy trained** (`Isaac-Zola-Talk-Prototype-v0`): the conversational routine — head tilts and soft hand emphasis cycling at 1.6 s. Reward 34.61, episodes 599/600, ONNX drift 4.77e-07. Her shelf: 12 verified artifacts.
+
+### 2026-10-25 (15) — THE GLITCH SWEEP: three visual bugs named and killed
+- **The solid guard fought her rest pose**: its hardcoded 0.105 m radius was WIDER than where her hands naturally hang — the guard pushed her arms outward every frame (the jitter). The radius is now MEASURED once per side from her rest pose (R = 90% of rest distance, floored at 0.05).
+- **The root-motion strip ate the walk's bounce**: now only the HORIZONTAL drift is zeroed — the vertical bob is kept (a walk without bounce reads broken), and the world moves her forward.
+- **The props clipped the slimmed head**: the halo mounts raised to (±0.2, y 1.08) — clear of the cranium.
+- Full-body check re-run with the fixes live: ALL ORGANS VERIFIED, no page errors, perception events 6 → 10.

@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-body { background: #040507; color: #e9e7dc; }
+@font-face { font-family: "Rajdhani"; src: url("/fonts/Rajdhani-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Cairo"; src: url("/fonts/Cairo-Variable.ttf") format("truetype"); font-weight: 200 1000; font-display: swap; }
+:root { color-scheme: dark; }
+html, body { min-height: 100%; margin: 0; background: #05070b; color: #e9edf3; }
+body { overflow: hidden; }
 
 /* her color language — defaults; the theme settings override per session.
    Every accent in her panel and her 3D halo reads from these tokens. */
@@ -35,3 +39,159 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 .hud-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #8b8f9c; }
 .scanline { position: relative; }
 .scanline::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px); }
+
+/* Zola's desktop control room */
+.zola-console-shell {
+  --zola-line: rgba(161, 181, 208, 0.13);
+  --zola-muted: #8492a5;
+  --zola-ink: #e8eef7;
+  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
+  color: var(--zola-ink);
+  background:
+    radial-gradient(ellipse at 24% 43%, rgba(18, 68, 92, 0.16), transparent 42%),
+    radial-gradient(ellipse at 72% 5%, rgba(163, 125, 45, 0.08), transparent 35%),
+    #05070b;
+  font-family: "Rajdhani", "Cairo", "Segoe UI", sans-serif;
+}
+.zola-topbar {
+  height: 72px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--zola-line);
+  background: rgba(6, 9, 14, 0.86);
+  position: relative;
+  z-index: 5;
+}
+.zola-brand-lockup { display: flex; align-items: center; gap: 12px; }
+.zola-brand-mark {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
+  border: 1px solid rgba(53, 208, 165, 0.42); color: var(--z-b, #35d0a5);
+  background: linear-gradient(145deg, rgba(53,208,165,.16), rgba(53,208,165,.025));
+  font-size: 19px; font-weight: 700; letter-spacing: -.08em;
+  box-shadow: inset 0 0 16px rgba(53,208,165,.06), 0 0 22px rgba(53,208,165,.08);
+}
+.zola-brand-name { font-size: 15px; line-height: 1; letter-spacing: .24em; font-weight: 700; }
+.zola-brand-caption, .zola-topbar-meta, .zola-eyebrow, .zola-rig-badge small, .zola-stage-footer {
+  font-family: "Cairo", "Segoe UI", sans-serif; font-size: 9px; letter-spacing: .15em;
+}
+.zola-brand-caption { margin-top: 5px; color: var(--zola-muted); font-size: 8px; }
+.zola-topbar-meta { display: flex; align-items: center; gap: 9px; color: #a8b5c5; }
+.zola-topbar-dot, .zola-rig-pulse, .zola-dock-indicator {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--z-b, #35d0a5);
+  box-shadow: 0 0 12px rgba(53, 208, 165, .6);
+}
+.zola-version { margin-left: 7px; padding: 4px 7px; border: 1px solid var(--zola-line); border-radius: 6px; color: var(--zola-muted); }
+.zola-console-grid {
+  height: calc(100svh - 72px);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(390px, 440px);
+}
+.zola-presence { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 24px clamp(20px, 3vw, 46px) 16px; }
+.zola-stage-heading { flex: none; min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 14px; }
+.zola-eyebrow { color: var(--z-b, #35d0a5); font-size: 8px; }
+.zola-stage-heading h1 { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 1px; font-size: clamp(24px, 2.6vw, 34px); line-height: 1; letter-spacing: .045em; font-weight: 600; }
+.zola-stage-heading h1 span { color: #7c8b9e; font: 9px "Cairo", "Segoe UI", sans-serif; letter-spacing: .16em; }
+.zola-stage-heading p { margin: 5px 0 0; color: #93a0b1; font-size: 11px; letter-spacing: .025em; }
+.zola-rig-badge { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--zola-line); border-radius: 10px; background: rgba(11, 17, 25, .76); }
+.zola-rig-badge strong { display: block; color: #dce5ef; font: 600 10px "Cairo", "Segoe UI", sans-serif; letter-spacing: .12em; }
+.zola-rig-badge small { display: block; margin-top: 2px; color: var(--zola-muted); font-size: 7px; }
+.zola-stage-viewport {
+  min-height: 0; flex: 1; position: relative; overflow: hidden; isolation: isolate;
+  border: 1px solid rgba(133, 169, 193, .2); border-radius: 18px;
+  background:
+    radial-gradient(ellipse 35% 58% at 50% 63%, rgba(25, 102, 121, .19), transparent 78%),
+    radial-gradient(ellipse 70% 90% at 50% 100%, rgba(16, 43, 56, .5), transparent 70%),
+    linear-gradient(145deg, #0b1119 0%, #080d14 52%, #080b11 100%);
+  box-shadow: inset 0 0 80px rgba(0,0,0,.45), 0 18px 70px rgba(0,0,0,.22);
+}
+.zola-stage-viewport::before {
+  content: ""; position: absolute; z-index: 2; inset: 0; pointer-events: none; opacity: .28;
+  background-image: linear-gradient(rgba(110, 157, 177, .055) 1px, transparent 1px), linear-gradient(90deg, rgba(110, 157, 177, .055) 1px, transparent 1px);
+  background-size: 42px 42px; mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 78%, transparent);
+}
+.zola-stage-viewport::after {
+  content: ""; position: absolute; z-index: 2; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(3,7,12,.5), transparent 17%, transparent 83%, rgba(3,7,12,.5)), linear-gradient(0deg, rgba(3,7,12,.32), transparent 20%, transparent 84%, rgba(3,7,12,.22));
+}
+.zola-stage-viewport > .zola-avatar-canvas { position: absolute !important; z-index: 1; inset: 0; width: 100%; height: 100%; border-radius: inherit; background: transparent !important; }
+.zola-stage-corner { position: absolute; z-index: 4; width: 16px; height: 16px; pointer-events: none; opacity: .75; }
+.zola-stage-corner-tl { left: 12px; top: 12px; border-left: 1px solid var(--z-b, #35d0a5); border-top: 1px solid var(--z-b, #35d0a5); }
+.zola-stage-corner-tr { right: 12px; top: 12px; border-right: 1px solid var(--z-b, #35d0a5); border-top: 1px solid var(--z-b, #35d0a5); }
+.zola-stage-corner-bl { left: 12px; bottom: 12px; border-left: 1px solid var(--z-b, #35d0a5); border-bottom: 1px solid var(--z-b, #35d0a5); }
+.zola-stage-corner-br { right: 12px; bottom: 12px; border-right: 1px solid var(--z-b, #35d0a5); border-bottom: 1px solid var(--z-b, #35d0a5); }
+.zola-stage-loading { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; color: #9ba9b8; font: 9px "Cairo", "Segoe UI", sans-serif; letter-spacing: .16em; }
+.zola-stage-loader { width: 26px; height: 26px; border: 1px solid rgba(53,208,165,.18); border-top-color: var(--z-b, #35d0a5); border-radius: 50%; animation: zola-spin .9s linear infinite; }
+@keyframes zola-spin { to { transform: rotate(360deg); } }
+.zola-stage-footer { min-height: 35px; display: flex; align-items: center; gap: 21px; color: #77889a; font-size: 8px; }
+.zola-stage-footer span { display: flex; align-items: center; gap: 7px; }
+.zola-stage-footer i { width: 5px; height: 5px; border-radius: 50%; background: var(--z-b, #35d0a5); box-shadow: 0 0 8px rgba(53,208,165,.65); }
+.zola-stage-interaction { margin-left: auto; }
+.zola-control-dock { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--zola-line); background: rgba(8, 12, 18, .93); box-shadow: -20px 0 55px rgba(0,0,0,.2); }
+.zola-dock-heading { flex: none; min-height: 70px; padding: 14px 20px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--zola-line); }
+.zola-dock-heading h2 { margin: 3px 0 0; color: #e0e8f0; font-size: 16px; font-weight: 600; letter-spacing: .035em; }
+.zola-dock-indicator { margin-right: 2px; }
+.zola-dock-content { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: rgba(156,177,198,.24) transparent; }
+.zola-dock-content > div { min-height: 100%; }
+.zola-dock-content .glass-soft { background: linear-gradient(145deg, rgba(20,28,39,.8), rgba(12,17,25,.76)); border-color: rgba(151,174,197,.13); border-radius: 12px; }
+.zola-dock-content input:not([type="range"]), .zola-dock-content select { background-color: rgba(5,8,12,.72); }
+.zola-dock-content button { font-family: "Cairo", "Segoe UI", sans-serif; }
+.zola-calm *, .zola-calm *::before, .zola-calm *::after { animation: none !important; }
+
+/* Paired mobile companion view */
+.zola-companion-page { height: 100svh; min-height: 100svh; overflow-y: auto; padding: 28px 16px 40px; background: radial-gradient(ellipse at 50% -8%, rgba(22,82,91,.3), transparent 48%), #06090e; color: #e8eef7; font-family: "Cairo", "Segoe UI", sans-serif; }
+.zola-companion-wrap { width: min(100%, 680px); margin: 0 auto; }
+.zola-companion-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 19px; }
+.zola-companion-title { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: .17em; }
+.zola-companion-subtitle { margin-top: 4px; color: #8391a4; font-size: 10px; letter-spacing: .08em; }
+.zola-companion-live { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(53,208,165,.24); border-radius: 999px; color: #a8dccd; background: rgba(53,208,165,.06); font-size: 9px; letter-spacing: .1em; white-space: nowrap; }
+.zola-companion-live i { width: 6px; height: 6px; border-radius: 50%; background: #35d0a5; box-shadow: 0 0 10px rgba(53,208,165,.6); }
+.zola-companion-card { margin-bottom: 12px; padding: 17px; border: 1px solid rgba(151,174,197,.15); border-radius: 16px; background: linear-gradient(145deg, rgba(18,25,35,.9), rgba(10,15,22,.94)); box-shadow: 0 18px 46px rgba(0,0,0,.2); }
+.zola-companion-state { padding-bottom: 13px; border-bottom: 1px solid rgba(151,174,197,.12); color: #a7b3c2; font-size: 10px; }
+.zola-companion-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin-top: 13px; }
+.zola-companion-metric { min-width: 0; padding: 11px 12px; border: 1px solid rgba(151,174,197,.1); border-radius: 11px; background: rgba(4,8,13,.4); }
+.zola-companion-label { color: #8090a3; font-size: 8px; letter-spacing: .14em; }
+.zola-companion-value { margin-top: 5px; overflow-wrap: anywhere; color: #e5ebf2; font-size: 13px; }
+.zola-companion-callout { margin-top: 14px; padding-top: 13px; border-top: 1px solid rgba(151,174,197,.12); }
+.zola-companion-callout .zola-companion-label { margin-bottom: 6px; }
+.zola-companion-log { color: #c2ccd7; font-size: 10px; line-height: 1.65; }
+
+@media (max-width: 960px) {
+  .zola-console-grid { grid-template-columns: minmax(0, 1fr) minmax(350px, 39vw); }
+  .zola-presence { padding-left: 20px; padding-right: 20px; }
+}
+@media (max-width: 720px) {
+  body { overflow: auto; }
+  .zola-console-shell { height: auto; min-height: 100svh; overflow: visible; }
+  .zola-topbar { height: 60px; padding: 0 15px; }
+  .zola-brand-mark { width: 30px; height: 30px; }
+  .zola-brand-caption { font-size: 7px; }
+  .zola-topbar-meta { font-size: 8px; }
+  .zola-version { display: none; }
+  .zola-console-grid { height: auto; min-height: calc(100svh - 60px); display: flex; flex-direction: column; }
+  .zola-presence { padding: 15px 14px 10px; }
+  .zola-stage-heading { min-height: 72px; }
+  .zola-stage-heading h1 { font-size: 26px; }
+  .zola-stage-heading p { font-size: 10px; }
+  .zola-rig-badge { gap: 7px; padding: 7px 8px; }
+  .zola-rig-badge small { font-size: 6px; }
+  .zola-stage-viewport { flex: none; height: clamp(320px, 48svh, 500px); min-height: 320px; border-radius: 14px; }
+  .zola-stage-footer { min-height: 30px; gap: 13px; font-size: 7px; }
+  .zola-stage-interaction { display: none !important; }
+  .zola-control-dock { border-top: 1px solid var(--zola-line); border-left: 0; box-shadow: 0 -12px 40px rgba(0,0,0,.15); }
+  .zola-dock-heading { min-height: 60px; padding: 10px 16px; }
+  .zola-dock-content { flex: none; overflow: visible; }
+  .zola-dock-content > div { min-height: 0; }
+  .zola-companion-page { padding: 20px 14px 30px; }
+  .zola-companion-title { font-size: 17px; }
+}
+@media (max-width: 390px) {
+  .zola-brand-caption { display: none; }
+  .zola-topbar-meta { font-size: 7px; }
+  .zola-rig-badge { padding: 6px; }
+  .zola-stage-footer { gap: 8px; letter-spacing: .09em; }
+}

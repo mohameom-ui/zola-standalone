@@ -1,185 +1,119 @@
-# AURA SITL Quick-Start — Fly Her Tonight, $0 (ArduPilot & PX4)
+# Zola SITL Quick Start — ArduPilot
 
-**What you'll have at the end:** a real autopilot (ArduCopter or PX4) running
-a *virtual quad* on your PC. AURA's browser brain connects through the relay,
-arms it, takes off — and she flies a real flight stack with the same code that
-will later fly the physical drone. Follow, scan, tasks, roasts: all work.
-Only the props are imaginary.
+This guide runs the Zola browser app against an ArduCopter virtual vehicle. The
+relay's takeoff sequence currently supports **ArduPilot GUIDED mode only**. PX4
+uses a different OFFBOARD handshake and is not enabled by this relay.
 
-```
-┌─ Windows ──────────────────────────────────────────────────┐
-│  Browser (this app) ──WebSocket ws://localhost:8765──┐     │
-│                                                      │     │
-│  ┌─ WSL2 Ubuntu ─────────────────────────────────────┘     │
-│  │  aura_relay.py ──MAVLink UDP── SITL (ArduCopter or PX4)  │
-│  └───────────────────────────────────────────────────────────│
-└─────────────────────────────────────────────────────────────┘
-```
+## Requirements
 
-**Two autopilot stacks — pick one:**
+- Windows with WSL2 Ubuntu, or Linux
+- ArduPilot SITL installed under `~/ardupilot`
+- Node.js 21 or later for the optional `first-flight.mjs` script
+- The Zola repository available to both Windows and WSL if you use the batch launcher
 
-| | Option A — **ArduPilot** (recommended) | Option B — PX4 |
-| --- | --- | --- |
-| Sim command | `sim_vehicle.py` | `make px4_sitl jmavsim_headless` |
-| Offboard port | `udp://:14551` | `udp://:14540` |
-| GCS/viz port | `udp:127.0.0.1:14550` | `udp://:14550` |
-| Matches our parts list | ✅ used quads convert to ArduPilot easily | ✅ |
+## 1. Set up ArduPilot SITL
 
----
+Inside WSL/Linux:
 
-## Step 1 — Install Dependencies & Source
-
-On Linux (Ubuntu/Debian), or on Windows via **WSL2**:
-
-```powershell
-# Windows only, PowerShell as Administrator:
-wsl --install
-# reboot when asked, then set an Ubuntu username/password
-```
-
-Then inside Ubuntu/WSL — **Option A (ArduPilot):**
 ```bash
-git clone --recursive https://github.com/ArduPilot/ardupilot.git
-cd ardupilot
+cd ~/ardupilot
 Tools/environment_install/install-prereqs-ubuntu.sh -y
 source ~/.bashrc
 ```
 
-Or **Option B (PX4):**
+## 2. Set up the relay environment
+
+From the Zola repository root in WSL/Linux:
+
 ```bash
-wget -qO- https://raw.githubusercontent.com/PX4/PX4-Autopilot/main/Tools/setup/ubuntu.sh | bash
-source ~/.bashrc
-git clone https://github.com/PX4/PX4-Autopilot.git --recursive
-cd PX4-Autopilot
+python3 -m venv ~/aura-venv
+~/aura-venv/bin/pip install -r bridge/requirements.txt
 ```
 
-## Step 2 — Launch the Virtual Copter
+The environment keeps the existing deployment path name. The relay binds to
+`127.0.0.1:8765` and accepts an empty token only on that loopback-only setup.
 
-**Option A — ArduCopter** (2D console + map included):
-```bash
-cd ardupilot/ArduCopter
-sim_vehicle.py -v ArduCopter --console --map -w
-```
-> The `-w` flag wipes virtual EEPROM and loads default parameters on first run.
+## 3. Start the virtual vehicle
 
-**Option B — PX4** (headless jMAVSim, light):
+In a WSL/Linux terminal:
+
 ```bash
-cd ~/PX4-Autopilot
-make px4_sitl jmavsim_headless
+cd ~/ardupilot
+python3 Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --no-mavproxy
 ```
 
-When you see a running vehicle (`APM: ...` / `INFO [px4] Startup script
-returned successfully`) — a virtual quad is sitting on a virtual floor.
-Leave that terminal running.
+Leave it running. The relay connects directly to ArduPilot's TCP master port
+at `tcp:127.0.0.1:5760`. The launcher script starts the same configuration and
+records only the PIDs it owns.
 
-## Step 3 — Verify the MAVLink Link (30 seconds)
+## 4. Verify the link without arming
 
-New terminal. This proves the virtual drone answers before AURA touches it:
+In another terminal, confirm the heartbeat. This check is read-only: it does
+not change flight mode or arm the vehicle.
 
 ```bash
-source aura-venv/bin/activate   # if you already made the venv from Step 4
-pip install pymavlink
-python - <<'EOF'
+~/aura-venv/bin/python - <<'PY'
 from pymavlink import mavutil
 
-port = 'udp:127.0.0.1:14551'   # ArduPilot  |  PX4: use udp:127.0.0.1:14540
-master = mavutil.mavlink_connection(port)
-print("Waiting for heartbeat from the virtual AURA frame...")
+master = mavutil.mavlink_connection("tcp:127.0.0.1:5760")
+print("Waiting for the ArduCopter heartbeat...")
 master.wait_heartbeat()
-print(f"Connected! System ID: {master.target_system}, Component ID: {master.target_component}")
-master.set_mode_apm('GUIDED')
-master.arducopter_arm()
-print("AURA Armed in GUIDED mode! Ready for offboard commands.")
-EOF
+print(f"Connected to system {master.target_system}, component {master.target_component}")
+PY
 ```
 
-## Step 4 — Run the Relay (new terminal)
+## 5. Start the relay and app
+
+Start the relay in WSL/Linux:
 
 ```bash
-cd ~/aura-bridge          # copy the repo's bridge/ folder here
-python3 -m venv aura-venv && source aura-venv/bin/activate
-pip install pymavlink websockets
-
-# ArduPilot — VERIFIED end-to-end on this machine: the relay talks STRAIGHT to
-# SITL's TCP master port. MAVProxy is not needed — and important: without it,
-# `--out`/`udpin:...:14551` carries NO stream (sim_vehicle's --out only takes
-# effect through MAVProxy). Direct TCP is simpler and proven:
-python aura_relay.py --connection tcp:127.0.0.1:5760
-# PX4 — UNTESTED on this machine (no PX4 SITL has flown here yet). The
-documented PX4 offboard port is UDP 14540, so the honest first attempt is:
-python aura_relay.py --connection udpin:0.0.0.0:14540
-# (the relay's phantom-link guard will refuse to pretend a silent port is
-# a flight controller — if PX4 speaks elsewhere, the log will say so)
+cd ~/zola
+~/aura-venv/bin/python -u bridge/aura_relay.py --connection tcp:127.0.0.1:5760 --relaxed-arming
 ```
 
-You should see:
+`--relaxed-arming` is for SITL only. Never use it with a physical flight
+controller. For a local Windows app, run `start-zola.bat` or `npm run dev`; the
+app is on `http://localhost:3001/zola` and the relay URL is
+`ws://localhost:8765`.
+
+For a one-click Windows launch, use `start-sim.bat`. It starts the managed
+ArduPilot and relay session, starts the app if port 3001 is free, and opens the
+Zola page. Use `stop-sim.bat` to request landing and stop only that session.
+
+## 6. Take off and land
+
+1. Switch the panel to **BODY · REAL** and use `ws://localhost:8765`.
+2. Wait until the panel shows current battery telemetry.
+3. Press **ARM & TAKE OFF** and confirm. The relay checks battery freshness,
+   EKF position, GUIDED mode, and arming before requesting takeoff.
+4. Send movement commands only after Zola is airborne. The relay clamps speed
+   and confines the flight to its geofence.
+5. Press **LAND & DISARM** to request a controlled landing. The relay disarms
+   only after fresh position telemetry confirms she is on the ground. Switching
+   away from REAL mode and the kill switch both request landing.
+
+Real mode controls the flight controller only. Hand, finger, arm, and leg clips
+remain visual until a physical limb-servo driver is connected.
+
+## Optional automated SITL flight
+
+With the relay running, execute from the Zola repository root:
+
+```bash
+node first-flight.mjs
 ```
-[relay] FC connected (sys 1)          <- a REAL sys id, never sys 0
-[relay] WebSocket listening on ws://0.0.0.0:8765
-[relay] READY. The browser brain can now connect (BODY · REAL).
-```
 
-> **Phantom-link warning:** if the log ever says `FC connected (sys 0)`, the
-> relay is talking to nobody — `wait_heartbeat` can time out silently, so the
-> relay now rejects a sys-0 link and retries (fixed in `aura_relay.py`).
-
-## Step 5 — Give Her the Sticks (in this app, F7 panel)
-
-1. Press **BODY · SIM** → flips to **BODY · REAL ⚠** (URL input appears —
-   `ws://localhost:8765` is already correct)
-2. On connect she sends `start` automatically — watch the relay terminal:
-   `[relay] arming... → AURA IS FLYING — the browser brain has the sticks`
-3. **She is now flying a real flight stack.** Say *"follow me"*, *"scan the
-   room"*, *"do a trick"* — her velocity setpoints drive the actual simulator
-4. Battery now comes from real telemetry, not the simulation
-
-## Optional — 3D Visualization
-- **QGroundControl** (ArduPilot & PX4): download, launch, it auto-connects to
-  `14550` — watch her fly on a live map with full HUD
-- Gazebo (PX4) or ArduPilot+Gazebo plugins for full 3D physics rendering
-- jMAVSim GUI: run `make px4_sitl jmavsim` (non-headless) for a 3D frame view
-
-## First-flight script (in this order)
-1. Let her hover 10s — steady, no drift fight
-2. *"come here"* — she can't see you in SITL (no camera), so approach runs on
-   the follow logic; fine for control testing
-3. *"do a trick"* → barrel roll setpoints
-4. Press **BODY · SIM** (or close the panel) → sends `stop` → clean land +
-   disarm. Relay prints `landed and disarmed — safe`
+The script authenticates, waits for current battery telemetry, then waits for
+the relay to report armed altitude before it sends its bounded movement plan.
+It requests landing when the plan completes.
 
 ## Troubleshooting
 
-| Symptom | Fix |
+| Symptom | Check |
 | --- | --- |
-| Relay stuck at "waiting for flight controller" | SITL not up yet — check the sim terminal; ArduPilot (verified): `tcp:127.0.0.1:5760`; PX4 (untested here): `udpin:0.0.0.0:14540` |
-| `sim_vehicle.py` not found | `source ~/.bashrc` after install-prereqs; or run from `ardupilot/Tools/autotest/` |
-| Browser can't reach ws://8765 | Relay not running in WSL; `sudo ufw allow 8765` if ufw is on |
-| Offboard refuses to start | Sim needs a moment after boot; retry — the relay retries automatically once |
-| `arm denied: mode not GUIDED/OFFBOARD` | MAVSDK sets the mode itself; if it still refuses, land (BODY·SIM) and reconnect |
-| She drifts/oscillates | Normal for velocity-only control in SITL — governor clamps keep it sane |
-| mavsdk fails on Windows-native Python | Run the relay inside WSL (as above); only the browser runs on Windows |
-
-## Flight log — first verified round trip (2026-10-21)
-
-Automated brain: `first-flight.mjs` (Node ≥ 21, native WebSocket).
-
-```
-[relay] FC connected (sys 1)
-[relay] EKF ready -> mode: GUIDED -> armed — taking off
-[relay] AURA IS FLYING — the browser brain has the sticks
-
-browser:  hover 12s -> drift loop -> hover -> land
-max alt : 0.90 m (takeoff target 0.8 m)   battery: 100% -> 91%
-drift   : pos (0,0) -> (1.82, 0.57) -> back home
-finish  : landed — safe (alt 0.00, disarmed)
-```
-
-The full chain — browser velocity protocol -> WebSocket -> pymavlink relay ->
-MAVLink -> ArduPilot SITL -> physics -> telemetry back to the browser — ran
-end-to-end with the same code that will drive the physical quad.
-
-## Why this matters
-Every line of brain code exercised here — perception, personality, task
-planning, safety governor, obstacle avoidance — runs **unchanged** when you
-swap the SITL connection string for a real flight controller's. SITL is the
-dress rehearsal for her first physical flight.
+| Relay cannot connect | Ensure ArduCopter SITL is running and TCP port 5760 is available. |
+| Relay reports autopilot unsupported | This relay currently supports ArduPilot, not PX4 OFFBOARD mode. |
+| Takeoff refused for battery | Wait for fresh SYS_STATUS battery telemetry; takeoff is blocked when it is stale or below 15%. |
+| Takeoff refused for EKF | Wait for SITL's EKF position flags to become ready. The relay now refuses instead of arming without them. |
+| App cannot connect to relay | Confirm the relay listens on `127.0.0.1:8765`; for a remote operator, configure a token and a trusted TLS/VPN path as described in `DEPLOY.md`. |
+| Landing not confirmed | Keep the flight controller powered and inspect the relay log and vehicle directly. The relay intentionally leaves the controller armed if it cannot confirm ground contact. |

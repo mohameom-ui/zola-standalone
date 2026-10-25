@@ -77,6 +77,8 @@ export interface KnownItem {
   lastYaw: number | null;
   /** remembered world position (spatial map) */
   pos: { x: number; y: number; z: number } | null;
+  /** Temporal history of positions: sliding window of last 10 sightings. */
+  posHistory: { pos: { x: number; y: number; z: number }; at: number }[];
   /** WAVE 5 — semantic stacking: "under the mug" — what was directly on top when seen */
   stackNote?: string | null;
   /** WAVE 5.5 — inverse relation: what this item is carrying on top */
@@ -343,7 +345,11 @@ export class AuraMemory {
       if (pos && match.pos && Math.hypot(pos.x - match.pos.x, pos.y - match.pos.y) > 0.5) {
         moved = { ...match.pos };
       }
-      if (pos) match.pos = pos;
+      if (pos) {
+        match.pos = pos;
+        // Update temporal history: sliding window of last 10 positions
+        match.posHistory = [...(match.posHistory ?? []), { pos, at: Date.now() }].slice(-10);
+      }
       this.save();
       return { item: match, isNew: false, moved };
     }
@@ -356,6 +362,7 @@ export class AuraMemory {
       sightings: 1,
       lastYaw: yaw ?? null,
       pos: pos ?? null,
+      posHistory: pos ? [{ pos, at: Date.now() }] : [],
       sig: sig ?? [],
       shape: shape ?? [],
     };

@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 
 interface ZolaState {
-  mood: string; persona: string; activity: string; battery: number; alt: number;
+  mood: string; persona: string; activity: string; battery: number | null; alt: number;
   task: string | null; bond: number; trust: number; owner: string | null;
   items: number; lastSay: string; log: { who: string; text: string }[];
   at?: number;
@@ -45,42 +45,58 @@ export default function ZolaCompanionPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#040507] text-[#e9e7dc] p-6 font-mono">
-      <div className="max-w-md mx-auto space-y-4">
-        <h1 className="text-[var(--z-a)] tracking-[0.3em] text-lg">ZOLA · COMPANION VIEW</h1>
-        <p className="text-[10px] text-[#8b8f9c]">live status · text only — her camera never streams</p>
+    <main className="zola-companion-page">
+      <div className="zola-companion-wrap">
+        <header className="zola-companion-header">
+          <div>
+            <h1 className="zola-companion-title">ZOLA <span style={{ color: "#35d0a5" }}>·</span> COMPANION</h1>
+            <div className="zola-companion-subtitle">Read-only live status · camera does not stream</div>
+          </div>
+          <div className="zola-companion-live"><i />{status === "live" ? "LIVE" : "LINK PENDING"}</div>
+        </header>
 
-        <div className="rounded-xl border border-[var(--z-a)]/30 bg-[#0b0e17] p-4 space-y-3">
-          <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">STATUS</span><span className={status === "live" ? "text-[var(--z-b)] text-xs" : "text-[var(--z-warn)] text-xs"}>{status.toUpperCase()}</span></div>
+        <section className="zola-companion-card" aria-label="Zola live status">
+          <div className="zola-companion-state" aria-live="polite">{status}</div>
           {s && (
             <>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">MOOD / PERSONA</span><span className="text-[var(--z-a)] text-sm">{s.mood} · {s.persona}</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">DOING</span><span className="text-[#5ac8fa] text-sm">{s.activity}</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">ALTITUDE</span><span className="font-mono">{s.alt.toFixed(2)} m</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">BATTERY</span><span className={s.battery < 0.2 ? "text-[var(--z-danger)]" : "text-[var(--z-b)]"}>{Math.round(s.battery * 100)}%</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">TASK</span><span className="text-[10px] text-right max-w-[55%]">{s.task ?? "—"}</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">BOND / TRUST</span><span className="text-[var(--z-warn)]">{Math.round(s.bond * 100)}% / {Math.round(s.trust * 100)}%</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">HUMAN</span><span>{s.owner ?? "unknown"}</span></div>
-              <div className="flex justify-between"><span className="text-[#8b8f9c] text-xs">THINGS KNOWN</span><span className="font-mono">{s.items}</span></div>
-              <div className="pt-2 border-t border-white/10">
-                <div className="text-[#8b8f9c] text-[10px] pb-1">SHE SAYS</div>
-                <div className="text-sm text-[var(--z-a)] min-h-[2.5rem]">{s.lastSay || "…"}</div>
+              <div className="zola-companion-metrics">
+                <CompanionMetric label="MOOD / PERSONA" value={`${s.mood} · ${s.persona}`} tone="#e5bd64" />
+                <CompanionMetric label="ACTIVITY" value={s.activity} tone="#72c9e9" />
+                <CompanionMetric label="ALTITUDE" value={`${s.alt.toFixed(2)} m`} />
+                <CompanionMetric label="BATTERY" value={s.battery === null ? "—" : `${Math.round(s.battery * 100)}%`} tone={s.battery !== null && s.battery < 0.2 ? "#ff777b" : "#65d2ae"} />
+                <CompanionMetric label="ACTIVE TASK" value={s.task ?? "—"} />
+                <CompanionMetric label="BOND / TRUST" value={`${Math.round(s.bond * 100)}% / ${Math.round(s.trust * 100)}%`} tone="#e5bd64" />
+                <CompanionMetric label="HUMAN" value={s.owner ?? "Unknown"} />
+                <CompanionMetric label="ITEMS KNOWN" value={String(s.items)} />
+              </div>
+              <div className="zola-companion-callout">
+                <div className="zola-companion-label">LATEST MESSAGE</div>
+                <div className="zola-companion-value" style={{ color: "#e5bd64", minHeight: "2.5rem" }}>{s.lastSay || "…"}</div>
               </div>
             </>
           )}
-        </div>
+        </section>
 
         {s && s.log?.length > 0 && (
-          <div className="rounded-xl border border-white/10 bg-[#0b0e17] p-4 space-y-1">
-            <div className="text-[#8b8f9c] text-[10px] pb-1">RECENT LOG</div>
+          <section className="zola-companion-card" aria-label="Recent activity">
+            <div className="zola-companion-label" style={{ marginBottom: 9 }}>RECENT ACTIVITY</div>
             {s.log.slice(-8).reverse().map((l, i) => (
-              <div key={i} className="text-[10px] leading-relaxed">
-                <span className={l.who === "you" ? "text-[#5ac8fa]" : l.who === "aura" ? "text-[var(--z-a)]" : "text-[#8b8f9c]"}>{l.who}:</span> {l.text}
+              <div key={i} className="zola-companion-log">
+                <span style={{ color: l.who === "you" ? "#72c9e9" : l.who === "aura" ? "#e5bd64" : "#8391a4" }}>{l.who === "aura" ? "Zola" : l.who}:</span> {l.text}
               </div>
             ))}
-          </div>
+          </section>
         )}
       </div>
     </main>
+  );
+}
+
+function CompanionMetric({ label, value, tone = "#e5ebf2" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="zola-companion-metric">
+      <div className="zola-companion-label">{label}</div>
+      <div className="zola-companion-value" style={{ color: tone }}>{value}</div>
+    </div>
   );
 }

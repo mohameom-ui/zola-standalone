@@ -18,7 +18,7 @@ interface ZolaState {
   mood: string;
   persona: string;
   activity: string;
-  battery: number;
+  battery: number | null;
   alt: number;
   task: string | null;
   bond: number;
@@ -51,8 +51,9 @@ export async function POST(req: Request) {
     // a state post must carry the full snapshot — no stale-field blending
     if (
       typeof body.mood !== "string" || typeof body.persona !== "string" ||
-      typeof body.activity !== "string" || typeof body.battery !== "number" ||
-      typeof body.alt !== "number"
+      typeof body.activity !== "string" ||
+      !(body.battery === null || (typeof body.battery === "number" && Number.isFinite(body.battery) && body.battery >= 0 && body.battery <= 1)) ||
+      typeof body.alt !== "number" || !Number.isFinite(body.alt)
     ) {
       return NextResponse.json({ ok: false, reason: "state posts must be complete snapshots" }, { status: 400 });
     }

@@ -1,17 +1,19 @@
-# /etc/systemd/system/aura.service
-# AURA drone pet — ground relay autostart on the Raspberry Pi
+# /etc/systemd/system/zola-relay.service
+# Zola ground relay — loopback-only by default; remote access needs a token.
 [Unit]
-Description=AURA Drone Pet — Ground Relay
+Description=Zola Ground Relay
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 User=pi
-WorkingDirectory=/home/pi/aura/bridge
-ExecStart=/home/pi/aura/bridge/venv/bin/python aura_relay.py --connection udp://:14540
+WorkingDirectory=/home/pi/zola/bridge
+EnvironmentFile=-/etc/zola-relay.env
+ExecStart=/home/pi/aura-venv/bin/python -u /home/pi/zola/bridge/aura_relay.py --connection /dev/serial0 --baud 57600
 Restart=always
 RestartSec=3
-# Safety: if the relay dies, the FC's own failsafe holds hover/land.
+# Set ZOLA_RELAY_HOST=0.0.0.0 and ZOLA_RELAY_TOKEN together for LAN access.
+# The relay rejects non-loopback binds without a token.
 
 [Install]
 WantedBy=multi-user.target

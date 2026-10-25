@@ -50,7 +50,7 @@ echo "[zola] NOTE: her core lines are pre-rendered WAVs in public/voices/piper/ 
 
 echo "[zola] setting up the relay environment..."
 python3 -m venv "$HOME/aura-venv"
-"$HOME/aura-venv/bin/pip" install -q pymavlink websockets
+"$HOME/aura-venv/bin/pip" install -q -r "$ZOLA_DIR/bridge/requirements.txt"
 
 echo "[zola] installing systemd services (app + relay)..."
 sudo tee /etc/systemd/system/zola-app.service > /dev/null <<EOF
@@ -82,6 +82,7 @@ Description=Zola MAVLink relay
 After=network-online.target
 [Service]
 User=$USER
+EnvironmentFile=-/etc/zola-relay.env
 ExecStart=$HOME/aura-venv/bin/python -u $ZOLA_DIR/bridge/aura_relay.py --connection '$ZOLA_CONNECTION' --baud $ZOLA_BAUD $RELAXED_FLAG
 Restart=always
 RestartSec=3
@@ -112,6 +113,7 @@ echo "  • screen:   kiosk Chromium auto-opens her panel on boot"
 echo "  Reboot now: sudo reboot"
 echo "  - relay wired for: connection '$ZOLA_CONNECTION' @ $ZOLA_BAUD baud"
 echo "  - arming checks: ENABLED on hardware (relaxed only when ZOLA_RELAXED=1, SITL)"
+echo "  - relay WebSocket: loopback-only by default; remote access requires ZOLA_RELAY_HOST=0.0.0.0 and ZOLA_RELAY_TOKEN in /etc/zola-relay.env"
 echo "  - FC side must match: SERIAL2_PROTOCOL=2, SERIAL2_BAUD=57 (57600), saved."
 echo "  Verify with: bash pi-dayone.sh"
 echo "============================================================"

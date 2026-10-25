@@ -1,0 +1,11 @@
+{
+  "version": 11,
+  "bone_count": 65,
+  "motion_count": 20,
+  "base_bytes": 1246028,
+  "motion_bytes": 2957576,
+  "source_rig": "../bow_01.glb",
+  "skinning": "explicit rigid bone weights",
+  "visual_origin": "feet at y=-0.905 in glTF",
+  "hardware_calibrated": false
+}

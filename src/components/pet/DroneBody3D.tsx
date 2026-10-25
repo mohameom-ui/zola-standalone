@@ -1,31 +1,15 @@
-// DRONE BODY 3D — v5: THE HYBRID BODY (one body, brain-driven)
-// The hangar loads her RIGGED body (65-bone skeleton + generated mesh) and
-// runs two layers:
-//   1. The procedural balancer — she STANDS on the dock pad: weight-shift
-//      sway in the pelvis, counter-rotation in the spine, stabilizing head.
-//      Amplitude and character follow her mood (the brain drives balance).
-//   2. Brain-commanded gestures — any of the 19 gesture clips play on
-//      demand via the CORTEX (featuresRef.gesture); her aura ledger logs
-//      every movement choice.
-// The halo (rigid, Head-bone parented from iteration 2.5) tracks her head.
+// Zola v11: dimensional robot geometry, an unchanged source animation
+// skeleton, twenty compact motions, and mood-driven neutral body language.
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
-import { scanAsset, scanWorldManifest, GESTURE_REPERTOIRE, type ScanResult } from "@/lib/pet/auraCache";
+import { scanAsset, GESTURE_REPERTOIRE } from "@/lib/pet/auraCache";
 
-// ONE BODY — the humanoid-drone hybrid is her ONLY body
-// the quad (zola-drone-body.glb) is retired: she has legs, arms, and
-// a cranial halo now — the bipedal frame earns its keep
-// the RIGGED base: the textured mesh + 65-bone skeleton + skin (envelope
-// weights, exported by Scripts/rig_zola_v2_fixed.py --base). The gesture
-// clips bind to it by bone name at runtime.
-// v10 — the STUDIO FINISH body + her MECHANICAL SIGNATURE: cranial fin, back
-// thruster pack, glowing chest core, limb rings — plus the repainted albedo.
-// Same 65-joint skeleton; the detail pass ran through her own rig pipeline
-// (Scripts/detail_pass_v10.py) over every clip AND the base.
-const RIGGED_URL = "/assets/models/zola-anims/v2/rigged_base_v10.glb";
+// Rebuilt by isaac/build_character.py with explicit bone weights.
+const RIGGED_URL = "/assets/models/zola-anims/v3/zola.glb";
 // her feet rest at y=-0.905 in-file; the hangar grid sits at y=-1.05
 const GROUND_OFFSET = -0.145;
 
@@ -41,12 +25,12 @@ export interface GestureApi {
 const clipCache = new Map<string, THREE.AnimationClip>();
 
 async function loadGestureClip(name: string): Promise<THREE.AnimationClip | null> {
-  const key = `v2_${name}`;
+  const key = `v11_${name}`;
   const hit = clipCache.get(key);
   if (hit) return hit;
   try {
     const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync(`/assets/models/zola-anims/v2/v2_${name}.glb`);
+    const gltf = await loader.loadAsync(`/assets/models/zola-anims/v3/${name}.glb`);
     const clip = gltf.animations[0];
     if (!clip) return null;
     clipCache.set(key, clip);
@@ -78,7 +62,6 @@ const ACTIVITY_GESTURE: Record<string, string[]> = {
 
 function SceneRig({
   accentColor,
-  fps,
   mood,
   flight,
   activity,
@@ -89,9 +72,8 @@ function SceneRig({
   onGestureChange,
 }: {
   accentColor: string;
-  fps: number;
   mood: string;
-  flight?: { alt: number; rpm: number; flying?: boolean };
+  flight?: { alt: number; rpm: number; x?: number; y?: number; yaw?: number; pitch?: number; roll?: number };
   activity?: string;
   stretchCue?: number;
   onTelemetry?: (fps: number) => void;
@@ -102,77 +84,83 @@ function SceneRig({
   const gl = useThree((s) => s.gl);
   const gltf = useLoader(GLTFLoader, RIGGED_URL);
   const scene = useMemo(() => {
-    // texture sampling: max anisotropy on every map — her 1024px bake
-    // stops smearing at glancing angles (the real fix for texture murk
-    // until the forge honors a 2048 re-bake)
+    const instance = cloneSkeleton(gltf.scene);
     const maxAniso = gl.capabilities.getMaxAnisotropy();
-    gltf.scene.traverse((o) => {
-      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-      if (!m) return;
-      for (const map of [m.map, m.normalMap, m.roughnessMap, m.emissiveMap]) {
-        if (map) { map.anisotropy = maxAniso; map.minFilter = THREE.LinearMipmapLinearFilter; map.needsUpdate = true; }
+    instance.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
+      const materials = Array.isArray(o.material) ? o.material : [o.material];
+      for (const material of materials) {
+        const m = material as THREE.MeshStandardMaterial;
+        for (const map of [m.map, m.normalMap, m.roughnessMap, m.emissiveMap]) {
+          if (map) { map.anisotropy = maxAniso; map.needsUpdate = true; }
+        }
       }
     });
-    return gltf.scene;
-  }, [gltf, gl]);
-
-  // THE HYBRID BODY — she is human-shaped and machine-honest. Gold servo
-  // caps anchor to her REAL bones (they ride every gesture), and cyan
-  // trace nodes mark the spine bus her UART mapping runs along.
-  useEffect(() => {
-    const gold = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.35 });
-    const servoCap = (r: number) => {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.15, r * 0.8, 12), gold);
-      m.rotation.z = Math.PI / 2;
-      return m;
-    };
-    const servoJoints: [string, number][] = [
-      ["upperarm_l", 0.024], ["upperarm_r", 0.024],
-      ["lowerarm_l", 0.018], ["lowerarm_r", 0.018],
-      ["thigh_l", 0.026], ["thigh_r", 0.026],
-      ["calf_l", 0.02], ["calf_r", 0.02],
-    ];
-    const added: THREE.Object3D[] = [];
-    for (const [name, r] of servoJoints) {
-      const bone = scene.getObjectByName(name);
-      if (!bone) continue;
-      const cap = servoCap(r);
-      bone.add(cap);
-      added.push(cap);
+    // The source motion skeleton has a T-pose bind. Its neutral display pose
+    // lowers both shoulders in world space without changing the bind matrices.
+    instance.updateMatrixWorld(true);
+    for (const [name, angle] of [["upperarm_l", -Math.PI / 2], ["upperarm_r", Math.PI / 2]] as const) {
+      const bone = instance.getObjectByName(name);
+      if (!bone?.parent) continue;
+      const world = bone.getWorldQuaternion(new THREE.Quaternion());
+      const parent = bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+      const delta = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle);
+      bone.quaternion.copy(parent.multiply(delta.multiply(world)));
+      instance.updateMatrixWorld(true);
     }
-    // v5 note: the spine trace nodes are retired on the humanoid body —
-    // dots floating on a dress read as debris, not circuitry. The servo
-    // caps stay, at companion scale: subtle, not surgical.
-    return () => { for (const a of added) a.removeFromParent(); };
-  }, [scene]);
+    return instance;
+  }, [gltf, gl]);
+  const ringColor = accentColor;
+  const ringIntensity = 1.6;
+  useEffect(() => {
+    scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        if (material.name === "Zola_Core" && material instanceof THREE.MeshStandardMaterial) {
+          material.color.set(accentColor);
+          material.emissive.set(accentColor);
+        }
+      }
+    });
+  }, [scene, accentColor]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
-  const bones = useMemo(
-    () => ({
-      pelvis: scene.getObjectByName("pelvis"),
-      spine: scene.getObjectByName("spine_02"),
-      spineTop: scene.getObjectByName("spine_03"),
-      head: scene.getObjectByName("Head"),
-      upperArmL: scene.getObjectByName("upperarm_l"),
-      upperArmR: scene.getObjectByName("upperarm_r"),
-    }),
-    [scene],
-  );
+  const neutral = useMemo(() => {
+    const poses: { bone: THREE.Bone; position: THREE.Vector3; rotation: THREE.Quaternion; scale: THREE.Vector3 }[] = [];
+    scene.traverse((bone) => {
+      if (bone instanceof THREE.Bone) poses.push({ bone, position: bone.position.clone(), rotation: bone.quaternion.clone(), scale: bone.scale.clone() });
+    });
+    return poses;
+  }, [scene]);
+  const poseScratch = useMemo(() => ({ position: new THREE.Vector3(), rotation: new THREE.Quaternion(), delta: new THREE.Quaternion(), euler: new THREE.Euler() }), []);
 
   const activeAction = useRef<THREE.AnimationAction | null>(null);
   const activeName = useRef<string | null>(null);
+  const playbackId = useRef(0);
+  const gestureTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const gestureQueue = useRef<string[]>([]); // the improv chain lives here
   const sway = useRef({ t: 0 });
   const ringRef = useRef<THREE.Mesh>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const propsRef = useRef<THREE.Group>(null);
-  // the HAL streams at state-change cadence — mirror it so useFrame reads
-  // the latest flight state without re-binding the frame callback
+  // Mirror the latest HAL pose for the animation frame loop.
   const flightRef = useRef(flight);
   flightRef.current = flight;
 
-  // THE HANGAR GATE — honest renderer telemetry, printed from inside the
-  // live frame loop every 5 s: [hangar-gate] perf: fps drawCalls triangles.
-  // Rule 2: every number real, straight from the WebGL renderer info.
+  const clearGestureTimers = () => {
+    for (const timer of gestureTimers.current) clearTimeout(timer);
+    gestureTimers.current.clear();
+  };
+  const scheduleGestureStep = (run: () => void, delayMs: number) => {
+    const timer = setTimeout(() => {
+      gestureTimers.current.delete(timer);
+      run();
+    }, Math.max(0, delayMs));
+    gestureTimers.current.add(timer);
+  };
+
+  // Measure actual render frames and sample real WebGL draw/triangle counts.
   const gateRef = useRef({ frames: 0, t: 0 });
   useFrame((_, delta) => {
     const g = gateRef.current;
@@ -180,7 +168,9 @@ function SceneRig({
     g.t += delta;
     if (g.t >= 5) {
       const info = gl.info.render;
-      console.log(`[hangar-gate] perf: fps=${(g.frames / g.t).toFixed(1)} drawCalls=${info.calls} triangles=${info.triangles}`);
+      const measuredFps = g.frames / g.t;
+      onTelemetry?.(measuredFps);
+      console.log(`[zola-render] fps=${measuredFps.toFixed(1)} drawCalls=${info.calls} triangles=${info.triangles}`);
       g.frames = 0;
       g.t = 0;
     }
@@ -194,14 +184,25 @@ function SceneRig({
     // her actual propulsion array — brightens as the motors spool up.
     if (bodyRef.current) {
       const f = flightRef.current;
+      const k = 1 - Math.exp(-7 * delta);
+      const targetX = THREE.MathUtils.clamp(f?.x ?? 0, -1.6, 1.6) * 0.24;
+      const targetZ = THREE.MathUtils.clamp(f?.y ?? 0, -1.6, 1.6) * 0.24;
+      const targetYaw = f?.yaw ?? 0;
+      bodyRef.current.position.x += (targetX - bodyRef.current.position.x) * k;
+      bodyRef.current.position.z += (targetZ - bodyRef.current.position.z) * k;
+      bodyRef.current.rotation.y += Math.atan2(
+        Math.sin(targetYaw - bodyRef.current.rotation.y),
+        Math.cos(targetYaw - bodyRef.current.rotation.y),
+      ) * k;
       if (f && f.alt > 0.02) {
         const lift = Math.min(f.alt, 1.2) * 0.8;
         const spin = Math.min(f.rpm / 12000, 1);
         bodyRef.current.position.y = lift + Math.sin(sway.current.t * 3.1) * 0.012 * (0.3 + spin);
-        bodyRef.current.rotation.z = Math.sin(sway.current.t * 1.7) * 0.02 * spin; // gentle hover drift
+        bodyRef.current.rotation.x = THREE.MathUtils.degToRad(f.pitch ?? 0);
+        bodyRef.current.rotation.z = THREE.MathUtils.degToRad(f.roll ?? 0) + Math.sin(sway.current.t * 1.7) * 0.02 * spin;
         if (ringRef.current) {
           const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
-          mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 2.5 + spin * 2.5);
+          mat.emissiveIntensity = Math.max(ringIntensity, 2.5 + spin * 2.5);
         }
         // the Quad-Halo's four rotor discs — visible ONLY airborne, spin
         // rate follows the real HAL RPM (her motors, made visible)
@@ -212,7 +213,12 @@ function SceneRig({
         }
       } else {
         bodyRef.current.position.y = 0;
+        bodyRef.current.rotation.x = 0;
         bodyRef.current.rotation.z = 0;
+        if (ringRef.current) {
+          const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          mat.emissiveIntensity = ringIntensity;
+        }
         if (propsRef.current) propsRef.current.visible = false; // her fans STOP when she is not flying (owner directive)
       }
     }
@@ -222,47 +228,57 @@ function SceneRig({
     sway.current.t += delta * cfg.speed;
 
     const t = sway.current.t;
-    // EXPONENTIAL SMOOTHING — every joint eases toward its target instead
-    // of snapping: after a gesture ends she flows back into her sway, no
-    // teleporting limbs, no glitch-pop between states
     const k = 1 - Math.exp(-10 * delta);
-    type Axis = "x" | "y" | "z" | "rz" | "rx";
-    const ease = (obj: THREE.Object3D, prop: Axis, target: number) => {
-      if (prop === "rz") obj.rotation.z += (target - obj.rotation.z) * k;
-      else if (prop === "rx") obj.rotation.x += (target - obj.rotation.x) * k;
-      else obj.position[prop] += (target - obj.position[prop]) * k;
-    };
-    // weight-shift: the pelvis drifts side to side, slight vertical bob
-    if (bones.pelvis) {
-      ease(bones.pelvis, "x", Math.sin(t * 0.9) * 0.012 * cfg.amp);
-      ease(bones.pelvis, "y", Math.abs(Math.sin(t * 1.8)) * 0.006 * cfg.amp);
-      ease(bones.pelvis, "rz", Math.sin(t * 0.9) * 0.045 * cfg.amp);
+    // Compose small offsets with the neutral pose. Replacing bind Euler angles
+    // with zeros displaced the old torso and erased the shoulder stance.
+    for (const pose of neutral) {
+      poseScratch.position.copy(pose.position);
+      poseScratch.euler.set(0, 0, 0);
+      switch (pose.bone.name) {
+        case "pelvis":
+          poseScratch.position.x += Math.sin(t * .9) * .008 * cfg.amp;
+          poseScratch.euler.z = Math.sin(t * .9) * .025 * cfg.amp;
+          break;
+        case "spine_02": poseScratch.euler.z = -Math.sin(t * .9) * .02 * cfg.amp; break;
+        case "spine_03": poseScratch.euler.x = Math.sin(t * 1.4) * .014 * cfg.wobble; break;
+        case "upperarm_l": poseScratch.euler.x = Math.sin(t * 1.8) * .025 * cfg.amp; break;
+        case "upperarm_r": poseScratch.euler.x = -Math.sin(t * 1.8) * .025 * cfg.amp; break;
+        case "Head": poseScratch.euler.z = -Math.sin(t * .9) * .012 * cfg.amp; break;
+      }
+      poseScratch.delta.setFromEuler(poseScratch.euler);
+      poseScratch.rotation.copy(pose.rotation).multiply(poseScratch.delta);
+      pose.bone.position.lerp(poseScratch.position, k);
+      pose.bone.quaternion.slerp(poseScratch.rotation, k);
+      pose.bone.scale.lerp(pose.scale, k);
     }
-    // the spine counter-rotates — she stays over her feet
-    if (bones.spine) ease(bones.spine, "rz", -Math.sin(t * 0.9) * 0.03 * cfg.amp);
-    if (bones.spineTop) ease(bones.spineTop, "rx", Math.sin(t * 1.4) * 0.02 * cfg.wobble);
-    // the arms hang with a subtle pendulum
-    if (bones.upperArmL) ease(bones.upperArmL, "rx", Math.sin(t * 1.8) * 0.05 * cfg.amp);
-    if (bones.upperArmR) ease(bones.upperArmR, "rx", -Math.sin(t * 1.8) * 0.05 * cfg.amp);
-    // the head stabilizes — her gaze stays level (that's the balance)
-    if (bones.head) ease(bones.head, "rz", -Math.sin(t * 0.9) * 0.02 * cfg.amp);
   });
 
   // the gesture playback: load the clip, fade in, report when done
   // the MOTOR STATE: the props spin bright during flight-adjacent gestures
   // (march, dance, spin, hover), dim to standby when grounded
   const flightClips = new Set(["march_01", "dance_01", "dance_02", "spin_01"]);
-  const playGesture = (name: string) => {
+  const playGesture = (name: string, fromQueue = false) => {
     if (name === "improv") {
+      playbackId.current += 1;
+      clearGestureTimers();
+      activeAction.current?.fadeOut(0.2);
+      activeAction.current = null;
+      activeName.current = null;
       // IMPROV — a fresh chain of 2-3 movements, back to back (ported from
       // the retired GestureStage; there is one body, and it improvises)
       const pool = [...GESTURE_REPERTOIRE].sort(() => Math.random() - 0.5);
       gestureQueue.current = pool.slice(0, 2 + (Math.random() < 0.5 ? 1 : 0));
       const first = gestureQueue.current.shift();
-      if (first) playGesture(first);
+      if (first) playGesture(first, true);
       return;
     }
     if (!GESTURE_REPERTOIRE.includes(name)) return;
+    const requestId = ++playbackId.current;
+    clearGestureTimers();
+    if (!fromQueue) gestureQueue.current = [];
+    activeAction.current?.fadeOut(0.2);
+    activeAction.current = null;
+    activeName.current = null;
     scanAsset(`movement:${name}`); // the aura ledger counts her movement repertoire
     const flying = flightClips.has(name);
     if (ringRef.current) {
@@ -270,10 +286,17 @@ function SceneRig({
       mat.emissiveIntensity = flying ? 4.5 : 0.3; // the halo dims when grounded
     }
     void loadGestureClip(name).then((clip) => {
-      if (!clip) return;
-      activeAction.current?.fadeOut(0.25);
+      if (requestId !== playbackId.current) return; // a newer move replaced this load
+      if (!clip) {
+        onGestureChange?.(null);
+        const next = gestureQueue.current.shift();
+        if (next) playGesture(next, true);
+        else onGestureDone?.(name);
+        return;
+      }
       const action = mixer.clipAction(clip);
-      action.reset().setEffectiveWeight(0).fadeIn(0.25).play();
+      action.reset().setEffectiveWeight(1).setLoop(THREE.LoopOnce, 1).fadeIn(0.25).play();
+      action.clampWhenFinished = true;
       activeAction.current = action;
       activeName.current = name;
       onGestureChange?.(name); // NOW PLAYING rides the HUD
@@ -281,10 +304,10 @@ function SceneRig({
       // GAIT LOOP — while she is strolling, the walk cycles until her brain
       // changes activity; the loop itself performs the clean stop when it does
       const afterClip = () => {
-        if (activeName.current !== name) return;
+        if (requestId !== playbackId.current || activeName.current !== name) return;
         if (name === "walk_01" && activityRef.current === "walk") {
           action.reset().setEffectiveWeight(1).play();
-          window.setTimeout(afterClip, dur * 1000);
+          scheduleGestureStep(afterClip, dur * 1000);
           return;
         }
         action.fadeOut(0.3);
@@ -292,12 +315,22 @@ function SceneRig({
         activeName.current = null;
         onGestureChange?.(null);
         const next = gestureQueue.current.shift(); // the improv chain continues
-        if (next) playGesture(next);
+        if (next) playGesture(next, true);
         else onGestureDone?.(name);
       };
-      window.setTimeout(afterClip, ((dur - 0.3) * 1000) | 0);
+      scheduleGestureStep(afterClip, dur * 1000 - 300);
     });
   };
+
+  useEffect(() => () => {
+    playbackId.current += 1;
+    clearGestureTimers();
+    gestureQueue.current = [];
+    mixer.stopAllAction();
+    activeAction.current = null;
+    activeName.current = null;
+    if (gestureApiRef?.current) gestureApiRef.current = null;
+  }, [mixer, gestureApiRef]);
 
   // THE BRAIN BRIDGE — her body language follows her inner state (the
   // retired GestureStage's last live feature, now on the ONE body)
@@ -325,7 +358,7 @@ function SceneRig({
   useEffect(() => {
     if (typeof window !== "undefined") {
       (window as unknown as Record<string, unknown>).__ZOLA_RIG = {
-        bones: Object.fromEntries(Object.entries(bones).map(([k, v]) => [k, !!v])),
+        bones: Object.fromEntries(neutral.map(({ bone }) => [bone.name, true])),
         hasMixer: !!mixer,
         playGesture: (name: string) => playGesture(name),
         mixerTime: () => mixer.time,
@@ -339,17 +372,16 @@ function SceneRig({
     gestureApiRef.current = {
       playGesture,
       cancelGesture: () => {
+        playbackId.current += 1;
+        clearGestureTimers();
+        gestureQueue.current = [];
         activeAction.current?.fadeOut(0.2);
         activeAction.current = null;
         activeName.current = null;
+        onGestureChange?.(null);
       },
     };
   });
-
-  // the LED ring — reactive to persona, fps, and the motor state
-  const tier = fps >= 55 ? "buttery" : fps >= 30 ? "mid" : "critical";
-  const ringColor = tier === "buttery" ? accentColor : tier === "mid" ? "#f0b90b" : "#ff4d4f";
-  const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
 
   return (
     <group position={[0, GROUND_OFFSET, 0]}>
@@ -360,18 +392,26 @@ function SceneRig({
             live HAL RPM when she flies */}
         <group ref={propsRef} visible={false}>
           {[[-0.17, 0.17], [0.17, 0.17], [-0.17, -0.17], [0.17, -0.17]].map(([x, z], i) => (
-            <mesh key={i} position={[x, 0.88, z]} rotation={[Math.PI / 2, 0, 0]}>
+            <mesh key={i} position={[x, 1.0, z]} rotation={[Math.PI / 2, 0, 0]}>
               <torusGeometry args={[0.11, 0.012, 8, 24]} />
               <meshStandardMaterial color="#9fb2c8" emissive={accentColor} emissiveIntensity={0.25} transparent opacity={0.55} toneMapped={false} />
             </mesh>
           ))}
         </group>
-      </group>
       {/* the Aura-Telemetry glow — on the humanoid body the physical ring
           is retired; her persona light lives as a soft ambient aura */}
-      <mesh ref={ringRef} visible={false} position={[0, 0.87, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh ref={ringRef} position={[0, 0.97, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.26, 0.02, 16, 48]} />
         <meshStandardMaterial color={ringColor} emissive={ringColor} emissiveIntensity={ringIntensity} toneMapped={false} />
+      </mesh>
+      </group>
+      <mesh position={[0, -0.9, 0]}>
+        <torusGeometry args={[0.44, 0.005, 6, 96]} />
+        <meshBasicMaterial color={accentColor} transparent opacity={0.42} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, -0.9, 0]}>
+        <torusGeometry args={[0.72, 0.003, 6, 96]} />
+        <meshBasicMaterial color="#8ecfff" transparent opacity={0.18} depthWrite={false} />
       </mesh>
       <pointLight position={[0, -0.5, 0.8]} color={ringColor} intensity={1.6} distance={5} decay={1.6} />
     </group>
@@ -381,7 +421,6 @@ function SceneRig({
 export default function DroneBody3D({
   accentColor = "#35d0a5",
   mood = "curious",
-  fps = 60,
   flight,
   speech,
   onPet,
@@ -394,8 +433,7 @@ export default function DroneBody3D({
 }: {
   accentColor?: string;
   mood?: string;
-  fps?: number;
-  flight?: { alt: number; rpm: number; flying?: boolean };
+  flight?: { alt: number; rpm: number; x?: number; y?: number; yaw?: number; pitch?: number; roll?: number };
   speech?: string | null;
   onPet?: () => void;
   activity?: string;
@@ -405,52 +443,26 @@ export default function DroneBody3D({
   onGestureDone?: (name: string) => void;
   onGestureChange?: (name: string | null) => void;
 }) {
-  const [fpsLive, setFpsLive] = useState(fps);
-  // NEURAL_AURA_CACHE — her first scan target is always herself.
-  // scanAsset MUTATES the encounter ledger, so it must never run during
-  // render: the old useState initializer ran it on the server AND the client
-  // with different ledger states — the source of the hydration mismatch
-  const [scan, setScan] = useState<ScanResult | null>(null);
-  useEffect(() => {
-    try {
-      setScan(scanAsset("zola-body-v2"));
-    } catch {
-      setScan(null);
-    }
-  }, []);
-  // WORLD SCAN — the Optic-Rizz Array audits her whole domain on mount
-  const [worldLine, setWorldLine] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    void scanWorldManifest().then(({ scanned, fresh }) => {
-      if (!alive) return;
-      const latest = scanned[scanned.length - 1];
-      setWorldLine(`WORLD SCAN: ${scanned.length} assets audited · ${fresh} new to the ledger · last: ${latest?.verdict ?? "-"}`);
-    });
-    return () => { alive = false; };
-  }, []);
-  const tierLabel = fpsLive >= 55 ? "AURA FARMING" : fpsLive >= 30 ? "MID" : "CRITICAL";
-  const tier = fpsLive >= 55 ? "buttery" : fpsLive >= 30 ? "mid" : "critical";
-  const ringColor = tier === "buttery" ? accentColor : tier === "mid" ? "#f0b90b" : "#ff4d4f";
-  const ringIntensity = tier === "buttery" ? 3.2 : tier === "mid" ? 2.2 : 3.8;
+  const [fpsLive, setFpsLive] = useState<number | null>(null);
+  const tierLabel = fpsLive === null ? "MEASURING" : fpsLive >= 55 ? "SMOOTH" : fpsLive >= 30 ? "MID" : "LOW";
 
   return (
     <div
-      className="relative h-[240px] w-full overflow-hidden rounded-lg bg-[#141a28] cursor-pointer"
+      className="zola-avatar-canvas relative h-full min-h-[300px] w-full overflow-hidden cursor-pointer"
       onClick={onPet}
-      title="pet her — she responds with body and voice"
+      title="Interact with Zola — she responds with motion and voice"
     >
-      <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}
+      <Canvas camera={{ position: [0, 0.18, 2.85], fov: 43 }} dpr={[1, 1.5]} gl={{ antialias: true }}
         onCreated={({ gl }) => { gl.toneMappingExposure = 1.55; }}>
         {/* THE STUDIO — a photographic three-point rig: warm key, HER color as
           the rim (she is lit by her own theme), cool fill; fog for depth; a
           contact shadow so she stands ON the floor, not above it */}
-        <fog attach="fog" args={["#10141f", 7, 15]} />
-        <hemisphereLight args={["#3a4a6b", "#0a0c12", 0.55]} />
-        <directionalLight position={[2.5, 4.5, 3.5]} intensity={2.4} color="#fff2dc" />
-        <directionalLight position={[-3.5, 1.6, -4]} intensity={2.2} color={accentColor} />
-        <directionalLight position={[0, 1.2, 4.5]} intensity={0.55} color="#8ecfff" />
-        <gridHelper args={[6, 24, "#1c2230", "#141a26"]} position={[0, -1.05, 0]} />
+        <fog attach="fog" args={["#0a1119", 7, 15]} />
+        <hemisphereLight args={["#536b87", "#070a10", 0.72]} />
+        <directionalLight position={[2.5, 4.5, 3.5]} intensity={2.8} color="#edf4ff" />
+        <directionalLight position={[-3.5, 1.6, -4]} intensity={2.4} color={accentColor} />
+        <directionalLight position={[0, 1.2, 4.5]} intensity={0.85} color="#8ecfff" />
+        <gridHelper args={[6, 24, "#1d3642", "#111e29"]} position={[0, -1.05, 0]} />
         {/* contact shadow — grounds her silhouette */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.049, 0]}>
           <circleGeometry args={[0.55, 48]} />
@@ -459,7 +471,6 @@ export default function DroneBody3D({
         <Suspense fallback={null}>
           <SceneRig
             accentColor={accentColor}
-            fps={fpsLive}
             mood={mood}
             flight={flight}
             activity={activity}
@@ -471,9 +482,9 @@ export default function DroneBody3D({
           />
         </Suspense>
       </Canvas>
-      <span className="hud-label absolute left-2 top-2 text-[9px] opacity-60">3D HANGAR · ONE BODY · BRAIN-DRIVEN</span>
+      <span className="hud-label absolute left-6 top-6 text-[9px] opacity-80">FULL-BODY MOTION RIG</span>
       {flight && flight.alt > 0.02 && (
-        <span className="hud-label absolute left-2 top-7 text-[9px] text-[#35d0a5]">
+        <span className="hud-label absolute left-6 top-12 text-[9px] text-[#35d0a5]">
           AIRBORNE · {flight.alt.toFixed(2)} m · {Math.round(flight.rpm)} RPM
         </span>
       )}
@@ -484,16 +495,10 @@ export default function DroneBody3D({
         </div>
       )}
       <span className="hud-label absolute right-2 top-2 text-[9px] opacity-70">
-        AURA-TELEMETRY · {Math.round(fpsLive)} FPS · {tierLabel}
+        VIEWPORT · {fpsLive === null ? "MEASURING" : `${Math.round(fpsLive)} FPS · ${tierLabel}`}
       </span>
-      {worldLine && (
-        <span className="hud-label absolute bottom-6 left-2 right-2 text-[9px] opacity-70 truncate">{worldLine}</span>
-      )}
-      {scan && (
-        <span className="hud-label absolute bottom-2 left-2 right-2 text-[9px] opacity-80 truncate">
-          [HUD_TARGET_ID: {scan.id}] encounters {scan.encounters} — "{scan.verdict}"
-        </span>
-      )}
+      <span className="hud-label absolute left-6 bottom-6 text-[9px] opacity-75">HANDS · ARMS · LEGS</span>
+      <span className="hud-label absolute right-6 bottom-6 text-[9px] opacity-75">20 MOTION CLIPS</span>
     </div>
   );
 }

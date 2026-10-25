@@ -29,6 +29,33 @@ ssh pi@zola.local "cd ~/zola && npm install && npm run build"
 ssh pi@zola.local "bash pi-setup.sh"
 ```
 
+## Flight relay and limb boundary
+
+The browser connects to the relay using the JSON protocol in
+`bridge/aura_relay.py`; the relay owns MAVLink. Linking the app does not arm
+the flight controller. The operator must press **ARM & TAKE OFF** and confirm;
+**LAND & DISARM** sends the landing request. Switching away from REAL mode
+also sends a stop request when telemetry shows her airborne.
+
+The relay binds to `127.0.0.1:8765` by default, which supports the Pi kiosk and
+same-machine SITL. For a remote operator, create `/etc/zola-relay.env` on the
+Pi with a long random token and a LAN bind address:
+
+```text
+ZOLA_RELAY_HOST=0.0.0.0
+ZOLA_RELAY_TOKEN=<long-random-secret>
+```
+
+Restrict that file to root (`chmod 600`), restart `zola-relay`, enter the same
+token in the panel, and point the panel at the Pi's LAN address. The relay
+refuses a non-loopback bind without a token. `ws://` does not encrypt traffic;
+keep remote access on a trusted LAN or VPN, or terminate TLS at a trusted
+`wss://` proxy.
+
+The humanoid rig animates hands, fingers, arms, and legs, and the simulator
+supports ground travel. The real relay currently controls the flight
+controller only; physical limb servos need a separate configured driver.
+
 ## 🏠 STAYS HOME (build-time only — never copied)
 
 | Path | Size | Why |

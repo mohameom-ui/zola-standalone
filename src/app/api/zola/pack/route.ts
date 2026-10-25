@@ -2,18 +2,24 @@ import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-// The forge is sovereign and its GitHub remote is PRIVATE — anonymous raw
-// fetches cannot see it. This route serves the forge's capability-pack
-// manifest straight from the local forge home (Rule 3: the engine answers
-// to no consumer repo, but a read-only manifest pull is a consumer duty).
-// Override the location with ZOLA_FORGE_HOME when the forge moves.
-const FORGE_HOME = process.env.ZOLA_FORGE_HOME ?? "C:\\Users\\self_\\zola-pipeline-home";
+// The forge's capability-pack endpoint. The forge location must be configured
+// via ZOLA_FORGE_HOME — there is no hardcoded fallback path any more. The
+// check lives inside the handler so Next.js can build the route without the
+// env var present; a request without it returns 500 instead of crashing build.
+const FORGE_HOME = process.env.ZOLA_FORGE_HOME;
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!FORGE_HOME) {
+    return NextResponse.json(
+      { ok: false, reason: "ZOLA_FORGE_HOME is not set — the forge location must be configured" },
+      { status: 500 },
+    );
+  }
   try {
-    const file = path.join(FORGE_HOME, "capabilities.json");
+    const forgeHome: string = FORGE_HOME;
+    const file = path.join(forgeHome, "capabilities.json");
     const raw = await readFile(file, "utf-8");
     const pack = JSON.parse(raw) as { version?: string };
     return NextResponse.json(pack, {

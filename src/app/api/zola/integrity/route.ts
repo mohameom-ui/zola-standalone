@@ -3,7 +3,7 @@ import { createReadStream, existsSync, readdirSync, readFileSync, writeFileSync 
 import path from "path";
 
 // ============================================================================
-// ZOLA AIR-GAP INTEGRITY AUDITOR — proves her offline assets are exactly what
+// ZOLA LOCAL ASSET INTEGRITY CHECK — verifies local runtime assets against
 // they should be. SHA-256 of every trust-critical local file (bundle, ORT
 // runtimes, model configs + weights, voice bins, gesture GLBs' config files),
 // compared against a stored baseline. First run establishes the baseline;
@@ -61,7 +61,7 @@ export async function GET() {
   const results: Record<string, string> = {};
   const missing: string[] = [];
   for (const rel of CRITICAL) {
-    const abs = path.join(root, rel);
+    const abs = path.join(/*turbopackIgnore: true*/ root, rel);
     if (!existsSync(abs)) { missing.push(rel); continue; }
     results[rel] = await sha256(abs);
   }

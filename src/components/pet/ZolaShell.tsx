@@ -1,23 +1,85 @@
-// ZOLA SHELL — the minimalist header: identity first, noise last
-export default function ZolaShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  // her name, cleanly — everything before "·" is lineage we don't shout
+import type { CSSProperties, ReactNode } from "react";
+
+// ZOLA CONSOLE — the character stage and operating controls share one surface.
+export default function ZolaShell({
+  title,
+  subtitle,
+  stage,
+  primaryColor,
+  accentColor,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  stage?: ReactNode;
+  primaryColor?: string;
+  accentColor?: string;
+  children: ReactNode;
+}) {
   const name = title.split("·").pop()?.trim() || "ZOLA";
+
   return (
-    <aside className="absolute top-4 right-4 bottom-4 z-20 w-[440px] max-w-[95vw] glass-panel rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-      <div className="px-5 pt-4 pb-3 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#35d0a5] opacity-60" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#35d0a5]" />
-          </span>
-          <h2 className="text-[#e9e7dc] text-lg font-semibold tracking-[0.35em]">{name}</h2>
-          <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border border-[#f0b90b]/40 text-[#f0b90b] tracking-widest">
-            v5.5
-          </span>
+    <main className="zola-console-shell" style={{ "--z-a": primaryColor ?? "#f0b90b", "--z-b": accentColor ?? "#35d0a5" } as CSSProperties}>
+      <header className="zola-topbar">
+        <div className="zola-brand-lockup">
+          <span className="zola-brand-mark" aria-hidden="true">Z</span>
+          <div>
+            <div className="zola-brand-name">{name}</div>
+            <div className="zola-brand-caption">HUMANOID COMPANION · CONTROL STATION</div>
+          </div>
         </div>
-        <p className="mt-1 text-[10px] text-[#8b8f9c] tracking-[0.18em] uppercase">{subtitle}</p>
+        <div className="zola-topbar-meta">
+          <span className="zola-topbar-dot" />
+          <span>INTERACTIVE AVATAR</span>
+          <span className="zola-version">V 6.0</span>
+        </div>
+      </header>
+
+      <div className="zola-console-grid">
+        <section className="zola-presence" aria-label="Zola character stage">
+          <div className="zola-stage-heading">
+            <div>
+              <div className="zola-eyebrow">CHARACTER SYSTEM / 01</div>
+              <h1>{name}<span>LIVE MODEL</span></h1>
+              <p>{subtitle}</p>
+            </div>
+            <div className="zola-rig-badge">
+              <span className="zola-rig-pulse" />
+              <div><strong>ZOLA V11</strong><small>ANIMATED COMPANION</small></div>
+            </div>
+          </div>
+
+          <div className="zola-stage-viewport">
+            <div className="zola-stage-corner zola-stage-corner-tl" />
+            <div className="zola-stage-corner zola-stage-corner-tr" />
+            <div className="zola-stage-corner zola-stage-corner-bl" />
+            <div className="zola-stage-corner zola-stage-corner-br" />
+            {stage ?? (
+              <div className="zola-stage-loading">
+                <span className="zola-stage-loader" />
+                <span>INITIALIZING CHARACTER SYSTEM</span>
+              </div>
+            )}
+          </div>
+
+          <div className="zola-stage-footer">
+            <span><i />20 BUILT-IN MOTION CLIPS</span>
+            <span>HANDS · ARMS · LEGS</span>
+            <span className="zola-stage-interaction">CLICK OR TAP ZOLA TO INTERACT</span>
+          </div>
+        </section>
+
+        <aside className="zola-control-dock" aria-label="Zola controls">
+          <div className="zola-dock-heading">
+            <div>
+              <div className="zola-eyebrow">OPERATIONS</div>
+              <h2>Companion console</h2>
+            </div>
+            <span className="zola-dock-indicator" title="Control panel active" />
+          </div>
+          <div className="zola-dock-content">{children}</div>
+        </aside>
       </div>
-      <div className="flex-1 overflow-y-auto">{children}</div>
-    </aside>
+    </main>
   );
 }

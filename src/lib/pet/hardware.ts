@@ -3,8 +3,8 @@
 // The brain speaks "normalized velocity setpoints"; the HAL translates them
 // for whichever body it is attached to:
 //   • SimDroneHAL   — in-browser physics stand-in (this prototype)
-//   • MavLinkBridgeHAL — WebSocket -> MAVLink velocity setpoints on a real
-//     quad (PX4/ArduPilot) or the Bitcraze Crazyflie Python bridge.
+//   • MavLinkBridgeHAL — WebSocket -> authenticated JSON ground relay ->
+//     MAVLink velocity setpoints on a real quad (PX4/ArduPilot).
 // The brain never knows which one is attached.
 //
 // SimDroneHAL flight character:
@@ -15,7 +15,7 @@
 // ============================================================================
 
 import type { Actuation, DronePose } from "./types";
-import { encodeHeartbeat, encodeSetAttitudeTarget } from "./mavlink";
+import { encodeSetAttitudeTarget } from "./mavlink";
 import { sunReport } from "./suncalc";
 
 /** obstacle-avoidance whisker: given (from,to,altitude) return a steered target */
@@ -83,8 +83,10 @@ export class SimDroneHAL implements PetHAL {
     const wind = sleeping ? 0 : Math.sin(this.t * 0.7) * 0.006 + Math.sin(this.t * 1.9) * 0.004;
     this.v.x += wind * dt * 10;
 
-    // GRAVITY: with the props spooled down, gravity wins and she falls
-    if (this.rpm < 250) {
+    // GRAVITY: with the props spooled down, gravity wins in flight. Ground
+    // walking is servo-driven and must not sink below the floor while the
+    // simulated motors stay idle.
+    if (this.rpm < 250 && !strolling) {
       this.v.z -= 0.5 * dt; // free-fall acceleration (sim gravity)
     }
 
@@ -127,6 +129,10 @@ export class SimDroneHAL implements PetHAL {
     if (ny === -ROOM_BOUND || ny === ROOM_BOUND) this.v.y *= -0.3;
     this.p.y = ny;
     this.p.z = clamp(this.p.z + this.v.z * dt, -0.35, DEFAULT_CEILING);
+    if (strolling && this.p.z <= 0.08) {
+      this.p.z = 0;
+      this.v.z = 0;
+    }
     this.p.yaw += this.vyaw * dt;
 
     // ---- attitude: bank into lateral moves, pitch into forward ones -----------
@@ -204,95 +210,148 @@ const DEFAULT_CEILING = 0.85;
 const ROOM_BOUND = 1.6;
 
 /**
- * Real-drone bridge. Point it at a tiny WebSocket relay running next to
- * MAVSDK/mavlink-router on the companion computer (see README hardware map).
- * Sends normalized setpoints; the ground bridge converts to
- * SET_POSITION_TARGET_LOCAL_NED velocity frames or Crazyflie cmdVel.
+ * Browser-to-ground-relay bridge. The relay owns MAVLink, arming, takeoff,
+ * landing, and its independent safety limits. Connecting only opens the link;
+ * flight begins only after an explicit startFlight() request.
  */
 export class MavLinkBridgeHAL implements PetHAL {
   private ws: WebSocket | null = null;
-  private lastPose: DronePose = { x: 0, y: 0, z: 0.8, yaw: 0, bob: 0, pitch: 0, roll: 0 };
+  private lastPose: DronePose = { x: 0, y: 0, z: 0, yaw: 0, bob: 0, pitch: 0, roll: 0 };
   private lastRpm = 0;
   private url: string;
-  private seq = 0;
+  private token: string;
+  private authenticated = false;
+  private flightRequested = false;
+  private sendAccumulator = 0;
+  private sequence = 0;
   private bootAt = Date.now();
-  private hbTimer: ReturnType<typeof setInterval> | null = null;
 
   avoid: AvoidFn | null = null;
 
-  constructor(url: string) { this.url = url; }
+  constructor(url: string, token = "") { this.url = url; this.token = token; }
 
-  /** Build one MAVLink SET_ATTITUDE_TARGET frame for her FC — exported for
-   * the tests: yaw -> quaternion, vz -> thrust (clamped, the governor rules). */
+  /** Diagnostic codec helper; live flight commands go through the JSON relay. */
   attitudeCommand(yaw: number, vz: number): Uint8Array {
-    const yawHalf = yaw / 2;
-    const q: [number, number, number, number] = [0, 0, Math.sin(yawHalf), Math.cos(yawHalf)];
-    const thrust = Math.max(0, Math.min(1, 0.5 + vz * 0.2));
+    const halfYaw = yaw / 2;
     return encodeSetAttitudeTarget(
-      { seq: this.seq++ & 0xff, sysid: 1, compid: 1 },
+      { seq: this.sequence++ & 0xff, sysid: 1, compid: 1 },
       Date.now() - this.bootAt,
-      q,
-      thrust,
+      [0, 0, Math.sin(halfYaw), Math.cos(halfYaw)],
+      clamp(0.5 + vz * 0.2, 0, 1),
     );
   }
 
-  private sendMav(frame: Uint8Array) {
-    if (!this.connected) return;
-    let bin = "";
-    for (const b of frame) bin += String.fromCharCode(b);
-    try { this.ws!.send(JSON.stringify({ action: "mav", frame: btoa(bin) })); } catch { /* link hiccup */ }
+  private send(message: Record<string, unknown>): boolean {
+    if (!this.connected) return false;
+    try {
+      this.ws!.send(JSON.stringify(message));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   connect(onOpen?: () => void, onClose?: () => void) {
     try { this.ws = new WebSocket(this.url); } catch { this.ws = null; }
     if (this.ws) {
-      this.ws.onopen = () => {
-        // her heartbeat keepalive: one HEARTBEAT per second, MAVLink-native
-        this.hbTimer = setInterval(() => {
-          this.sendMav(encodeHeartbeat({ seq: this.seq++ & 0xff, sysid: 1, compid: 1 }));
-        }, 1000);
-        // telemetry comes back as JSON {t:"pose", x,y,z,yaw,rpm}
-        this.ws!.onmessage = (ev) => {
-          try {
-            const d = JSON.parse(ev.data as string) as Partial<DronePose> & { rpm?: number };
-            this.lastPose = { ...this.lastPose, ...d, bob: this.lastPose.bob };
-            if (typeof d.rpm === "number") this.lastRpm = d.rpm;
-          } catch { /* ignore bad frames */ }
-        };
-        onOpen?.();
+      const socket = this.ws;
+      socket.onopen = () => {
+        try { socket.send(JSON.stringify({ t: "auth", token: this.token })); }
+        catch { socket.close(); }
       };
-      this.ws.onclose = () => {
-        if (this.hbTimer) { clearInterval(this.hbTimer); this.hbTimer = null; }
-        this.ws = null; onClose?.();
+      socket.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data as string) as Record<string, unknown>;
+          if (d.t === "auth") {
+            if (d.ok === true) {
+              this.authenticated = true;
+              onOpen?.();
+            } else {
+              socket.close(1008, "relay authentication failed");
+            }
+            return;
+          }
+          if (d.t !== "pose") return;
+          const numberOr = (value: unknown, fallback: number) =>
+            typeof value === "number" && Number.isFinite(value) ? value : fallback;
+          this.lastPose = {
+            ...this.lastPose,
+            x: numberOr(d.x, this.lastPose.x),
+            y: numberOr(d.y, this.lastPose.y),
+            z: Math.max(0, numberOr(d.z, this.lastPose.z)),
+            yaw: numberOr(d.yaw, this.lastPose.yaw),
+            pitch: numberOr(d.pitch, this.lastPose.pitch),
+            roll: numberOr(d.roll, this.lastPose.roll),
+            battery: typeof d.battery === "number" && Number.isFinite(d.battery)
+              ? clamp(d.battery, 0, 1)
+              : undefined,
+          };
+          if (typeof d.rpm === "number" && Number.isFinite(d.rpm)) {
+            this.lastRpm = Math.max(0, d.rpm);
+          }
+        } catch { /* ignore malformed relay frames */ }
+      };
+      socket.onclose = () => {
+        if (this.ws === socket) this.ws = null;
+        this.authenticated = false;
+        this.flightRequested = false;
+        this.sendAccumulator = 0;
+        onClose?.();
       };
     }
   }
 
-  /** land + shut the offboard session down cleanly */
+  /** Request arm + guided mode + takeoff from the ground relay. */
+  startFlight(): boolean {
+    if (this.flightRequested) return true;
+    const sent = this.send({ t: "start" });
+    if (sent) this.flightRequested = true;
+    return sent;
+  }
+
+  /** Request the relay's land + disarm sequence. */
+  stopFlight(): boolean {
+    this.flightRequested = false;
+    this.sendAccumulator = 0;
+    return this.send({ t: "stop" });
+  }
+
+  /** Land before closing an active link; connect/disconnect never arms her. */
   disconnect() {
-    if (this.hbTimer) { clearInterval(this.hbTimer); this.hbTimer = null; }
-    if (this.connected) {
-      // her landing command: thrust zero, level attitude, in HER language
-      this.sendMav(this.attitudeCommand(this.lastPose.yaw, -5));
+    const socket = this.ws;
+    if (socket && this.connected && (this.flightRequested || this.lastPose.z > 0.08)) {
+      this.stopFlight();
+      setTimeout(() => {
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+      }, 200);
+    } else {
+      socket?.close();
     }
-    this.ws?.close();
     this.ws = null;
+    this.flightRequested = false;
+    this.sendAccumulator = 0;
   }
 
-  get connected() { return !!this.ws && this.ws.readyState === WebSocket.OPEN; }
+  get connected() { return !!this.ws && this.ws.readyState === WebSocket.OPEN && this.authenticated; }
 
-  apply(act: Actuation, _dt: number) {
-    if (!this.connected) return;
-    // GROUND HONESTY — a quad cannot stroll. If her brain is in walk mode on
-    // the REAL frame, the HAL refuses to translate walking into thrust: she
-    // holds her current state instead of pretending to stride. Ground
-    // locomotion is a sim-floor and Pi-legs behavior, not a prop behavior.
-    if (act.activity === "walk") return;
-    // her commands ride the MAVLink lane now: real SET_ATTITUDE_TARGET
-    // frames the Matek F405 (or the SITL sim) speaks natively
-    this.sendMav(this.attitudeCommand(act.yaw, act.vz));
-    // the halo lighting stays on the bridge's own channel — a body concern,
-    // not a flight-control concern
+  apply(act: Actuation, dt: number) {
+    if (!this.connected || !this.flightRequested) return;
+    this.sendAccumulator += Math.max(0, Math.min(dt, 0.5));
+    if (this.sendAccumulator < 0.1) return;
+    this.sendAccumulator %= 0.1;
+
+    // This relay controls the flight controller only. Walking is animated on
+    // Zola's 3D rig; without a configured limb-servo bridge, it must never be
+    // translated into propeller motion.
+    const walking = act.activity === "walk";
+    this.send({
+      t: "vel",
+      vx: walking ? 0 : clamp(act.vx, -1, 1),
+      vy: walking ? 0 : clamp(act.vy, -1, 1),
+      vz: walking ? 0 : clamp(act.vz, -1, 1),
+      yaw: walking ? 0 : clamp(act.yaw, -1, 1),
+      led: /^#[\da-f]{6}$/i.test(act.led) ? act.led : "#f0b90b",
+    });
   }
 
   pose(): DronePose { return this.lastPose; }

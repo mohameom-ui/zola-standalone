@@ -1,6 +1,6 @@
 {
   "task": "zola_takeoff",
-  "run": "2026-10-25_08-20-36_takeoff_v1",
+  "run": "2026-10-25_10-44-07_takeoff_v3",
   "checkpoint": "model_1850.pt",
   "iteration": 1850,
   "obs_dim": 148,
@@ -28,7 +28,7 @@
     "peak_mean_reward": 12.18,
     "peak_smoothed": 12.172,
     "selected_checkpoint": "model_1850.pt",
-    "candidates_on_disk": 41,
+    "candidates_on_disk": 61,
     "log": "training.log"
   }
 }

@@ -18,7 +18,9 @@ describe("the isaac report — her simulation skills, served honestly", () => {
     expect(line).toContain("Isaac Sim training report");
     expect(line).toMatch(/uncalibrated proxy/);
     expect(line).toMatch(/simulation skills, not hardware reflexes/);
-    expect(isaacPolicyLines().length).toBe(ISAAC_POLICIES.length);
+    // the report dedupes by skill: 10 runs across 7 skills, best run named
+    const tasks = new Set(ISAAC_POLICIES.map((p) => p.task));
+    expect(isaacPolicyLines().length).toBe(tasks.size);
   });
 
   it("\"training\" still means drills — the report does not steal her drill command", () => {

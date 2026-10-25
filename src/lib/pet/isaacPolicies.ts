@@ -12,6 +12,7 @@ import bodyProfile from "../../../isaac/zola_isaac/assets/zola_prototype.json";
 import balanceManifest from "../../../isaac/policies/zola_balance_model_1499.json";
 import walkManifest from "../../../isaac/policies/zola_walk_model_1350.json";
 import walkV2Manifest from "../../../isaac/policies/zola_walk_model_1600.json";
+import walkV3Manifest from "../../../isaac/policies/zola_walk_model_2200.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1400.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1350.json";
 import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3250.json";
@@ -30,12 +31,19 @@ export interface IsaacPolicyManifest {
   onnx_sha256: string;
   roundtrip_max_abs_drift: number;
   source: string;
+  selection?: {
+    mode: string;
+    peak_iteration?: number;
+    peak_smoothed?: number;
+    selected_checkpoint?: string;
+  };
 }
 
 export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   balanceManifest,
   walkManifest,
   walkV2Manifest,
+  walkV3Manifest,
   handsManifest,
   flightManifest,
   touchdownManifest,
@@ -54,16 +62,27 @@ const TASK_NAMES: Record<string, string> = {
   zola_takeoff: "the takeoff transition (riding the prop spin-up and lift-off)",
 };
 
-export const TOUCHDOWN_CHECKPOINT_NOTE =
-  "zola_touchdown_model_3499 = touchdown_v9 (3500 iters, reward 34.02, episodes 595/600) — supersedes the v8 export";
 
-/** One honest spoken line per policy — what she trained, and what it is NOT. */
+
+/** One honest spoken line per SKILL — when a skill has several runs, she
+ * names the best one (by the manifest's smoothed-peak selection) and the
+ * count of runs behind it. */
 export function isaacPolicyLines(): string[] {
-  return ISAAC_POLICIES.map((p) => {
-    const name = TASK_NAMES[p.task] ?? p.task;
-    const run = p.run.split("_").pop() ?? "";
-    const label = run.startsWith("v") ? ` (${run})` : "";
-    return `${name}${label}: trained ${p.iteration + 1} PPO iterations in simulation (ONNX verified, drift ${p.roundtrip_max_abs_drift.toExponential(1)})`;
+  const byTask = new Map<string, { best: IsaacPolicyManifest; runs: number }>();
+  for (const p of ISAAC_POLICIES) {
+    const cur = byTask.get(p.task);
+    const score = p.selection?.peak_smoothed ?? 0;
+    if (!cur) byTask.set(p.task, { best: p, runs: 1 });
+    else {
+      cur.runs += 1;
+      const curScore = cur.best.selection?.peak_smoothed ?? 0;
+      if (score > curScore) cur.best = p;
+    }
+  }
+  return [...byTask.entries()].map(([task, { best, runs }]) => {
+    const name = TASK_NAMES[task] ?? task;
+    const runsNote = runs > 1 ? ` (${runs} runs)` : "";
+    return `${name}${runsNote}: trained ${best.iteration + 1} PPO iterations in simulation (ONNX verified, drift ${best.roundtrip_max_abs_drift.toExponential(1)})`;
   });
 }
 

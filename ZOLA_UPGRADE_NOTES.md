@@ -695,3 +695,10 @@ Format: [date] slice — action — library source → destination.
 - **NEW TASK `Isaac-Zola-Takeoff-Prototype-v0`**: `thrust_ramp_s` spins the props up from standstill over 1.2 s while she stands, then the ground lets go — the most violent moment of flight. takeoff_v1: 9.36 / 291, exported (drift 2.98e-07).
 - **touchdown_v9** (3500 iters): the Halo Touchdown hardened from 23.88/459 to **34.02 / 594.92** — she holds the hero landing through 99% of episodes. Export supersedes v8 (`zola_touchdown_model_3499.onnx`).
 - Her shelf: EIGHT verified ONNX policies — balance, walk ×2, hands, flight posture, Halo Touchdown, coupled hover, takeoff.
+
+### 2026-10-25 (10) — MAX-TECH PASS: best-checkpoint selection + the walk/takeoff deepening
+- **`export_policy_onnx.py` now selects the SMOOTHED PEAK checkpoint, not the last save** — it parses each run's `training.log` (archived beside the checkpoints), smooths Mean reward over a 5-reading window, walks back to the nearest saved checkpoint at/before the peak, and records the whole selection (peak iteration, smoothed reward, candidates) in the manifest. The whole shelf re-exported at its peaks: walk 1350/1600/2200(v3, 22.26 — the best walk), hands 1400, flight 1350, touchdown 3250, hover 1950/2300, takeoff 1850(v3, 10.77/342). Stale exports pruned.
+- **Her policy report now dedupes by SKILL** — 10 runs across 7 skills, naming the best run per skill (by the manifest's smoothed-peak score) with the run count behind it.
+- **takeoff_v3 trained** (10.77/342, beats v1's 9.36/291) and **walk_v3 trained** (22.26 peak, 599/600 episodes throughout — the walk is saturated).
+- One selector stress-test by accident: the hands run dir briefly carried the FAILED v2 run's log — the selector picked that run's only good stretch exactly as designed; the log mapping was fixed.
+- Shelf: 9 exported artifacts across 7 skills; ~30M sim steps this session.

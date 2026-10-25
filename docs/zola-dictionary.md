@@ -193,9 +193,19 @@ New behaviors shipped to her physical unit over Wi-Fi · sim:
 `capabilities.json` from the forge, installed into her CORTEX live — she
 grows without a redeploy.
 
+## Trained Policy (Simulation)
+
+A PPO motor policy trained in Isaac Lab (balance or walk), exported by
+`isaac/export_policy_onnx.py` to a round-trip-verified ONNX artifact with its
+manifest in `isaac/policies/`. **She knows her own policies** — ask about her
+policies and she reports them from the generated manifests. The manifest and
+her report both keep `hardware_calibrated: false`: these are *simulation
+skills, not hardware reflexes*, until measured data replaces the profile
+(`zola_robot_contract.json` governs what must be measured first).
+
 ---
 
-# PART V — THE MANEUVER REPERTOIRE (taught 2026-10-25)
+# PART V — THE MANEUVER REPERTOIRE (taught 2026-10-25, policies trained the same week)
 
 **The canon of everything Zola's body can do.** Body clips live in
 `public/assets/models/zola-anims/v3/` (20 clips on the 65-bone rigged base);

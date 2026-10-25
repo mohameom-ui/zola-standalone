@@ -12,6 +12,7 @@ import type { RoutineData } from "./memory";
 import { PersonaEngine, type PersonaName } from "./persona";
 import { correctHeard, lev, describeAppearance } from "./lexicon";
 import { pickVisualTrick } from "./visualTricks";
+import { isaacTrainingReport, mentionsIsaacTraining } from "./isaacPolicies";
 
 const IDLE_LED = "#f0b90b";
 const HAPPY_LED = "#35d0a5";
@@ -589,6 +590,14 @@ export class PetBrain {
     const planned = this.runner.plan(text);
     if (planned) return this.runner.start(planned, performance.now());
 
+    // ISAAC TRAINING REPORT — her simulation skills, served from the generated
+    // manifests (single source of truth: the export pipeline). Before the
+    // suggest fallback, or it would guess at "policies". Never "training" —
+    // that word belongs to her drill command, which runs earlier.
+    if (mentionsIsaacTraining(t)) {
+      return isaacTrainingReport();
+    }
+
     // --- never shrug: suggest what the human probably meant --------------------
     const guess = this.suggest(text);
     // an exact echo is not a suggestion — "wake up" must WAKE, not ask itself
@@ -802,7 +811,7 @@ export class PetBrain {
       }
     }
     if (has("what can you do", "help", "abilities", "capabilit")) {
-      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance, watch your face, and roast the rude. Try me.";
+      return "I follow you, come when called, scan and remember items, find things and fly to them, walk to places on my legs, run routines, patrol, dance — and every trick now has a voice. I also carry simulation-trained balance and walk policies from Isaac Sim (ask about my policies). Try me.";
     }
     if (has("goodbye", "bye", "see you", "later")) {
       this.setMood("happy");

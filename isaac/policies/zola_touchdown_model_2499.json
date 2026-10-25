@@ -1,0 +1,23 @@
+{
+  "task": "zola_touchdown",
+  "run": "2026-10-25_06-47-31_touchdown_v8",
+  "checkpoint": "model_2499.pt",
+  "iteration": 2499,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.4935058355331421,
+    "std_head": 0.3505115211009979,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "e07d20ebd3150374f7ae4f01e88d4ccf72f45bb1a86f80f5c39ab137b0378efb",
+  "roundtrip_max_abs_drift": 4.76837158203125e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller"
+}

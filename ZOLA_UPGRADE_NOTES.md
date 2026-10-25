@@ -677,3 +677,9 @@ Format: [date] slice — action — library source → destination.
 - **THE HALO TOUCHDOWN — the invented signature move:** pose spec designed WITH Isaac over five named-failure attempts (COM outside the support twice; ankle must close the kinematic chain ankle ≈ knee − hip; impact absorption beyond position-target policies). The pose lives in the dictionary + `HERO_POSE`; the POLICY is the honest open item.
 - Env gains: `fixed_pose` (named body language), `spawn_drop_m` + `drop_curriculum`, `escape_radius`.
 - FLIGHT_POSE lesson recorded: the first draft crouched — and the COM walked out of the support polygon; the flight pose is a TUCK, not a crouch.
+
+### 2026-10-25 (7) — THE HALO TOUCHDOWN: TRAINED on the seventh run
+- **The signature move is real now**: touchdown_v8 — reward 23.88, episodes 459/600, ONNX drift 4.77e-07, checkpoint archived. She drops, moves INTO the hero crouch over 1.5 s, and holds it while the drop curriculum walks the landing height up.
+- **Three generalized fixes entered the env** (they help every future pose task): `drop_ramp_steps` (curriculum in env steps — the old reset-count ramp was instant: 2000 resets ≈ 2 iterations at 64 envs, so v2/v3/v5 trained at full drop from step one), `pose_approach_s` (the pose ARRIVES smoothly — the snapped flourish alone pumped ~30 N·m of reaction torque through her base and toppled her), and the holdable depth (knee 0.45, ankle ≈ knee − hip).
+- Six failed runs, each with its named cause, are on the record in TRAINING_RUN and the dictionary — the best engineering audit trail in the repo.
+- Her policy shelf: balance, walk ×2, hands, flight posture, **Halo Touchdown** — six verified ONNX artifacts, all served by her own voice.

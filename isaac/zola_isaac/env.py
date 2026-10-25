@@ -38,18 +38,34 @@ class ZolaPrototypeEnv(DirectRLEnv):
         # FIXED POSE (body language): a named pose held every episode — the
         # reset does not resample it.
         self.fixed_pose = getattr(cfg, "fixed_pose", None)
+        self.pose_approach_s = getattr(cfg, "pose_approach_s", 0.0)
         if self.fixed_pose:
-            self.pos_targets[:] = torch.tensor(
+            self.fixed_offsets = torch.tensor(
                 [self.fixed_pose.get(n, 0.0) for n in pose_joints], device=self.device)
+            self.pos_targets[:] = self.fixed_offsets
+        else:
+            self.fixed_offsets = None
         # the probe record for the (retired) wrench-based halo experiments
         # lives in TRAINING_RUN — this build's composer applies only
         # force-at-CoM in the body frame; everything else fails silently
         self.drop = getattr(cfg, "spawn_drop_m", 0.0)
         self.drop_curriculum = getattr(cfg, "drop_curriculum", False)
-        self.reset_count = 0
+        # the ramp is measured in ENV STEPS, not resets: with 64 envs the old
+        # reset-count threshold (2000) was consumed within ~2 training
+        # iterations — every "curriculum" run actually trained at full drop
+        self.env_steps = 0
+        self.drop_ramp_steps = getattr(cfg, "drop_ramp_steps", 1_500_000)
         self.escape_radius = getattr(cfg, "escape_radius", 3.0)
 
     def _pre_physics_step(self, actions):
+        self.env_steps += self.num_envs
+        if self.fixed_offsets is not None and self.pose_approach_s > 0:
+            # MOVE INTO the pose instead of snapping to it: the arm flourish
+            # reached at full actuator speed pumps ~30 N·m of reaction torque
+            # through her base — the swing itself tops her over. The approach
+            # ramp is also the realistic motion: body language arrives smoothly.
+            frac = (self.episode_length_buf.to(torch.float32)*self.step_dt/self.pose_approach_s).clamp(0.0, 1.0).unsqueeze(1)
+            self.pos_targets[:] = self.fixed_offsets*frac
         self.previous_actions.copy_(self.actions)
         self.actions.mul_(.6).add_(actions.clamp(-1, 1), alpha=.4)
         self.targets.copy_(self.robot.data.default_joint_pos.torch)
@@ -110,8 +126,6 @@ class ZolaPrototypeEnv(DirectRLEnv):
         pose = data.root_link_pose_w.torch
         local_position = pose[:, :3]-self.scene.env_origins
         fall = (local_position[:, 2] < MODEL["base_height"]*.65) | (data.projected_gravity_b.torch[:, 2] > -.5)
-        if self.rotors:
-            fall = fall | (local_position[:, 2] > MODEL["base_height"]+.7)  | (local_position[:, 2] < MODEL["base_height"]*.5)
         escaped = torch.any(torch.abs(local_position[:, :2]) > self.escape_radius, dim=1)
         invalid = ~torch.isfinite(pose).all(dim=1) | ~torch.isfinite(data.joint_pos.torch).all(dim=1)
         timeout = self.episode_length_buf >= self.max_episode_length-1
@@ -135,11 +149,10 @@ class ZolaPrototypeEnv(DirectRLEnv):
         root_pose[:, 3:] = torch.stack((sr*cp, cr*sp, -sr*sp, cr*cp), dim=1)  # Isaac Lab 3: xyzw
         if self.drop:
             # the touchdown begins in the air — unless the curriculum is still
-            # walking the drop height up from zero
+            # walking the drop height up from zero (a true env-step ramp)
             effective = self.drop
             if self.drop_curriculum:
-                self.reset_count += len(env_ids) if env_ids is not None else self.num_envs
-                effective = self.drop*min(1.0, self.reset_count/2000)
+                effective = self.drop*min(1.0, self.env_steps/self.drop_ramp_steps)
             if effective > 0:
                 root_pose[:, 2] += effective
         root_velocity = self.robot.data.default_root_vel.torch[env_ids].clone()

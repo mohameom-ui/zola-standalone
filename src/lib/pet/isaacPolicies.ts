@@ -14,6 +14,7 @@ import walkManifest from "../../../isaac/policies/zola_walk_model_1499.json";
 import walkV2Manifest from "../../../isaac/policies/zola_walk_model_2499.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1499.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1499.json";
+import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_2499.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -34,6 +35,7 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   walkV2Manifest,
   handsManifest,
   flightManifest,
+  touchdownManifest,
 ] as unknown as IsaacPolicyManifest[];
 
 const TASK_NAMES: Record<string, string> = {
@@ -41,6 +43,7 @@ const TASK_NAMES: Record<string, string> = {
   zola_walk: "flat-ground walking",
   zola_hands: "arm and hand pose control (she moves her hands)",
   zola_flight: "flight-posture discipline (hold still in the air — the halo does the flying)",
+  zola_touchdown: "THE HALO TOUCHDOWN — her signature hero landing",
 };
 
 /** One honest spoken line per policy — what she trained, and what it is NOT. */

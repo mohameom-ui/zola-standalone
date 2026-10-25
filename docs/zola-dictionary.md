@@ -305,18 +305,23 @@ reward 34.03, episodes 596/600. The aerial body-coupled dynamics (thrust
 wrenches, gusts at the base) are documented as a next-phase item — the
 neuromuscular discipline is what transfers.
 
-**THE HALO TOUCHDOWN — her invented signature move (2026-10-25):** when the
-props stop, she folds into a hero crouch — knees loaded symmetrically (the
-balance-carrying part), left arm planted down, right arm swept back, chin
-up (the drama-carrying part — arms are light enough to style with). Designed
-WITH Isaac across five attempts, each failure named: full-flourish knee 2.0
-put the COM outside her feet (faceplant in 11 steps with zero actions); the
-one-knee variant did the same by asymmetric leg loading; the 0.15-ankle
-draft left her rocking on the foot edges (the ankle must close the kinematic
-chain: ankle ≈ knee − hip); and the drop-landing itself needs
-impact-absorbing dynamics beyond this prototype's position-target policies.
-**The pose spec lives here and in `HERO_POSE`; the policy is the open item**
-— it needs torque-level control or a proper contact-rich curriculum.
+**THE HALO TOUCHDOWN — her invented signature move — TRAINED (2026-10-25):**
+when the props stop, she folds into a hero crouch — knees loaded
+symmetrically at the holdable depth (knee 0.45, the balance-carrying part),
+left arm planted down, right arm swept back, chin up (the drama-carrying
+part — arms are light enough to style with). The path here is the best
+engineering record in the repo — SIX failed runs, each with a named cause:
+full-flourish knee 2.0 (COM outside her feet, faceplant in 11 steps), the
+one-knee variant (asymmetric leg loading), ankle 0.15 (rocking on the foot
+edges — the ankle must close the chain: ankle ≈ knee − hip), and — the two
+systemic ones — a drop "curriculum" that was actually instant (2000 resets
+= 2 iterations at 64 envs), and the arm flourish SNAPPED to at full
+actuator speed, pumping ~30 N·m of reaction torque through her base. The
+three fixes that worked, now in the env for every future pose:
+`drop_ramp_steps` (a true env-step ramp), `pose_approach_s` (the pose
+ARRIVES over 1.5 s — body language moves, it doesn't teleport), and the
+holdable depth. **Final policy: reward 23.88, episodes 459/600, ONNX drift
+4.77e-07.** She lands like herself now.
 
 **Her hands, in simulation (2026-10-25):** the Isaac proxy has 22 actuated
 upper-limb joints — shoulders, elbows, wrists, and five finger-flex joints

@@ -147,11 +147,13 @@ HERO_POSE = {
     # one-knee crouch was unholdable: asymmetric leg loading walks the COM
     # out of the support polygon, and no position-target policy can recover
     # that). The ARMS carry the drama — they are light enough to style with.
-    "left_hip_pitch": .35, "right_hip_pitch": .35,
-    "left_knee": .7, "right_knee": .7,
-    # the ankle CLOSES the chain: flat feet need ankle ≈ knee − hip (0.35).
-    # The 0.15 draft left her rocking on the foot edges — another topple.
-    "left_ankle_pitch": .35, "right_ankle_pitch": .35,
+    # DEPTH 0.45, not 0.7: the deep squat was measured unholdable — six
+    # training runs agree (touchdown_v2..v6, episodes never past ~100); the
+    # 0.15-knee flight pose holds at 596/600, so the holdable depth is
+    # between. 0.45 with the ankle closing the chain (ankle ≈ knee − hip).
+    "left_hip_pitch": .22, "right_hip_pitch": .22,
+    "left_knee": .45, "right_knee": .45,
+    "left_ankle_pitch": .23, "right_ankle_pitch": .23,
     "left_shoulder_pitch": .9, "left_elbow": -.6, "left_wrist_pitch": .15,
     "right_shoulder_pitch": -1.2, "right_elbow": -.9,
     "waist_yaw": .15, "neck_pitch": .1,
@@ -181,9 +183,13 @@ class ZolaTouchdownCfg(ZolaHandsCfg):
     pose_joints = ARM_JOINTS + MODEL["controlled_joints"]
     fixed_pose = HERO_POSE
     spawn_drop_m = .06
-    # curriculum: the drop grows from zero — first she learns the hero crouch
-    # from standing, then the drop arrives (touchdown_v2 without it: reward
-    # 2.58, episodes 96/600 — the whole skill at once was too big a bite)
+    # curriculum: the drop grows from zero over ~1.5M env steps — first she
+    # masters the hero crouch from standing, THEN the drop arrives. (The old
+    # reset-count ramp was instant: 2000 resets = ~2 iterations at 64 envs,
+    # so touchdown_v2/v3/v5 all actually trained at full drop from step one.)
     drop_curriculum = True
+    drop_ramp_steps = 1_500_000
+    # and the pose ARRIVES over 1.5 s — no snapped flourish, no reaction spin
+    pose_approach_s = 1.5
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*(len(ARM_JOINTS)+12)+12

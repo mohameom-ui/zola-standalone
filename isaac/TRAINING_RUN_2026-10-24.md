@@ -123,13 +123,22 @@ coupled flight needs the thruster-URDF phase (halo thruster links with
 per-rotor force applications at the solver level, or the Newton backend's
 wrench path once verified).
 
-## The Touchdown record (2026-10-25)
+## The Touchdown record (2026-10-25) — SOLVED on the seventh run
 
-`Isaac-Zola-Touchdown-Prototype-v0` — the invented hero landing — remains
-**untrained after five named attempts** (COM outside the support polygon
-twice; the ankle-chain mismatch; impact absorption beyond position-target
-policies). `HERO_POSE` (symmetric power stance, dramatic arms) and the drop
-curriculum are in the code; the policy is the open item.
+`Isaac-Zola-Touchdown-Prototype-v0` — the invented hero landing — is
+**TRAINED**: touchdown_v8, reward 23.88, episodes 459/600, ONNX drift
+4.77e-07 (checkpoint archived on disk). The six failed runs each taught one
+named thing (full-flourish COM walk-out; one-knee asymmetry; the ankle
+chain; the instant fake curriculum; the snapped-flourish reaction spin; the
+depth sweep). The three fixes that generalized into the env:
+
+1. **`drop_ramp_steps`** — a curriculum measured in ENV STEPS (the old
+   reset-count threshold was consumed in ~2 iterations at 64 envs).
+2. **`pose_approach_s`** — the pose ARRIVES over 1.5 s instead of snapping;
+   the arm flourish at full actuator speed pumps ~30 N·m of reaction torque
+   through her base and tops her over by itself.
+3. **The holdable depth** — knee 0.45 between the stable 0.15 and the
+   unholdable 0.7, with the ankle closing the chain.
 
 ## Notes / caveats
 

@@ -1,8 +1,7 @@
 # ZOLA V2 — 45 cm Humanoid-Drone Hybrid Companion (design spec)
 
 > Source: owner directive 2026-10-19. Style locked to the 2026-tech
-> architectural palette used by the Aetheria district pipeline
-> (carbon black / brushed alloy / burnished gold / cyan emission).
+> palette (carbon black / brushed alloy / burnished gold / cyan emission).
 
 ## Generation command (Modly / any image-to-3D agent)
 
@@ -72,6 +71,18 @@ Dual-state kinematic locomotion & spatial intelligence core: bridges
 low-power ground manipulation with high-mobility short-range aerial hops.
 Low-center-of-gravity battery ballast in the lower chest cavity.
 
+## Current implementation boundary (2026-10-24)
+
+The browser loads `public/assets/models/zola-anims/v2/rigged_base_v10.glb`
+and its 20 skinned clips. The 65-bone rig animates her hands, fingers, arms,
+torso, and legs; the simulator also moves her across the ground while the
+walk cycle plays. The real WebSocket relay controls a flight controller only.
+Physical hand and leg servos remain a hardware target; there is no servo driver
+or limb protocol connected. Real-mode walk/navigation requests therefore stop
+with an honest limitation message rather than being translated into propeller
+commands. Connecting the relay never arms the controller; flight start and
+landing are explicit operator actions.
+
 1. **Compute stack:** Raspberry Pi 5 — spatial mapping, object interaction,
    local offline speech synthesis (Kokoro-82M). Flight instructions via
    serial UART, MAVLink @ 115200 baud, to a Matek F405-MINITE FC.
@@ -87,12 +98,12 @@ Low-center-of-gravity battery ballast in the lower chest cavity.
 ## v2.3 intelligence directive — autonomous architectural menace
 
 Three modules, sequenced by repo (full specs in
-`docs/zola-dictionary.md` v2.3 section):
+`docs/zola-dictionary.md`, PART III — Intelligence):
 
 1. **`NEURAL_AURA_CACHE`** (ZOLA) — local vector memory bank
    (`zola_aura_cache.json`); v1 manifest-mode recognition + sass, v2
    embedding-mode via the local transformers stack.
-2. **`AURA_TELEMETRY_REACTIVITY`** (ZOLA hangar first, Aetheria second) —
+2. **`AURA_TELEMETRY_REACTIVITY`** (Zola's local hangar) —
    cranial ring + commentary react to live fps/draw-call telemetry.
 3. ~~**`DISTRICT_PATROL_PATHFINDING`**~~ — ⛔ RETRACTED by owner ruling
    (2026-10-20): Zola remains sovereign in her hangar; no cross-repo patrol.
@@ -118,7 +129,8 @@ Telemetry tie-in: **`Aura-Telemetry`** — the cyan halo ring doubles as the
 HUD indicator for frame stability and performance-contract state (the 60 FPS
 contract made visible on her body).
 
-Full module specs + lexicon: `docs/zola-dictionary.md` (v2.2 section).
+Full module specs + lexicon: `docs/zola-dictionary.md` (PART II — Optical
+Scanning & Live Recon).
 
 ## Lexicon
 
@@ -127,9 +139,10 @@ Ballast Bay, UART Trace Wire Mapping, MG90S Servo Node, Hangar Port 3001).
 
 ## Generation record
 
-- Concept reference: Aetheria repo `tools/zola-forge/refs/ref-zola-v2-humanoid.png`
-- Queued to generate via `tools/zola-forge/aetheria_bridge.py` (Turbo + paint +
-  30k-face optimizer) immediately after the district batch completes.
+- The current browser body is the exported, skinned rig at
+  `public/assets/models/zola-anims/v2/rigged_base_v10.glb`.
+- Gesture clips are served from that same local asset directory; the runtime
+  has no dependency on an external asset-hosting project.
 
 ## Rig provenance — the skin fix (2026-10-21, commit `afbc411`)
 

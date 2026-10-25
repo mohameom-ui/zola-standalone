@@ -37,3 +37,6 @@ isaac/outputs/
 isaac/dist/
 isaac/build/
 ZOLA-Pi-provision/
+
+# the pipeline-home directive library is its own git repository
+zola-pipeline-home/

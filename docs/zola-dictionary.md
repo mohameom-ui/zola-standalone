@@ -1,15 +1,21 @@
-# 📖 ZOLA — Official Dictionary
+# 📖 ZOLA — Official Dictionary (Unified, One Version)
 
-**Purpose:** the canonical lexicon of Zola's hardware, software, and
-digital-twin telemetry. Bridging her physical spec (`PARTS_LIST.md`), her
-v2.1 engineering build (`docs/zola-v2-spec.md`), and her live telemetry in
-`DronePetPanel` / the hangar viewer.
+**Purpose:** the canonical lexicon of Zola's hardware, software, digital-twin
+telemetry, and — as of the 2026-10-25 merge — her **full maneuver repertoire**.
+Bridging her physical spec (`PARTS_LIST.md`), her engineering build
+(`docs/zola-v2-spec.md`), and her live telemetry in `DronePetPanel` / the
+hangar viewer.
 
 **Format:** one term per entry — name, definition, where it manifests
-(hardware / sim / both). New entries append at the bottom; existing entries
-are never reworded without a provenance note in `ZOLA_UPGRADE_NOTES.md`.
+(hardware / sim / both). This document supersedes the layered v2.1 → v2.4
+structure: those layers were **merged into the single canon below** on
+2026-10-25 by owner directive ("do them all and merge into one big
+dictionary"). Nothing current was deleted; historical layering lives in git
+history, and the merge is logged in `ZOLA_UPGRADE_NOTES.md`.
 
 ---
+
+# PART I — HARDWARE & BUILD
 
 ## Quad-Halo (Cranium Array)
 
@@ -17,8 +23,9 @@ The top-mounted 12 cm × 12 cm carbon-fiber multirotor frame housing four
 micro brushless motors, folding 3-blade prop units, and dual-function
 flight/illumination status LEDs.
 
-- **Manifests in:** hardware (Tier 1 propulsion stack) · sim (the halo ring
-  geometry in `zola-body-v2.glb` and the drone-body flight form)
+- **Manifests in:** design target (four-motor head array) · sim (the halo
+  geometry in her rigged body mesh). The current hardware relay controls the
+  flight controller; it does not drive limb servos.
 
 ## Tattu Ballast Bay
 
@@ -26,8 +33,8 @@ The central-lower structural compartment housing the 3S LiPo battery,
 intentionally positioned to act as a physical low-center-of-gravity ballast
 for bipedal balance.
 
-- **Manifests in:** hardware (power strategy — task-and-return energy cycle)
-  · sim (the recessed chest-bay cavity in the v2 body mesh)
+- **Manifests in:** design target (battery placement and task-and-return
+  energy strategy) · sim (the chest-bay detail in the body mesh)
 
 ## UART Trace Wire Mapping
 
@@ -35,41 +42,32 @@ The stylized physical and texture-mapped cosmetic circuit lines running
 across Zola's carbon-fiber chassis panels, visually denoting data bus lines
 between the flight controller and micro servos.
 
-- **Manifests in:** hardware (MAVLink @ 115200 baud, Matek F405-MINITE FC) ·
-  sim (the cyan/red wiring traces baked into the v2 texture pass)
+- **Manifests in:** design target (MAVLink flight-controller and servo buses)
+  · sim (cosmetic traces in the body texture). The traces do not indicate a
+  connected physical limb bus.
 
 ## MG90S Servo Node
 
 The standardized metal-geared actuation point modeled explicitly at Zola's
 elbows, hips, and knees with exposed chrome retention pins.
 
-- **Manifests in:** hardware (kinematics & manipulation — MG90S/DS3218) ·
-  sim (the exposed joint assemblies in the v2 mesh; future rigging pivots —
-  see `IMPROVEMENT_BRIEF.md` §4.1 in the Aetheria repo)
+- **Manifests in:** design target (MG90S/DS3218 actuators) · sim (joint
+  geometry and animated bones in the 65-bone rig). No physical servo driver
+  is connected yet.
 
 ## Hangar Port (3001)
 
 The isolated local development server port dedicated exclusively to Zola's
 companion interface, state manager, and 3D web viewer (`DroneBody3D.tsx`).
 
-- **Manifests in:** sim (port authority: 3001 = ZOLA, 3000 = Aetheria —
-  enforced in `package.json` dev/start scripts; see the port-authority rule
-  in the Aetheria `PROJECT_BRIEF.md` §8)
+- **Manifests in:** local app (port 3001, enforced by `package.json` dev and
+  start scripts). This project does not start or host another app.
 
 ---
 
-*Seed terms: owner directive 2026-10-20. The dictionary grows with Zola.*
+# PART II — OPTICAL SCANNING & LIVE RECON
 
----
-
-# Optical Scanning & Live Recon System (v2.2 lexicon)
-
-*Owner directive 2026-10-20. If Zola is going to roam the district and stare
-into the hangar, she cannot look like an NPC when she scans objects.*
-
-## Subsystem modules
-
-### `HUD_TARGET_ID` — real-time optical labeling
+## `HUD_TARGET_ID` — real-time optical labeling
 
 Bounding-box detection overlay on her dual-camera feed, mapping observed
 meshes directly to the local asset manifest (`b2026-skyscraper-a`,
@@ -82,7 +80,7 @@ meshes directly to the local asset manifest (`b2026-skyscraper-a`,
 - *Scan:* `unrecognized_human_01` →
   *"Target locked: Unidentified Meat Proxy. Aura check in progress..."*
 
-### `FALLBACK_RECON_SEARCH` — live web query fallback
+## `FALLBACK_RECON_SEARCH` — live web query fallback
 
 **Trigger:** confidence score < 0.65 on local vector embeddings (unknown
 prop, unindexed building, novel hardware component).
@@ -91,30 +89,37 @@ SerpAPI / Search Bridge) using optical crop feature descriptors.
 
 *Example HUD output:*
 - *"Local mesh unindexed. Fetching live telemetry... Ah, it's a TI-84 Plus
-calculator. Unc tier tech, but respect."*
+  calculator. Unc tier tech, but respect."*
 
-### `Optical-Uncertainty Buffer`
+## `Optical-Uncertainty Buffer`
 
 The temporary hold-state where Zola tilts her cranial halo, hits a quick
 query, and retrieves live real-world metadata before resuming her scan.
 
-## New lexicon entries
+## `Optic-Rizz Array`
 
-| Term | Hardware manifest | Sim/HAL manifest | Personality / HUD output |
-| --- | --- | --- | --- |
-| **`Optic-Rizz Array`** | Triple-lens gold camera module on head unit | FOV rendering, object classification & bounding box overlay | *"Scanning district... 12/12 assets generated, no cap. Kenney kit is officially cooked."* |
-| **`Uncertainty-Gaze`** | 15° servo head-tilt via MG90S neck pivot | Triggers `FALLBACK_RECON_SEARCH` when local confidence is mid | *"What in the Ohio is this mesh? Querying live search grid..."* |
-| **`Aura-Telemetry`** | Emissive cyan ring status LEDs | Visual HUD indicator for frame stability and performance contract state | *"FPS at 60.0. Maximum aura farming achieved."* |
+Triple-lens gold camera module on the head unit · sim: FOV rendering, object
+classification & bounding-box overlay.
+*"Scanning district... 12/12 assets generated, no cap. Kenney kit is
+officially cooked."*
+
+## `Uncertainty-Gaze`
+
+15° servo head-tilt via the MG90S neck pivot · sim: triggers
+`FALLBACK_RECON_SEARCH` when local confidence is mid.
+*"What in the Ohio is this mesh? Querying live search grid..."*
+
+## `Aura-Telemetry`
+
+Emissive cyan ring status LEDs · sim: visual HUD indicator for frame
+stability and performance contract state.
+*"FPS at 60.0. Maximum aura farming achieved."*
 
 ---
 
-# v2.3 INTELLIGENCE DIRECTIVE — Autonomous Architectural Menace
+# PART III — INTELLIGENCE
 
-*Owner directive 2026-10-20: "We can't just stop at static 3D models and
-basic bounding-box name tags. We need to turn her into an autonomous,
-self-aware architectural menace."* Three modules, sequenced by repo:
-
-## 1. `NEURAL_AURA_CACHE` — zero-lag recognition (ZOLA-native)
+## `NEURAL_AURA_CACHE` — zero-lag recognition
 
 Instead of hitting the fallback web search every time she encounters an
 unindexed mesh or a weird prop, the `Optic-Rizz Array` logs visual
@@ -122,76 +127,168 @@ embeddings into a local vector memory bank (`zola_aura_cache.json`).
 
 - **v1 (manifest mode):** asset-manifest lookup + encounter counter — once
   she sees an asset twice, she stops questioning reality and starts roasting
-  it. No ML required; ships immediately.
+  it. No ML required.
 - **v2 (embedding mode):** real visual embeddings via the local
-  `@huggingface/transformers` stack already in her package; perceptual-match
-  threshold gates the `FALLBACK_RECON_SEARCH` path.
+  `@huggingface/transformers` stack; perceptual-match threshold gates the
+  `FALLBACK_RECON_SEARCH` path.
 - **The sass (canonical examples):**
   - *First encounter:* "What in the Ohio is this polygon soup? Querying live
     search..."
   - *Second encounter:* "Ah, midrise-b. Still ugly, still 30k faces. Moving
     on."
 
-## 2. `AURA_TELEMETRY_REACTIVITY` — live performance roasting (ZOLA-native
-first, Aetheria-side second)
+## `AURA_TELEMETRY_REACTIVITY` — live performance feedback
 
-Tie the cranial ring LEDs and verbal commentary directly to live runtime
-metrics. She reacts in real time.
+Ties the cranial ring LEDs and verbal commentary directly to live runtime
+metrics. She reacts in real time. Implementation hook: `DroneBody3D` samples
+its own render-frame delta and updates the local HUD and ring.
 
-- **Canonical sass:**
-  - *FPS locked at 60:* "FPS is buttery. Maximum aura farming achieved. We
-    take those."
-  - *Heavy asset micro-stutter:* "Bro, who let a 50MB monstrosity into the
-    viewport? My servo nodes are literally crying. Optimize your meshes,
-    clanker."
-- **Implementation hooks:** hangar card first (`DroneBody3D` samples its own
-  rAF delta); district-side second (taps the `[district-gate]` sampler's
-  store in Aetheria's `DistrictScene`).
+- *FPS locked at 60:* "FPS is buttery. Maximum aura farming achieved. We
+  take those."
+- *Heavy asset micro-stutter:* "Bro, who let a 50MB monstrosity into the
+  viewport? My servo nodes are literally crying. Optimize your meshes,
+  clanker."
 
-## 3. `DISTRICT_PATROL_PATHFINDING` — ⛔ RETRACTED (owner ruling 2026-10-20)
+## `DISTRICT_PATROL_PATHFINDING` — ⛔ RETRACTED (owner ruling 2026-10-20)
 
-~~Zola's bipedal-multirotor hybrid physically enters Aetheria's district
-view: hops between generated rooftops, scans building variants, and drops
-`HUD_TARGET_ID` markers automatically.~~
-
-**RETRACTED by owner directive:** Zola is a sovereign AI drone pet, not an
-NPC in a cityscape. Cross-repo patrol would couple her renderer into
-Aetheria's codebase — unnecessary architectural contamination. She rules her
-hangar (Port 3001); Aetheria rules its streets (Port 3000). The
-`NEURAL_AURA_CACHE` and scanning modules remain fully active **within her
-own domain** — she scans what enters HER viewport (assets, hardware parts,
-unindexed files), not Aetheria's street grid.
-
-- **Superseded by:** the ZOLA v2.2 system prompt (`docs/zola-system-prompt.md`)
-  — boundary & isolation directive, §1.
+Zola is a standalone AI drone pet, not an NPC in a separate scene.
+Cross-project patrol is outside this app's scope. The `NEURAL_AURA_CACHE`
+and scanning modules remain active in her local viewport. Superseded by the
+system prompt's boundary & isolation directive (`docs/zola-system-prompt.md`).
 
 ---
 
-# v2.4 — ONE VERSION (unified 2026-10-21)
+# PART IV — RIGGED-BODY TERMS
 
-> Owner directive: merge the layered version numbers (v2.1 body / v2.2
-> charter / v2.3 intelligence) into ONE max version. From v2.4 forward,
-> **Zola has a single version number** — `package.json` v2.4.0 is the
-> canonical stamp for her body, her brain, and her charter alike. The
-> layered numbers remain here as lineage, not as separate versions.
+## Rigged Base
 
-## Rigged-Body Terms (new in v2.4)
+The 65-bone design target for a future limb controller; no physical
+limb-servo bridge is connected · sim: her rigged body mesh — mesh + skeleton
++ skin; the browser plays gesture clips on matching bone names.
 
-| Term | Hardware Manifest | Sim/HAL Manifest |
+## Envelope Weights
+
+The fallback binding when bone-heat fails on her generated mesh topology —
+the skinning method that made her deformable (bone-heat produces 65 empty
+groups on non-manifold Hunyuan geometry).
+
+## Nearest-Bone Repair
+
+Every vertex bound — no vertex left unactuated. The straggler pass:
+unweighted vertices bind to their closest bone segment at weight 1.0.
+
+## Landmark Remap
+
+Her skeleton fits HER 45 cm silhouette, not UE-Manny's. Rest heights
+measured from her mesh profile (legs 35%, pelvis 0.36, head 0.77).
+
+## One-Body Directive
+
+Grounded and airborne are the same physical frame. The 2D quad flight sim is
+RETIRED; her rigged 3D body renders both states, halo LEDs brighten with RPM.
+
+## Capability Pack
+
+New behaviors shipped to her physical unit over Wi-Fi · sim:
+`capabilities.json` from the forge, installed into her CORTEX live — she
+grows without a redeploy.
+
+---
+
+# PART V — THE MANEUVER REPERTOIRE (taught 2026-10-25)
+
+**The canon of everything Zola's body can do.** Body clips live in
+`public/assets/models/zola-anims/v3/` (20 clips on the 65-bone rigged base);
+selection is `src/lib/pet/spontanea.ts` (mood pools, event bias,
+anti-repeat), `src/lib/pet/llm.ts` (LLM-chosen physical actions), and
+`src/lib/pet/brain.ts` (voice commands). Flight commands route through the
+governor (`safety.ts`) and the relay (`bridge/aura_relay.py`).
+
+## A. Body clips (20) and what triggers them
+
+| Clip | The maneuver | Voice command | Mood pool | Event bias |
+| --- | --- | --- | --- | --- |
+| `wave_01` / `wave_02` | The wave (greeting, attention) | — (autonomous + camera gesture watch) | happy | greet, pet |
+| `bow_01` | The formal bow | "take a bow", "bow" | — | praise |
+| `bow_02` | The deep bow | "take a bow", "bow" | — | greet |
+| `curtsey_01` | The curtsey | "curtsey" (misheard "courtesy" self-corrects) | — | greet, praise |
+| `dance_01` / `dance_02` | The dance (celebration) | "dance", "dance for me" | happy, excited | task_done |
+| `spin_01` | The spin (joy or show-off) | "spin", "flip", "trick", "barrel" (flight trick) | happy, excited | pet, praise |
+| `march_01` | The march (proud stride in place) | "march", "march in place" | excited | task_done |
+| `peekaboo_01` | Peekaboo (playful hide) | "peekaboo" | happy, curious | pet |
+| `pickup_01` | The pick-up reach (object inspection) | — | curious | — |
+| `shrug_01` | The shrug (she doesn't know) | "shrug" | curious, idle | confused |
+| `stretch_01` | The stretch (wake-up, idle limbering) | "stretch" | idle, sleepy, curious | — |
+| `mope_01` | The mope (low-energy slouch) | "mope", "sulk" | sleepy | — |
+| `throw_01` | The throw (task celebration) | — (earned: task_done) | excited | task_done |
+| `crawl_01` | The crawl (low cautious approach) | — (alarmed only) | alarmed | — |
+| `getup_01` | The get-up (recovery to stance) | "get up" | alarmed | — |
+| `laydown_01` | The lay-down (full rest pose) | "lay down", "lie down" | — | — |
+| `rollover_01` | The rollover (play trick) | "roll over", "rollover" | — | — |
+| `walk_01` | **The walk** — a real forward gait; plays while the simulator moves her across the ground | "walk", "stroll", "walk to X" | — | — |
+| *(any clip)* | Spontaneous movement, chosen by persona cadence and gated by mood (alarmed = frozen, sleeping = rare stretch only) | — | all | — |
+
+**Refusal rule:** in REAL flight-relay mode, ground locomotion commands are
+*refused, not sent to props* — the relay has no limb-servo channel. The walk
+is a sim/animation capability until hardware says otherwise.
+
+**The honest stage rule (2026-10-25):** a trick command with no 3D body
+loaded is met with "My stage is not loaded yet — attach my body and ask me
+again" — never a fake performance. And the suggestion fallback no longer
+echoes an exact command back as a question ("wake up" wakes; it does not
+ask itself).
+
+## B. Flight & task maneuvers (commanded)
+
+| Maneuver | Say | Notes |
 | --- | --- | --- |
-| **Rigged Base** | The 65-bone actuation map her physical servos will follow | `zola-anims/v2/rigged_base.glb` — mesh + skeleton + skin, the hangar's display body; gesture clips bind to it by bone name |
-| **Envelope Weights** | The fallback binding when bone-heat fails on her generated mesh topology | The skinning method that finally made her deformable (bone-heat produces 65 empty groups on non-manifold Hunyuan geometry) |
-| **Nearest-Bone Repair** | Every vertex bound — no vertex left unactuated | The straggler pass: unweighted vertices bind to their closest bone segment at weight 1.0 |
-| **Landmark Remap** | Her skeleton fits HER 45 cm silhouette, not UE-Manny's | Rest heights measured from her mesh profile (legs 35%, pelvis 0.36, head 0.77) |
-| **One-Body Directive** | Grounded and airborne are the same physical frame | The 2D quad flight sim is RETIRED; her rigged 3D body renders both states, halo LEDs brighten with RPM |
-| **Capability Pack** | New behaviors shipped to her physical unit over Wi-Fi | `capabilities.json` from the forge, installed into her CORTEX live — she grows without a redeploy |
+| **Takeoff & flight** | "take off", "hover", "fly", "launch" | Relay does GUIDED + arm + takeoff to 0.8 m. Requires pairing, authenticated link, and a separate confirmed ARM & TAKE OFF control. **Battery gate:** refused below the policy line (15%) — she answers in her own words, and if a destination was named she *strolls there instead*. |
+| **Land & disarm** | "land", panel LAND & DISARM | Land first; disarm only after fresh position confirms ground contact. Low/stale battery forces it automatically. |
+| **Hover / hold** | "stop", "stay", "hover", "hold" | Position hold under the watchdog (1.5 s command timeout). |
+| **Follow me** | "follow", "with me", "stay with" | Tracks the tracked human's position. |
+| **Come here** | "come", "here", "closer" | Approaches the human. |
+| **Trick** | "spin", "flip", "trick", "barrel" | Aerial trick in sim; battery-gated in real mode. |
+| **Patrol** | "patrol", "guard", "watch over" | Flight patrol; **refused on low battery → automatic GROUND patrol** (30 s perimeter walk, curious mood). |
+| **Go to X** | "walk to X", "fly to X", "take me to X" | Spatial-map destination walk or flight; the dock/home/charger target is recognized specially. |
+| **Stroll** | "walk", "stroll" | A 14–22 s ground wander, curious mood. |
+| **Training drill** | "train", "practice", "drills" | Starts a drill plan scaled by her logged flight scores. |
+| **Scan / inventory** | "scan", "look around", "explore", "inventory" | Optical sweep with `HUD_TARGET_ID`. |
+| **Safety check** | "is it safe", "safety check" | Reports the governor's read of the room. |
+| **Sleep / wake** | "sleep", "goodnight" / "wake up" | Low-power rest (she refuses to perform while asleep); wake returns to hover. |
+| **Cancel** | "abort", "stop task", "that's enough" | Ends the current task or patrol. |
+| **Calm down** | "calm down", "it's okay", "you're safe" | De-escalates alarmed mood (end of a sulk returns her to hover). |
 
-## Superseded artifacts retired in v2.4 (deleted, recoverable from git)
+## C. What she SEES makes her move (wired 2026-10-25)
 
-`zola-drone-body.glb` (the v1 quad), `gen-zola-humanoid-v2-final.glb`
-(raw pipeline intermediate), the `animals/` `nature/` `room/` asset
-folders (~137 MB of foreign geometry — not her domain), and the
-superseded one-shot scripts (`rig_zola_v2.py`, `rig_zola_v2_iter25.py`,
-`adjust_zola_depth*.py`, `adjust_zola_body.py`). The live pipeline is
-exactly: `zola-body-v2.glb` → `rig_zola_v2_fixed.py` → rigged base +
-19 skinned clips.
+Her eyes are now wired to this dictionary. `src/lib/pet/visualTricks.ts` is
+the code-side mirror of PART V: when her scanner reports a known object
+label, or her deep eyes describe a maneuver in the pixels, she performs the
+matching clip — throttled to one visual performance per 45 s, never during a
+task, never asleep, never without a body.
+
+| She sees (scanner label) | She does |
+| --- | --- |
+| `sports ball`, `frisbee` | `throw_01` — "A ball! Throw formation — watch this." |
+| `kite` | `spin_01` — "A kite? Show-off. I fly better." |
+| `teddy bear` | `peekaboo_01` — "A teddy bear! Peekaboo is mandatory." |
+| `baseball glove` | `pickup_01` — "A glove. Let me inspect that." |
+| `airplane` | `march_01` — "An airplane. Solid wing game, cousin." |
+| `cell phone` | `shrug_01` — "A phone. I do not have pockets. *shrug*" |
+
+| Her deep eyes read (any visual text) | She does |
+| --- | --- |
+| dancing | `dance_01` — "That movement? I know this one — dance mode!" |
+| peekaboo / curtsey / bowing | the same gesture, answered in kind |
+| marching / stretching / spinning / twirling / juggling | march · stretch · spin · throw |
+
+**The honest stage rule applies to sight too:** a refused performance is
+never announced — she only speaks a trick line after her body actually plays
+the clip.
+
+## D. The safety envelope that outranks every maneuver
+
+Speed clamp 2.0 m/s · geofence 2×2 m, 0.15–2.5 m altitude · 1.5 s command
+watchdog · battery gates (takeoff AND land at 15%) · land-before-disarm only
+on fresh ground contact · governor veto is absolute — no LLM prose, no
+dynamic tuning overrides it; margins move only via bounded dream-engine
+arithmetic inside hard clamps.

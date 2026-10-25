@@ -750,3 +750,11 @@ Format: [date] slice — action — library source → destination.
 - **hover_v4 trained ON THE NEW GEOMETRY** (2500 iters): the run was unstable late (final 10.27/340 — the short roll arm is harder) — and the best-checkpoint selector did its exact job: exported the SMOOTHED PEAK (model_1600, ~16-17/495) instead of the broken tail.
 - **THE HONEST SHELF CLEANUP:** the head-geometry hover exports (1950/2300/4700) and the head-geometry takeoff export are RETIRED — they fly a body that no longer exists. The shelf now carries only collar-geometry flight. Takeoff is queued for collar retraining.
 - **Her body map updated:** "4 collar thrusters", the V12 collar in her spoken report. The old "halo in my head" text is retired.
+
+### 2026-10-25 (19) — THE COLLAR RETRAINING CHAIN: all four runs complete
+- **takeoff_v3_collar** (2500 iters): 22.81/593 — the takeoff DOUBLED on the collar geometry (head-geometry takeoff: 10.77/342). Exported at the smoothed peak (model_1900, drift 3.58e-07).
+- **touchdown_v10** (2500 iters): 30.04/533 — the hero landing holds through 89% of episodes on the collar body. Exported (model_2400, drift 7.15e-07).
+- **sit_v2** (knee 1.0, holdable depth): 3.61/104 — CONFIRMED with three data points: a static-hold squat beyond the flight-posture depth is unlearnable with position targets. The sit needs dynamic descent (a controlled fall into the pose) — recorded as the open item with its full evidence chain. NOT exported (an unlearnable skill does not join the shelf).
+- **hover_v5** (3500 iters, gusts 6 N): **28.43/599.00 — the best flight policy ever, on the V12 collar geometry**. The trajectory climbed steadily (3.15 → 22.91 → 28.43) — she rides the collar rotors through full episodes at doubled gusts. Exported (model_3499, drift 4.77e-07).
+- **The shelf (all collar-geometry flight + all web skills):** balance, walk ×3, hands, flight posture, touchdown (v10), hover (v5), picture, thumbs, halobeat, talking expression — 11 verified ONNX artifacts. The head-geometry hover/takeoff exports RETIRED.
+- The sit's three-run record + the depth family is in the dictionary; the torque-control path remains the documented unblock.

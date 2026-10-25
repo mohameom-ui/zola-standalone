@@ -9,9 +9,10 @@
 > modules** on articulated arms — cyan/teal rings glowing, casting light
 > down onto her shoulders. Athletic, slim proportions; cinematic studio
 > light. The web body carries it live (the collar rig, the lens eye, the
-> CERAMIC theme); the Isaac rotor relocation (head halo → neck collar) is
-> the next training phase — the hover policies fly on the head-mounted
-> geometry until retrained.
+> CERAMIC theme). The Isaac physics body carries the canon too: the four
+> thruster bodies moved to the neck collar in the profile, and the hover
+> policy is RETRAINED on the collar geometry (the takeoff retraining on the
+> collar is queued).
 >
 > **Master generation prompt (canon copy):** full-body high-end 3D render of
 > an advanced humanoid companion android, athletic balanced proportions,

@@ -79,7 +79,7 @@ class ZolaPrototypeEnv(DirectRLEnv):
         # because the forces are body-frame they TILT WITH HER: attitude steers
         # the flight, for real. A scripted differential-thrust autopilot holds
         # altitude and attitude; the POLICY owns the body.
-        self.rotors = getattr(cfg, "halo_rotors", False)
+        self.rotors = getattr(cfg, "collar_rotors", False)
         self.thrust_ramp_s = getattr(cfg, "thrust_ramp_s", 0.0)
         self.root_body_ids = [0]  # the pelvis: body 0 in any ordering
         if self.rotors:

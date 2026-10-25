@@ -1,0 +1,34 @@
+{
+  "task": "zola_hover",
+  "run": "2026-10-25_18-27-32_hover_v5",
+  "checkpoint": "model_3499.pt",
+  "iteration": 3499,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.06008973345160484,
+    "std_head": 0.1611088067293167,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "abc0b79dfbfef5b89a5dc45bd8fb403fe3b704043a26715ce1700d628a184620",
+  "roundtrip_max_abs_drift": 4.76837158203125e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "best",
+    "metric": "smoothed_mean_reward",
+    "window_readings": 5,
+    "peak_iteration": 3499,
+    "peak_mean_reward": 28.43,
+    "peak_smoothed": 28.42,
+    "selected_checkpoint": "model_3499.pt",
+    "candidates_on_disk": 71,
+    "log": "training.log"
+  }
+}

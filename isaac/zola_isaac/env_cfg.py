@@ -182,7 +182,7 @@ class ZolaHoverCfg(ZolaFlightCfg):
     rotor forces tilt with her — her attitude steers the flight, and her limb
     motion moves the COM she must keep under the thrust. The policy owns the
     body: hold the flight posture while the platform is alive underneath."""
-    halo_rotors = True
+    collar_rotors = True
     # doubled gusts for hover_v2 — the first policy learned at 3 N
     gust_force = 6.0
     escape_radius = 12.0
@@ -206,14 +206,15 @@ class ZolaTakeoffCfg(ZolaHoverCfg):
 # ARRIVES (the approach ramp) rather than snapping.
 
 SIT_POSE = {
-    # the ground sit: a deep squat with the ankle closing the chain
-    # (ankle = knee - hip), hands resting on the knees
-    "left_hip_pitch": .9, "right_hip_pitch": .9,
-    "left_knee": 1.6, "right_knee": 1.6,
-    "left_ankle_pitch": .7, "right_ankle_pitch": .7,
-    "left_shoulder_pitch": .7, "right_shoulder_pitch": .7,
-    "left_elbow": -1.0, "right_elbow": -1.0,
-    "left_wrist_pitch": .2, "right_wrist_pitch": .2,
+    # the sit: a deep-but-holdable squat. The knee-1.6 draft failed like the
+    # touchdown's deep crouch — the COM lesson again. Depth 1.0 with the
+    # ankle closing the chain (ankle = knee - hip), hands resting on the knees
+    "left_hip_pitch": .55, "right_hip_pitch": .55,
+    "left_knee": 1.0, "right_knee": 1.0,
+    "left_ankle_pitch": .45, "right_ankle_pitch": .45,
+    "left_shoulder_pitch": .5, "right_shoulder_pitch": .5,
+    "left_elbow": -.8, "right_elbow": -.8,
+    "left_wrist_pitch": .15, "right_wrist_pitch": .15,
 }
 
 PICTURE_POSE = {

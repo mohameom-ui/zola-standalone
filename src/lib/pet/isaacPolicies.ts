@@ -16,7 +16,7 @@ import walkV3Manifest from "../../../isaac/policies/zola_walk_model_2200.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1400.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1350.json";
 import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3250.json";
-import hoverManifest from "../../../isaac/policies/zola_hover_model_1600.json";
+import hoverManifest from "../../../isaac/policies/zola_hover_model_3499.json";
 import pictureManifest from "../../../isaac/policies/zola_picture_model_1450.json";
 import thumbsManifest from "../../../isaac/policies/zola_thumbs_model_1499.json";
 import danceManifest from "../../../isaac/policies/zola_dance_model_1999.json";
@@ -62,7 +62,7 @@ const TASK_NAMES: Record<string, string> = {
   zola_hands: "arm and hand pose control (she moves her hands)",
   zola_flight: "flight-posture discipline (hold still in the air — the halo does the flying)",
   zola_touchdown: "THE HALO TOUCHDOWN — her signature hero landing",
-  zola_hover: "coupled hover flight (the V12 collar rotors — real coupled physics)",
+  zola_hover: "coupled hover flight (the V12 collar rotors — 599/600 at doubled gusts)",
   zola_sit: "sitting",
   zola_picture: "posing for a picture",
   zola_thumbs: "thumbs up (finger dexterity)",

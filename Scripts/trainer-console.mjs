@@ -21,7 +21,10 @@ import { fileURLToPath } from "node:url";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const venv = process.env.ZOLA_VENV ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\isaac-venv\Scripts`;
 const isaaclab = path.join(venv, "isaaclab.exe");
+// ONE log home for every run — manual or console-launched — so TensorBoard
+// sees all curves and the selectors find all checkpoints
 const logsRoot = process.env.ZOLA_LOGS ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\logs\rsl_rl`;
+const trainCwd = process.env.ZOLA_TRAIN_CWD ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p`;
 
 const TASKS = {
   balance: { id: "Isaac-Zola-Balance-Prototype-v0", label: "balance", iters: 1500 },
@@ -206,7 +209,7 @@ const server = http.createServer(async (req, res) => {
     const out = openSync(consoleLog, "a");
     const proc = spawn(isaaclab, ["train", "--rl_library", "rsl_rl", "--task", t.id,
       "--num_envs", "64", "--max_iterations", String(t.iters), "--run_name", runName],
-      { cwd: repo, detached: true, stdio: ["ignore", out, out],
+      { cwd: trainCwd, detached: true, stdio: ["ignore", out, out],
         env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
     proc.unref(); // a training round survives console restarts — she does not stop because the dashboard blinked
     current = { name: t.label, exp, proc, startedAt: Date.now(), consoleLog };
@@ -233,7 +236,7 @@ const server = http.createServer(async (req, res) => {
     // the LIVE 3D window: her trained policy, rendered, in real time
     viewer = spawn(isaaclab, ["play", "--rl_library", "rsl_rl", "--task", t.id,
       "--checkpoint", "latest", "--num_envs", "1", "--viz", "kit"],
-      { cwd: repo, stdio: "ignore", env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
+      { cwd: trainCwd, stdio: "ignore", env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
     viewer.on("exit", () => { viewer = null; });
     res.writeHead(200); res.end("3D window opening for " + t.label);
     return;

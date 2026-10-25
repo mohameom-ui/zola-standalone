@@ -327,6 +327,26 @@ holdable depth. **Final policy (touchdown_v9): reward 34.02, episodes 594.92/600
 drift 9.54e-07** — after deepening the run to 3,500 iterations, she holds
 the hero landing through 99% of episodes. She lands like herself now.
 
+**THE BODY LOG vs THE ISAAC TRAINING — the honest answer (2026-10-25):**
+her body log (the aura ledger) counts CLIP PLAYS on her web body; the Isaac
+training produces PHYSICS policies for her simulation body. They are two
+representations of one Zola (the One-Body Directive is visual; the physics
+proxy is the training ground) — the ledger does not feed the PPO runs and
+the policies do not drive the web clips. What IS connected: both report
+through her voice (the body map, the policy report, the engine registry),
+both land in her exports, and the console/ledger show both.
+
+**THE MOOD SYSTEM — the deep dive (2026-10-25):** 56 mood transitions across
+her brain: 20× happy (greetings, praise, petted, wins), 15× curious
+(exploring, scanning, unknown faces), 5× excited (celebration), 5× alarmed
+(threats, falls, offenses), 3× sleepy, 3× idle, 2× sleeping. WHAT A MOOD
+CHANGES (after the color-identity fix): her words' tone (persona delivery
+speed), her chirps, her HUD — **not her hardware colors anymore**. Her LED
+is her MODE's color (SWEET green · EXPLORER cyan · HYPER gold · GRUMPY
+silver · ROAST red-gold · SULKING red · DREAMING violet) and only two
+SIGNAL states override it: **alarmed red** and the **sleeping dim**. One
+identity, stable while she talks.
+
 **THE EXPRESSION LIBRARY (2026-10-25):** the choreography engine turned body
 language into trainable signals — a `pose_sequence` of keyframes at a fixed
 period (cosine-eased): the SONG is the period, the STEPS are the keyframes.

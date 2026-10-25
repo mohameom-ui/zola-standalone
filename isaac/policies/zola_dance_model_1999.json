@@ -1,6 +1,6 @@
 {
   "task": "zola_dance",
-  "run": "2026-10-25_13-33-46_dance_v2",
+  "run": "2026-10-25_15-25-35_console_dance_mvo7wgkv",
   "checkpoint": "model_1999.pt",
   "iteration": 1999,
   "obs_dim": 148,
@@ -21,14 +21,6 @@
   "hardware_calibrated": false,
   "source": "simulation-only artifact; not a hardware controller",
   "selection": {
-    "mode": "best",
-    "metric": "smoothed_mean_reward",
-    "window_readings": 5,
-    "peak_iteration": 1999,
-    "peak_mean_reward": 32.92,
-    "peak_smoothed": 32.918,
-    "selected_checkpoint": "model_1999.pt",
-    "candidates_on_disk": 41,
-    "log": "training.log"
+    "mode": "last"
   }
 }

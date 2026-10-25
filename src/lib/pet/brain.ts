@@ -11,6 +11,7 @@ import { TaskRunner, type TickResult, wrapAngle } from "./tasks";
 import type { RoutineData } from "./memory";
 import { PersonaEngine, type PersonaName } from "./persona";
 import { correctHeard, lev, describeAppearance } from "./lexicon";
+import { modeByName } from "./modes";
 import { pickVisualTrick } from "./visualTricks";
 import { bodyMapReport, isaacTrainingReport, mentionsBodyMap, mentionsIsaacTraining } from "./isaacPolicies";
 import { engineReport } from "./engineRegistry";
@@ -1476,15 +1477,14 @@ export class PetBrain {
   }
 
   private ledColor(): string {
-    switch (this.mood) {
-      case "happy": return HAPPY_LED;
-      case "excited": return EXCITED_LED;
-      case "curious": return CURIOUS_LED;
-      case "alarmed": return ALARMED_LED;
-      case "sleeping": return SLEEP_LED;
-      case "sleepy": return "#b58a2e";
-      default: return IDLE_LED;
-    }
+    // THE COLOR IDENTITY (the deep-dive fix): her LED is her MODE's color —
+    // one stable identity. Moods no longer repaint her hardware mid-sentence
+    // (the per-mood strobe read as glitching). Only the two SIGNAL states
+    // override — alarmed red and the sleeping dim — those are states, not
+    // emotions. Emotion shows in her words and her HUD, not in strobing.
+    if (this.mood === "alarmed") return ALARMED_LED;
+    if (this.mood === "sleeping") return SLEEP_LED;
+    return modeByName(this.getPersona())?.ledColor ?? IDLE_LED;
   }
 }
 

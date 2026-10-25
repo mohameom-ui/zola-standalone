@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import ZolaDesignLayer from "./ZolaDesignLayer";
 import { scanAsset, GESTURE_REPERTOIRE } from "@/lib/pet/auraCache";
 
 // Rebuilt by isaac/build_character.py with explicit bone weights.
@@ -125,44 +126,6 @@ function SceneRig({
     }
     return instance;
   }, [gltf, gl]);
-  const ringColor = accentColor;
-  const ringIntensity = 1.6;
-  // THE LENS EYE — the design canon's single centered optical unit: a lens
-  // barrel, a dark iris, and a cyan halo ring, parented to the Head bone so
-  // it moves with every nod and tilt. The face plate stays minimalist; the
-  // eye IS the face.
-  useEffect(() => {
-    const headBone = scene.getObjectByName("Head") as THREE.Bone | undefined;
-    if (!headBone) return;
-    const eye = new THREE.Group();
-    eye.name = "zola_lens_eye";
-    const metal = new THREE.MeshStandardMaterial({ color: "#22282e", metalness: 0.85, roughness: 0.3 });
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.041, 0.04, 28), metal);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.15, 0.1);
-    const iris = new THREE.Mesh(
-      new THREE.CircleGeometry(0.026, 28),
-      new THREE.MeshBasicMaterial({ color: "#07090c" }),
-    );
-    iris.position.set(0, 0.15, 0.121);
-    const halo = new THREE.Mesh(
-      new THREE.TorusGeometry(0.029, 0.0055, 10, 36),
-      new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.5, toneMapped: false }),
-    );
-    halo.position.copy(iris.position);
-    eye.add(barrel, iris, halo);
-    headBone.add(eye);
-    return () => {
-      headBone.remove(eye);
-      eye.traverse((o) => {
-        if (o instanceof THREE.Mesh) {
-          o.geometry.dispose();
-          const m = o.material as THREE.Material | THREE.Material[];
-          (Array.isArray(m) ? m : [m]).forEach((mm) => mm.dispose());
-        }
-      });
-    };
-  }, [scene, accentColor]);
   useEffect(() => {
     scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -270,9 +233,7 @@ function SceneRig({
   const gestureTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const gestureQueue = useRef<string[]>([]); // the improv chain lives here
   const sway = useRef({ t: 0 });
-  const ringRef = useRef<THREE.Mesh>(null);
   const bodyRef = useRef<THREE.Group>(null);
-  const propsRef = useRef<THREE.Group>(null);
   // Mirror the latest HAL pose + the speaking state for the frame loop.
   const flightRef = useRef(flight);
   flightRef.current = flight;
@@ -357,26 +318,12 @@ function SceneRig({
         bodyRef.current.position.y = lift + Math.sin(sway.current.t * 3.1) * 0.012 * (0.3 + spin);
         bodyRef.current.rotation.x = THREE.MathUtils.degToRad(f.pitch ?? 0);
         bodyRef.current.rotation.z = THREE.MathUtils.degToRad(f.roll ?? 0) + Math.sin(sway.current.t * 1.7) * 0.02 * spin;
-        if (ringRef.current) {
-          const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
-          mat.emissiveIntensity = Math.max(ringIntensity, 2.5 + spin * 2.5);
-        }
-        // the Quad-Halo's four rotor discs — visible ONLY airborne, spin
-        // rate follows the real HAL RPM (her motors, made visible)
-        if (propsRef.current) {
-          propsRef.current.visible = true;
-          const discSpin = f.rpm * delta * 0.004;
-          for (const disc of propsRef.current.children) disc.rotation.y += discSpin;
-        }
+        // the collar impellers spin with the live HAL RPM — handled inside
+        // the design layer (the impellers live there now)
       } else {
         bodyRef.current.position.y = 0;
         bodyRef.current.rotation.x = 0;
         bodyRef.current.rotation.z = 0;
-        if (ringRef.current) {
-          const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
-          mat.emissiveIntensity = ringIntensity;
-        }
-        if (propsRef.current) propsRef.current.visible = true; // the drone is PART of her now — props mounted, still when grounded
       }
     }
     if (activeAction.current) return; // a gesture owns her body right now
@@ -439,10 +386,6 @@ function SceneRig({
     // see while she talks). The crossfade happens on arrival instead.
     scanAsset(`movement:${name}`); // the aura ledger counts her movement repertoire
     const flying = flightClips.has(name);
-    if (ringRef.current) {
-      const mat = (ringRef.current as THREE.Mesh).material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = flying ? 4.5 : 0.3; // the halo dims when grounded
-    }
     void loadGestureClip(name).then((clip) => {
       if (requestId !== playbackId.current) return; // a newer move replaced this load
       if (!clip) {
@@ -548,42 +491,13 @@ function SceneRig({
     <group position={[0, GROUND_OFFSET, 0]}>
       <group ref={bodyRef}>
         <primitive object={scene} />
-        {/* THE QUAD-DRONE NECK COLLAR — the design canon: a heavy collar at
-            the neck base docking four ducted fan modules on short arms, cyan
-            rings glowing, casting light down onto her shoulders. The props
-            are the impellers: still when grounded, spinning with the live
-            HAL RPM when she flies */}
-        <group ref={propsRef}>
-          {[[-0.21, 0.14], [0.21, 0.14], [-0.21, -0.14], [0.21, -0.14]].map(([x, z], i) => (
-            <group key={i} position={[x, 0.99, z]} rotation={[Math.PI / 2 - 0.16, 0, 0]}>
-              <mesh>
-                <torusGeometry args={[0.125, 0.02, 10, 36]} />
-                <meshStandardMaterial color="#cfe0ea" emissive={accentColor} emissiveIntensity={1.9} toneMapped={false} />
-              </mesh>
-              <mesh>
-                <cylinderGeometry args={[0.055, 0.055, 0.02, 20]} />
-                <meshStandardMaterial color="#14181d" metalness={0.7} roughness={0.35} />
-              </mesh>
-              {/* the downward photonic wash onto her shoulders */}
-              <mesh position={[0, -0.075, 0]} rotation={[Math.PI, 0, 0]}>
-                <coneGeometry args={[0.105, 0.17, 18, 1, true]} />
-                <meshBasicMaterial color={accentColor} transparent opacity={0.07} side={THREE.DoubleSide} depthWrite={false} />
-              </mesh>
-            </group>
-          ))}
-          {/* the collar itself — the docking and power hub */}
-          <mesh position={[0, 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.088, 0.024, 12, 36]} />
-            <meshStandardMaterial color="#20262c" metalness={0.85} roughness={0.3} />
-          </mesh>
-          <pointLight position={[0, 0.9, 0]} color={accentColor} intensity={2.4} distance={2.8} decay={1.8} />
-        </group>
-      {/* the Aura-Telemetry glow — on the humanoid body the physical ring
-          is retired; her persona light lives as a soft ambient aura */}
-      <mesh ref={ringRef} position={[0, 0.97, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.26, 0.02, 16, 48]} />
-        <meshStandardMaterial color={ringColor} emissive={ringColor} emissiveIntensity={ringIntensity} toneMapped={false} />
-      </mesh>
+        {/* THE V12 DESIGN LAYER — the new canon module: the neck-collar
+            quad-drone with multi-blade impellers, the lens eye, the chest
+            core, the energy seams, and the temple sensors — all in one
+            clean module (ZolaDesignLayer) */}
+        <ZolaDesignLayer scene={scene} accentColor={accentColor} flight={flight} />
+      {/* the Aura-Telemetry ring is RETIRED — the collar drone carries
+          her light now; the persona glow lives in the panel accents */}
       </group>
       <mesh position={[0, -0.9, 0]}>
         <torusGeometry args={[0.44, 0.005, 6, 96]} />
@@ -593,7 +507,7 @@ function SceneRig({
         <torusGeometry args={[0.72, 0.003, 6, 96]} />
         <meshBasicMaterial color="#8ecfff" transparent opacity={0.18} depthWrite={false} />
       </mesh>
-      <pointLight position={[0, -0.5, 0.8]} color={ringColor} intensity={1.6} distance={5} decay={1.6} />
+      <pointLight position={[0, -0.5, 0.8]} color={accentColor} intensity={1.6} distance={5} decay={1.6} />
     </group>
   );
 }

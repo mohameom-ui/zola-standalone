@@ -107,6 +107,22 @@ The body-language layer generalized the env: `fixed_pose` (named poses held
 every episode), `spawn_drop_m` (+ `drop_curriculum`), `escape_radius` (the
 fence is a ground artifact — the air needs a bigger one).
 
+## The composer verdict (final, 2026-10-25)
+
+The follow-up rotor experiments (four halo forces with differential mixing,
+world/body-frame variants, positioned forces) narrowed the law to:
+
+> The wrench composer of this build reliably applies **force at the body CoM
+> in the body frame** — nothing else. Torques: dropped. Positioned forces:
+> ineffective. World-frame wrenches (`is_global=True`): ineffective. A
+> `body_ids` list shorter than the wrench batch reads garbage.
+>
+
+The rotor-wrench code was retired; the hover task is not registered. Honest
+coupled flight needs the thruster-URDF phase (halo thruster links with
+per-rotor force applications at the solver level, or the Newton backend's
+wrench path once verified).
+
 ## The Touchdown record (2026-10-25)
 
 `Isaac-Zola-Touchdown-Prototype-v0` — the invented hero landing — remains

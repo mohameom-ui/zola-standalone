@@ -2,7 +2,7 @@
 import gymnasium as gym
 
 for task, config in (("Balance", "ZolaBalanceCfg"), ("Walk", "ZolaWalkCfg"), ("Hands", "ZolaHandsCfg"),
-                      ("Flight", "ZolaFlightCfg"), ("Touchdown", "ZolaTouchdownCfg")):
+                      ("Flight", "ZolaFlightCfg"), ("Hover", "ZolaHoverCfg"), ("Touchdown", "ZolaTouchdownCfg")):
     gym.register(
         id=f"Isaac-Zola-{task}-Prototype-v0",
         entry_point="zola_isaac.env:ZolaPrototypeEnv",

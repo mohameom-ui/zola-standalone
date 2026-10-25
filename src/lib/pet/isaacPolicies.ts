@@ -10,13 +10,14 @@
 
 import bodyProfile from "../../../isaac/zola_isaac/assets/zola_prototype.json";
 import balanceManifest from "../../../isaac/policies/zola_balance_model_1499.json";
-import walkManifest from "../../../isaac/policies/zola_walk_model_1499.json";
-import walkV2Manifest from "../../../isaac/policies/zola_walk_model_2499.json";
-import handsManifest from "../../../isaac/policies/zola_hands_model_1499.json";
-import flightManifest from "../../../isaac/policies/zola_flight_model_1499.json";
-import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3499.json";
-import hoverManifest from "../../../isaac/policies/zola_hover_model_1999.json";
-import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1999.json";
+import walkManifest from "../../../isaac/policies/zola_walk_model_1350.json";
+import walkV2Manifest from "../../../isaac/policies/zola_walk_model_1600.json";
+import handsManifest from "../../../isaac/policies/zola_hands_model_1400.json";
+import flightManifest from "../../../isaac/policies/zola_flight_model_1350.json";
+import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3250.json";
+import hoverManifest from "../../../isaac/policies/zola_hover_model_1950.json";
+import hoverV2Manifest from "../../../isaac/policies/zola_hover_model_2300.json";
+import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1850.json";
 
 export interface IsaacPolicyManifest {
   task: string;
@@ -39,6 +40,7 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   flightManifest,
   touchdownManifest,
   hoverManifest,
+  hoverV2Manifest,
   takeoffManifest,
 ] as unknown as IsaacPolicyManifest[];
 

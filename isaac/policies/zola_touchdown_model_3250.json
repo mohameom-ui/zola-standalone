@@ -1,0 +1,34 @@
+{
+  "task": "zola_touchdown",
+  "run": "2026-10-25_08-46-50_touchdown_v9",
+  "checkpoint": "model_3250.pt",
+  "iteration": 3250,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.45798030495643616,
+    "std_head": 0.26043856143951416,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "932ab05851d52ef0b097412881dd641b4a21ca63a1813e38eb64abcfe9496e30",
+  "roundtrip_max_abs_drift": 4.76837158203125e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "best",
+    "metric": "smoothed_mean_reward",
+    "window_readings": 5,
+    "peak_iteration": 3291,
+    "peak_mean_reward": 34.26,
+    "peak_smoothed": 34.26,
+    "selected_checkpoint": "model_3250.pt",
+    "candidates_on_disk": 71,
+    "log": "training.log"
+  }
+}

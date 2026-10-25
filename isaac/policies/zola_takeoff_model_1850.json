@@ -1,0 +1,34 @@
+{
+  "task": "zola_takeoff",
+  "run": "2026-10-25_08-20-36_takeoff_v1",
+  "checkpoint": "model_1850.pt",
+  "iteration": 1850,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.02782336436212063,
+    "std_head": 0.15691955387592316,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "4a4d437894cacf7c67e2fe4688dba1b745bd2f3db0fc1ad54ef154ec44916f81",
+  "roundtrip_max_abs_drift": 4.172325134277344e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "best",
+    "metric": "smoothed_mean_reward",
+    "window_readings": 5,
+    "peak_iteration": 1851,
+    "peak_mean_reward": 12.18,
+    "peak_smoothed": 12.172,
+    "selected_checkpoint": "model_1850.pt",
+    "candidates_on_disk": 41,
+    "log": "training.log"
+  }
+}

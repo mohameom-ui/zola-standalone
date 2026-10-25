@@ -18,8 +18,50 @@ from pathlib import Path
 import torch
 
 
-def export_run(run_dir: Path, out_dir: Path, task: str) -> dict:
-    ckpt_path = max(run_dir.glob("model_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
+def select_best_checkpoint(run_dir: Path):
+    """MAX-TECH SELECTION: the last checkpoint is not automatically the best.
+    Parse the run's training.log (Learning iteration / Mean reward pairs),
+    smooth over a 5-reading window (250 iterations), and export the checkpoint
+    at the smoothed peak — mid-run peaks are real and the last save can be a
+    variance dip."""
+    import re
+    log = run_dir / "training.log"
+    last = max(run_dir.glob("model_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
+    if not log.exists():
+        return last, None
+    pairs = []
+    iteration = None
+    for raw in log.read_text(encoding="utf-8", errors="ignore").splitlines():
+        m = re.search(r"Learning iteration (\d+)/\d+", raw)
+        if m:
+            iteration = int(m.group(1))
+            continue
+        m = re.search(r"Mean reward: ([\d.eE+-]+)", raw)
+        if m and iteration is not None:
+            pairs.append((iteration, float(m.group(1))))
+            iteration = None
+    if not pairs:
+        return last, None
+    rewards = [r for _, r in pairs]
+    window = 5
+    smoothed = [sum(rewards[max(0, i-window+1):i+1])/(i-max(0, i-window+1)+1) for i in range(len(rewards))]
+    best_i = max(range(len(smoothed)), key=lambda i: smoothed[i])
+    best_iteration, best_reward = pairs[best_i]
+    available = {int(p.stem.split("_")[1]): p for p in run_dir.glob("model_*.pt")}
+    at_or_before = sorted(a for a in available if a <= best_iteration)
+    chosen = available[at_or_before[-1]] if at_or_before else last
+    info = {"mode": "best", "metric": "smoothed_mean_reward", "window_readings": window,
+            "peak_iteration": best_iteration, "peak_mean_reward": best_reward,
+            "peak_smoothed": round(smoothed[best_i], 4), "selected_checkpoint": chosen.name,
+            "candidates_on_disk": len(available), "log": log.name}
+    return chosen, info
+
+
+def export_run(run_dir: Path, out_dir: Path, task: str, select: str = "best") -> dict:
+    if select == "best":
+        ckpt_path, selection = select_best_checkpoint(run_dir)
+    else:
+        ckpt_path, selection = max(run_dir.glob("model_*.pt"), key=lambda p: int(p.stem.split("_")[1])), None
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     actor = ckpt["actor_state_dict"]
     obs_dim, act_dim = actor["mlp.0.weight"].shape[1], actor["mlp.4.weight"].shape[0]
@@ -87,6 +129,7 @@ def export_run(run_dir: Path, out_dir: Path, task: str) -> dict:
         "roundtrip_max_abs_drift": drift,
         "hardware_calibrated": False,
         "source": "simulation-only artifact; not a hardware controller",
+        "selection": selection or {"mode": "last"},
     }
     (out_dir / f"{stem}.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"exported {onnx_path} (iter {ckpt['iter']}, drift {drift:.2e})")
@@ -98,5 +141,6 @@ if __name__ == "__main__":
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--task", default="zola_balance")
     parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent / "policies")
+    parser.add_argument("--select", choices=("best", "last"), default="best")
     args = parser.parse_args()
-    export_run(args.run_dir, args.out, args.task)
+    export_run(args.run_dir, args.out, args.task, args.select)

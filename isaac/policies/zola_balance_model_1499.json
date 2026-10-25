@@ -16,8 +16,19 @@
   },
   "deterministic": true,
   "note": "Gaussian mean exported; the sampled policy adds log-std noise",
-  "onnx_sha256": "de7a6e9b14defad253a56e0e69950fea9bb5729fe92a45881ca76a7deb459343",
+  "onnx_sha256": "3f8598e7bb22d8d69658ab71dafd754aeb8bd10bef2420aed6355c3d45db036e",
   "roundtrip_max_abs_drift": 7.152557373046875e-07,
   "hardware_calibrated": false,
-  "source": "simulation-only artifact; not a hardware controller"
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "best",
+    "metric": "smoothed_mean_reward",
+    "window_readings": 5,
+    "peak_iteration": 1499,
+    "peak_mean_reward": 25.75,
+    "peak_smoothed": 25.75,
+    "selected_checkpoint": "model_1499.pt",
+    "candidates_on_disk": 31,
+    "log": "training.log"
+  }
 }

@@ -40,3 +40,6 @@ ZOLA-Pi-provision/
 
 # the pipeline-home directive library is its own git repository
 zola-pipeline-home/
+
+# console-launched training rounds write their run dirs at the repo root
+logs/

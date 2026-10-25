@@ -13,6 +13,7 @@ import { PersonaEngine, type PersonaName } from "./persona";
 import { correctHeard, lev, describeAppearance } from "./lexicon";
 import { pickVisualTrick } from "./visualTricks";
 import { bodyMapReport, isaacTrainingReport, mentionsBodyMap, mentionsIsaacTraining } from "./isaacPolicies";
+import { engineReport } from "./engineRegistry";
 
 const IDLE_LED = "#f0b90b";
 const HAPPY_LED = "#35d0a5";
@@ -594,6 +595,15 @@ export class PetBrain {
     // Also before the suggest fallback (which guesses at "your body").
     if (mentionsBodyMap(t)) {
       return bodyMapReport();
+    }
+    // THE ENGINE REGISTRY — every part of her, and what training it honestly
+    // means ("engines" — "training" belongs to her drill command).
+    if (has("engines", "engine report")) {
+      const r = engineReport({
+        learnedPhrases: this.hooks.getLearnedPhrases?.().length ?? 0,
+        profileWarmth: this.hooks.profile?.get().warmth ?? 0,
+      });
+      return r.lines.join(" ");
     }
     // ISAAC TRAINING REPORT — her simulation skills, served from the generated
     // manifests (single source of truth: the export pipeline). Before the

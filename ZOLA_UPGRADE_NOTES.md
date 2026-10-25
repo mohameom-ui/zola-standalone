@@ -714,3 +714,8 @@ Format: [date] slice — action — library source → destination.
 - **24/7 background trainer:** `Scripts/isaac-continuous.mjs` — a rotation over every registered skill (train a slice → best-select-export → next), `ZOLA_ROUNDS=0` for forever mode.
 - **LIVE TRACKING:** TensorBoard on :6006 serving every training curve as she trains.
 - **The brain reads the shelf live:** `/api/zola/policies` (pair-authenticated) serves the policy directory from disk — new background rounds appear without a rebuild. Her core prompt stamps the 2026 era.
+
+### 2026-10-25 (13) — THE TRAINER CONSOLE + THE ENGINE REGISTRY + LIVE 3D
+- **THE ENGINE REGISTRY** (`engineRegistry.ts`): every part of her — motor, hearing, personality, scanning, voice, memory — with what training it HONESTLY means (real RL for the motor engine; online learning for the rest: learned phrases, encounter memory, behavior profiles, nightly consolidation), with live metrics pulled from the running systems. Ask her "engines".
+- **THE TRAINER CONSOLE** (`Scripts/trainer-console.mjs`, localhost:3002): command her training — start/stop any skill's round (11 tasks), live iteration progress, the policy shelf, TensorBoard link — and the **LIVE 3D button**: `isaaclab play --viz kit` opens the actual Isaac Sim window rendering her trained policy in real time.
+- First 3D session launched: the Halo Touchdown policy, live.

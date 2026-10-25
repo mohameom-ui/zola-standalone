@@ -144,10 +144,9 @@ function SceneRig({
     const poses: { bone: THREE.Bone; position: THREE.Vector3; rotation: THREE.Quaternion; scale: THREE.Vector3 }[] = [];
     scene.traverse((bone) => {
       if (!(bone instanceof THREE.Bone)) return;
-      // THE SLIM DESIGN: the head/neck assembly slims down at load — the
-      // bulkier humanoid proportions read wrong on a drone-bodied companion
-      if (bone.name === "neck_01") bone.scale.set(0.7, 1, 0.7);
-      if (/^head$/i.test(bone.name)) bone.scale.set(0.86, 1, 0.86);
+      // the head/neck proportions are the MESH's job (a Blender pass at full
+      // quality) — the runtime bone-scale slimming was reverted: non-uniform
+      // bone scale shears skinned vertices and reads flimsy
       poses.push({ bone, position: bone.position.clone(), rotation: bone.quaternion.clone(), scale: bone.scale.clone() });
     });
     return poses;

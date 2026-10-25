@@ -127,6 +127,42 @@ function SceneRig({
   }, [gltf, gl]);
   const ringColor = accentColor;
   const ringIntensity = 1.6;
+  // THE LENS EYE — the design canon's single centered optical unit: a lens
+  // barrel, a dark iris, and a cyan halo ring, parented to the Head bone so
+  // it moves with every nod and tilt. The face plate stays minimalist; the
+  // eye IS the face.
+  useEffect(() => {
+    const headBone = scene.getObjectByName("Head") as THREE.Bone | undefined;
+    if (!headBone) return;
+    const eye = new THREE.Group();
+    eye.name = "zola_lens_eye";
+    const metal = new THREE.MeshStandardMaterial({ color: "#22282e", metalness: 0.85, roughness: 0.3 });
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.041, 0.04, 28), metal);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.15, 0.1);
+    const iris = new THREE.Mesh(
+      new THREE.CircleGeometry(0.026, 28),
+      new THREE.MeshBasicMaterial({ color: "#07090c" }),
+    );
+    iris.position.set(0, 0.15, 0.121);
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.029, 0.0055, 10, 36),
+      new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.5, toneMapped: false }),
+    );
+    halo.position.copy(iris.position);
+    eye.add(barrel, iris, halo);
+    headBone.add(eye);
+    return () => {
+      headBone.remove(eye);
+      eye.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose();
+          const m = o.material as THREE.Material | THREE.Material[];
+          (Array.isArray(m) ? m : [m]).forEach((mm) => mm.dispose());
+        }
+      });
+    };
+  }, [scene, accentColor]);
   useEffect(() => {
     scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -512,18 +548,35 @@ function SceneRig({
     <group position={[0, GROUND_OFFSET, 0]}>
       <group ref={bodyRef}>
         <primitive object={scene} />
-        {/* the four 2.5-inch folding props at the Quad-Halo corners — the
-            visual proxy for her real 1204/1303.5 motors, spinning with the
-            live HAL RPM when she flies */}
+        {/* THE QUAD-DRONE NECK COLLAR — the design canon: a heavy collar at
+            the neck base docking four ducted fan modules on short arms, cyan
+            rings glowing, casting light down onto her shoulders. The props
+            are the impellers: still when grounded, spinning with the live
+            HAL RPM when she flies */}
         <group ref={propsRef}>
-          {/* raised clear of the slimmed head — the props hover at the halo,
-              not through the cranium */}
-          {[[-0.2, 0.2], [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2]].map(([x, z], i) => (
-            <mesh key={i} position={[x, 1.08, z]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.11, 0.012, 8, 24]} />
-              <meshStandardMaterial color="#9fb2c8" emissive={accentColor} emissiveIntensity={0.25} transparent opacity={0.55} toneMapped={false} />
-            </mesh>
+          {[[-0.21, 0.14], [0.21, 0.14], [-0.21, -0.14], [0.21, -0.14]].map(([x, z], i) => (
+            <group key={i} position={[x, 0.99, z]} rotation={[Math.PI / 2 - 0.16, 0, 0]}>
+              <mesh>
+                <torusGeometry args={[0.125, 0.02, 10, 36]} />
+                <meshStandardMaterial color="#cfe0ea" emissive={accentColor} emissiveIntensity={1.9} toneMapped={false} />
+              </mesh>
+              <mesh>
+                <cylinderGeometry args={[0.055, 0.055, 0.02, 20]} />
+                <meshStandardMaterial color="#14181d" metalness={0.7} roughness={0.35} />
+              </mesh>
+              {/* the downward photonic wash onto her shoulders */}
+              <mesh position={[0, -0.075, 0]} rotation={[Math.PI, 0, 0]}>
+                <coneGeometry args={[0.105, 0.17, 18, 1, true]} />
+                <meshBasicMaterial color={accentColor} transparent opacity={0.07} side={THREE.DoubleSide} depthWrite={false} />
+              </mesh>
+            </group>
           ))}
+          {/* the collar itself — the docking and power hub */}
+          <mesh position={[0, 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.088, 0.024, 12, 36]} />
+            <meshStandardMaterial color="#20262c" metalness={0.85} roughness={0.3} />
+          </mesh>
+          <pointLight position={[0, 0.9, 0]} color={accentColor} intensity={2.4} distance={2.8} decay={1.8} />
         </group>
       {/* the Aura-Telemetry glow — on the humanoid body the physical ring
           is retired; her persona light lives as a soft ambient aura */}

@@ -14,6 +14,9 @@ export interface ZolaTheme {
 }
 
 export const THEME_PRESETS: Record<string, Omit<ZolaTheme, "glow" | "calm">> = {
+  // CERAMIC — the new design canon: polished white ceramic armor, matte-black
+  // chassis, and the quad-drone's cyan/teal photonic glow
+  CERAMIC: { a: "#e8f0f6", b: "#2ee6c8", warn: "#ffb86b", info: "#38e1ff", danger: "#ff4d4f" },
   AURORA: { a: "#f0b90b", b: "#35d0a5", warn: "#ff9f43", info: "#5ac8fa", danger: "#ff4d4f" },
   EMBER:  { a: "#ff9f43", b: "#f0b90b", warn: "#ff6b6b", info: "#ffd166", danger: "#ff4d4f" },
   ICE:    { a: "#5ac8fa", b: "#35d0a5", warn: "#f0b90b", info: "#a78bfa", danger: "#ff4d4f" },
@@ -24,7 +27,7 @@ export const THEME_PRESETS: Record<string, Omit<ZolaTheme, "glow" | "calm">> = {
 const KEY = "zola_theme_v1";
 
 export function loadTheme(): ZolaTheme {
-  const fallback: ZolaTheme = { ...THEME_PRESETS.AURORA, glow: 33, calm: false };
+  const fallback: ZolaTheme = { ...THEME_PRESETS.CERAMIC, glow: 33, calm: false };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return fallback;

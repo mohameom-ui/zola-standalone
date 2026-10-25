@@ -1,5 +1,30 @@
 # 📖 ZOLA — Official Dictionary (Unified, One Version)
 
+> **THE V12 DESIGN CANON (2026-10-25):** her new appearance bible, merged
+> from the master generation prompt and the approved render. **White
+> ceramic armor** over a **matte-black carbon-fiber chassis**; a smooth
+> minimalist face shell with a **single centered mechanical camera lens**
+> as her eye (no traditional face); and the drone moved from her head to a
+> **heavy-duty collar at the neck base** docking **exactly four ducted fan
+> modules** on articulated arms — cyan/teal rings glowing, casting light
+> down onto her shoulders. Athletic, slim proportions; cinematic studio
+> light. The web body carries it live (the collar rig, the lens eye, the
+> CERAMIC theme); the Isaac rotor relocation (head halo → neck collar) is
+> the next training phase — the hover policies fly on the head-mounted
+> geometry until retrained.
+>
+> **Master generation prompt (canon copy):** full-body high-end 3D render of
+> an advanced humanoid companion android, athletic balanced proportions,
+> sleek white ceramic armor plates, matte-black carbon-fiber internal
+> joints, smooth matte-white minimalist face shell with a single prominent
+> high-definition mechanical camera lens centered on the face plate as a
+> robotic eye, a heavy-duty reinforced mechanical collar at the neck base
+> with exactly four symmetrical ducted drone rotor fan modules on
+> articulated arms glowing cyan/teal and casting downward illumination,
+> cinematic studio lighting, sharp rim highlights, technical sci-fi
+> viewport UI overlays, dark grid background, Unreal Engine 5 style,
+> photorealistic textures, 8k --ar 9:16.
+
 **Purpose:** the canonical lexicon of Zola's hardware, software, digital-twin
 telemetry, and — as of the 2026-10-25 merge — her **full maneuver repertoire**.
 Bridging her physical spec (`PARTS_LIST.md`), her engineering build

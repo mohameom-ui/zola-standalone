@@ -18,6 +18,7 @@ import flightManifest from "../../../isaac/policies/zola_flight_model_1350.json"
 import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3250.json";
 import hoverManifest from "../../../isaac/policies/zola_hover_model_1950.json";
 import hoverV2Manifest from "../../../isaac/policies/zola_hover_model_2300.json";
+import hoverV3Manifest from "../../../isaac/policies/zola_hover_model_4700.json";
 import takeoffManifest from "../../../isaac/policies/zola_takeoff_model_1850.json";
 
 export interface IsaacPolicyManifest {
@@ -49,6 +50,7 @@ export const ISAAC_POLICIES: IsaacPolicyManifest[] = [
   touchdownManifest,
   hoverManifest,
   hoverV2Manifest,
+  hoverV3Manifest,
   takeoffManifest,
 ] as unknown as IsaacPolicyManifest[];
 

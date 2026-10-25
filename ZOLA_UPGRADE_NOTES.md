@@ -702,3 +702,8 @@ Format: [date] slice — action — library source → destination.
 - **takeoff_v3 trained** (10.77/342, beats v1's 9.36/291) and **walk_v3 trained** (22.26 peak, 599/600 episodes throughout — the walk is saturated).
 - One selector stress-test by accident: the hands run dir briefly carried the FAILED v2 run's log — the selector picked that run's only good stretch exactly as designed; the log mapping was fixed.
 - Shelf: 9 exported artifacts across 7 skills; ~30M sim steps this session.
+
+### 2026-10-25 (11) — hover_v3: the flight policy hardened (5000 iters)
+- **hover_v3 trained** at 5000 iterations: final mean 20.31 / 538.57 episodes — the best flight policy yet (v1: 13.95/416, v2 peak: 15.18/464), at DOUBLE hover_v1's gust level. The best-checkpoint selector picked model_4700 at the smoothed peak (drift 5.96e-07); all three hover checkpoints archived.
+- Her skill report dedupes by skill and now names hover (3 runs) at its best.
+- Shelf: 10 exported peak-selected artifacts across 7 skills.

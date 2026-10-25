@@ -11,16 +11,15 @@ const FORGE_HOME = process.env.ZOLA_FORGE_HOME;
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!FORGE_HOME) {
-    return NextResponse.json(
-      { ok: false, reason: "ZOLA_FORGE_HOME is not set — the forge location must be configured" },
-      { status: 500 },
-    );
-  }
+  // the forge manifest when configured; otherwise the LOCAL pipeline-home
+  // pack — the old behavior 500'd on every panel load (the env was never set
+  // in the browser session) and pushed the client to a stale GitHub fallback
+  // that 404s. The local pack is the same-origin source of truth now.
+  const forgeFile = FORGE_HOME
+    ? path.join(FORGE_HOME, "capabilities.json")
+    : path.join(process.cwd(), "zola-pipeline-home", "capabilities.json");
   try {
-    const forgeHome: string = FORGE_HOME;
-    const file = path.join(forgeHome, "capabilities.json");
-    const raw = await readFile(file, "utf-8");
+    const raw = await readFile(forgeFile, "utf-8");
     const pack = JSON.parse(raw) as { version?: string };
     return NextResponse.json(pack, {
       status: 200,
@@ -28,7 +27,9 @@ export async function GET() {
     });
   } catch {
     return NextResponse.json(
-      { ok: false, reason: "the forge's capability manifest is not reachable" },
+      { ok: false, reason: FORGE_HOME
+        ? "the forge's capability manifest is not reachable"
+        : "the local pipeline-home capability pack is not reachable" },
       { status: 404 },
     );
   }

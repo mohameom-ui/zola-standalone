@@ -1,0 +1,214 @@
+<mujoco model="zola_prototype">
+  <compiler angle="radian" />
+  <option timestep="0.002" gravity="0 0 -9.81" />
+  <worldbody>
+    <geom name="floor" type="plane" size="5 5 0.1" rgba="0.2 0.25 0.3 1" />
+    <light pos="0 0 3" dir="0 0 -1" diffuse="0.8 0.8 0.9" />
+    <body name="pelvis" pos="0 0 0.9318">
+      <freejoint name="root" />
+      <inertial pos="0 0 0" mass="6" diaginertia="0.0457 0.03065 0.04745" />
+      <geom name="pelvis_geom" type="box" size="0.09 0.125 0.085" pos="0 0 0" rgba="0.78 0.85 0.9 1" />
+      <body name="torso" pos="0 0 0.1228">
+        <joint name="waist_yaw" type="hinge" axis="0 0 1" range="-0.5 0.5" damping="5" />
+        <inertial pos="0 0 0.18" mass="10" diaginertia="0.218666667 0.160333333 0.112333333" />
+        <geom name="torso_geom" type="box" size="0.09 0.16 0.2" pos="0 0 0.18" rgba="0.78 0.85 0.9 1" />
+        <body name="neck_yaw_link" pos="0 0 0.4303">
+          <joint name="neck_yaw" type="hinge" axis="0 0 1" range="-1.1 1.1" damping="1" />
+          <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+          <geom name="neck_yaw_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          <body name="head" pos="0 0 0">
+            <joint name="neck_pitch" type="hinge" axis="0 1 0" range="-0.6 0.6" damping="1" />
+            <inertial pos="0 0 0.145" mass="2.5" diaginertia="0.0203333333 0.01875 0.0150833333" />
+            <geom name="head_geom" type="box" size="0.09 0.1 0.12" pos="0 0 0.145" rgba="0.78 0.85 0.9 1" />
+          </body>
+          <body name="collar_front_left_thruster" pos="0.1 0.05 0.02">
+            <inertial pos="0.1 0.05 0.02" mass="0.04" diaginertia="7.08333333e-06 7.08333333e-06 8.16666667e-06" />
+            <geom name="collar_front_left_thruster_geom" type="box" size="0.0175 0.0175 0.015" pos="0.1 0.05 0.02" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          </body>
+          <body name="collar_front_right_thruster" pos="0.1 -0.05 0.02">
+            <inertial pos="0.1 -0.05 0.02" mass="0.04" diaginertia="7.08333333e-06 7.08333333e-06 8.16666667e-06" />
+            <geom name="collar_front_right_thruster_geom" type="box" size="0.0175 0.0175 0.015" pos="0.1 -0.05 0.02" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          </body>
+          <body name="collar_rear_left_thruster" pos="-0.1 0.05 0.02">
+            <inertial pos="-0.1 0.05 0.02" mass="0.04" diaginertia="7.08333333e-06 7.08333333e-06 8.16666667e-06" />
+            <geom name="collar_rear_left_thruster_geom" type="box" size="0.0175 0.0175 0.015" pos="-0.1 0.05 0.02" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          </body>
+          <body name="collar_rear_right_thruster" pos="-0.1 -0.05 0.02">
+            <inertial pos="-0.1 -0.05 0.02" mass="0.04" diaginertia="7.08333333e-06 7.08333333e-06 8.16666667e-06" />
+            <geom name="collar_rear_right_thruster_geom" type="box" size="0.0175 0.0175 0.015" pos="-0.1 -0.05 0.02" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          </body>
+        </body>
+        <body name="left_shoulder_pitch_link" pos="0 0.1516 0.3635">
+          <joint name="left_shoulder_pitch" type="hinge" axis="0 1 0" range="-2.4 1.2" damping="3" />
+          <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+          <geom name="left_shoulder_pitch_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          <body name="left_shoulder_roll_link" pos="0 0 0">
+            <joint name="left_shoulder_roll" type="hinge" axis="1 0 0" range="-1.6 1.6" damping="3" />
+            <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+            <geom name="left_shoulder_roll_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+            <body name="left_upper_arm" pos="0 0 0">
+              <joint name="left_shoulder_yaw" type="hinge" axis="0 0 1" range="-1.5 1.5" damping="3" />
+              <inertial pos="0 0 -0.12015" mass="1.6" diaginertia="0.00681560311 0.00681560311 0.00170666667" />
+              <geom name="left_upper_arm_geom" type="box" size="0.04 0.04 0.105732" pos="0 0 -0.12015" rgba="0.78 0.85 0.9 1" />
+              <body name="left_forearm" pos="0 0 -0.2403">
+                <joint name="left_elbow" type="hinge" axis="0 1 0" range="-2.3 0.15" damping="2" />
+                <inertial pos="0 0 -0.1246" mass="1.2" diaginertia="0.00537157356 0.00537157356 0.001125" />
+                <geom name="left_forearm_geom" type="box" size="0.0375 0.0375 0.109648" pos="0 0 -0.1246" rgba="0.78 0.85 0.9 1" />
+                <body name="left_wrist_pitch_link" pos="0 0 -0.2492">
+                  <joint name="left_wrist_pitch" type="hinge" axis="0 1 0" range="-0.7 0.7" damping="1" />
+                  <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+                  <geom name="left_wrist_pitch_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+                  <body name="left_palm" pos="0 0 0">
+                    <joint name="left_wrist_roll" type="hinge" axis="1 0 0" range="-0.7 0.7" damping="1" />
+                    <inertial pos="0 0 -0.06" mass="0.45" diaginertia="0.00078 0.0006159375 0.0003159375" />
+                    <geom name="left_palm_geom" type="box" size="0.0225 0.04 0.06" pos="0 0 -0.06" rgba="0.78 0.85 0.9 1" />
+                    <body name="left_thumb" pos="0.012 -0.032 -0.12">
+                      <joint name="left_thumb_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="left_thumb_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="left_index" pos="0 -0.016 -0.12">
+                      <joint name="left_index_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="left_index_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="left_middle" pos="0 0 -0.12">
+                      <joint name="left_middle_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="left_middle_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="left_ring" pos="0 0.016 -0.12">
+                      <joint name="left_ring_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="left_ring_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="left_pinky" pos="0 0.032 -0.12">
+                      <joint name="left_pinky_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="left_pinky_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+        <body name="right_shoulder_pitch_link" pos="0 -0.1516 0.3635">
+          <joint name="right_shoulder_pitch" type="hinge" axis="0 1 0" range="-2.4 1.2" damping="3" />
+          <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+          <geom name="right_shoulder_pitch_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          <body name="right_shoulder_roll_link" pos="0 0 0">
+            <joint name="right_shoulder_roll" type="hinge" axis="1 0 0" range="-1.6 1.6" damping="3" />
+            <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+            <geom name="right_shoulder_roll_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+            <body name="right_upper_arm" pos="0 0 0">
+              <joint name="right_shoulder_yaw" type="hinge" axis="0 0 1" range="-1.5 1.5" damping="3" />
+              <inertial pos="0 0 -0.12015" mass="1.6" diaginertia="0.00681560311 0.00681560311 0.00170666667" />
+              <geom name="right_upper_arm_geom" type="box" size="0.04 0.04 0.105732" pos="0 0 -0.12015" rgba="0.78 0.85 0.9 1" />
+              <body name="right_forearm" pos="0 0 -0.2403">
+                <joint name="right_elbow" type="hinge" axis="0 1 0" range="-2.3 0.15" damping="2" />
+                <inertial pos="0 0 -0.1246" mass="1.2" diaginertia="0.00537157356 0.00537157356 0.001125" />
+                <geom name="right_forearm_geom" type="box" size="0.0375 0.0375 0.109648" pos="0 0 -0.1246" rgba="0.78 0.85 0.9 1" />
+                <body name="right_wrist_pitch_link" pos="0 0 -0.2492">
+                  <joint name="right_wrist_pitch" type="hinge" axis="0 1 0" range="-0.7 0.7" damping="1" />
+                  <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+                  <geom name="right_wrist_pitch_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+                  <body name="right_palm" pos="0 0 0">
+                    <joint name="right_wrist_roll" type="hinge" axis="1 0 0" range="-0.7 0.7" damping="1" />
+                    <inertial pos="0 0 -0.06" mass="0.45" diaginertia="0.00078 0.0006159375 0.0003159375" />
+                    <geom name="right_palm_geom" type="box" size="0.0225 0.04 0.06" pos="0 0 -0.06" rgba="0.78 0.85 0.9 1" />
+                    <body name="right_thumb" pos="0.012 0.032 -0.12">
+                      <joint name="right_thumb_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="right_thumb_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="right_index" pos="0 0.016 -0.12">
+                      <joint name="right_index_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="right_index_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="right_middle" pos="0 0 -0.12">
+                      <joint name="right_middle_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="right_middle_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="right_ring" pos="0 -0.016 -0.12">
+                      <joint name="right_ring_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="right_ring_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                    <body name="right_pinky" pos="0 -0.032 -0.12">
+                      <joint name="right_pinky_flex" type="hinge" axis="0 1 0" range="-1.2 0.1" damping="0.1" />
+                      <inertial pos="0 0 -0.0325" mass="0.05" diaginertia="1.83083333e-05 1.89541667e-05 2.05416667e-06" />
+                      <geom name="right_pinky_geom" type="box" size="0.009 0.0065 0.0325" pos="0 0 -0.0325" rgba="0.78 0.85 0.9 1" />
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="left_hip_yaw_link" pos="0 0.1114 0.0123">
+        <joint name="left_hip_yaw" type="hinge" axis="0 0 1" range="-0.7 0.7" damping="6" />
+        <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+        <geom name="left_hip_yaw_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+        <body name="left_hip_roll_link" pos="0 0 0">
+          <joint name="left_hip_roll" type="hinge" axis="1 0 0" range="-0.6 0.6" damping="6" />
+          <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+          <geom name="left_hip_roll_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          <body name="left_thigh" pos="0 0 0">
+            <joint name="left_hip_pitch" type="hinge" axis="0 1 0" range="-1.5 1" damping="6" />
+            <inertial pos="0 0 -0.2047" mass="4" diaginertia="0.0492875905 0.0492875905 0.00806666667" />
+            <geom name="left_thigh_geom" type="box" size="0.055 0.055 0.18423" pos="0 0 -0.2047" rgba="0.78 0.85 0.9 1" />
+            <body name="left_shin" pos="0 0 -0.4094">
+              <joint name="left_knee" type="hinge" axis="0 1 0" range="0 2.3" damping="8" />
+              <inertial pos="0 0 -0.232" mass="3" diaginertia="0.04562244 0.04562244 0.00405" />
+              <geom name="left_shin_geom" type="box" size="0.045 0.045 0.2088" pos="0 0 -0.232" rgba="0.78 0.85 0.9 1" />
+              <body name="left_ankle_pitch_link" pos="0 0 -0.464">
+                <joint name="left_ankle_pitch" type="hinge" axis="0 1 0" range="-0.8 0.6" damping="4" />
+                <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+                <geom name="left_ankle_pitch_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+                <body name="left_foot" pos="0 0 0">
+                  <joint name="left_ankle_roll" type="hinge" axis="1 0 0" range="-0.45 0.45" damping="4" />
+                  <inertial pos="0.045 0 -0.0357" mass="1" diaginertia="0.00141666667 0.00481666667 0.00541666667" />
+                  <geom name="left_foot_geom" type="box" size="0.115 0.055 0.035" pos="0.045 0 -0.0357" rgba="0.78 0.85 0.9 1" />
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="right_hip_yaw_link" pos="0 -0.1114 0.0123">
+        <joint name="right_hip_yaw" type="hinge" axis="0 0 1" range="-0.7 0.7" damping="6" />
+        <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+        <geom name="right_hip_yaw_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+        <body name="right_hip_roll_link" pos="0 0 0">
+          <joint name="right_hip_roll" type="hinge" axis="1 0 0" range="-0.6 0.6" damping="6" />
+          <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+          <geom name="right_hip_roll_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+          <body name="right_thigh" pos="0 0 0">
+            <joint name="right_hip_pitch" type="hinge" axis="0 1 0" range="-1.5 1" damping="6" />
+            <inertial pos="0 0 -0.2047" mass="4" diaginertia="0.0492875905 0.0492875905 0.00806666667" />
+            <geom name="right_thigh_geom" type="box" size="0.055 0.055 0.18423" pos="0 0 -0.2047" rgba="0.78 0.85 0.9 1" />
+            <body name="right_shin" pos="0 0 -0.4094">
+              <joint name="right_knee" type="hinge" axis="0 1 0" range="0 2.3" damping="8" />
+              <inertial pos="0 0 -0.232" mass="3" diaginertia="0.04562244 0.04562244 0.00405" />
+              <geom name="right_shin_geom" type="box" size="0.045 0.045 0.2088" pos="0 0 -0.232" rgba="0.78 0.85 0.9 1" />
+              <body name="right_ankle_pitch_link" pos="0 0 -0.464">
+                <joint name="right_ankle_pitch" type="hinge" axis="0 1 0" range="-0.8 0.6" damping="4" />
+                <inertial pos="0 0 0" mass="0.04" diaginertia="4.16666667e-06 4.16666667e-06 4.16666667e-06" />
+                <geom name="right_ankle_pitch_link_geom" type="box" size="0.0125 0.0125 0.0125" pos="0 0 0" rgba="0.78 0.85 0.9 1" contype="0" conaffinity="0" />
+                <body name="right_foot" pos="0 0 0">
+                  <joint name="right_ankle_roll" type="hinge" axis="1 0 0" range="-0.45 0.45" damping="4" />
+                  <inertial pos="0.045 0 -0.0357" mass="1" diaginertia="0.00141666667 0.00481666667 0.00541666667" />
+                  <geom name="right_foot_geom" type="box" size="0.115 0.055 0.035" pos="0.045 0 -0.0357" rgba="0.78 0.85 0.9 1" />
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

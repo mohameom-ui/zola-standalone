@@ -79,6 +79,18 @@ class ZolaPrototypeEnv(DirectRLEnv):
         # because the forces are body-frame they TILT WITH HER: attitude steers
         # the flight, for real. A scripted differential-thrust autopilot holds
         # altitude and attitude; the POLICY owns the body.
+        self.action_mode = getattr(cfg, "action_mode", "position")
+        # TORQUE MODE: explicit PD torques toward the tracked targets — the
+        # dynamic-descent authority a position-target policy lacks (the sit
+        # needs a controlled collapse, not a rigid servo pull)
+        self.torque_kp = getattr(cfg, "torque_kp", 40.0)
+        self.torque_kd = getattr(cfg, "torque_kd", 2.5)
+        # the effort limits in CTRL order — built by name: the file order of
+        # MODEL["joints"] differs from the runtime joint ordering, and a
+        # file-order tensor clamps the wrong joints
+        name_to_effort = {j["name"]: j["drive"]["effort"] for j in MODEL["joints"]}
+        self.effort_limits = torch.tensor(
+            [name_to_effort[n] for n in controlled], device=self.device, dtype=torch.float32)
         self.rotors = getattr(cfg, "collar_rotors", False)
         self.thrust_ramp_s = getattr(cfg, "thrust_ramp_s", 0.0)
         self.root_body_ids = [0]  # the pelvis: body 0 in any ordering
@@ -124,6 +136,19 @@ class ZolaPrototypeEnv(DirectRLEnv):
         self.targets.clamp_(limits[..., 0], limits[..., 1])
 
     def _apply_action(self):
+        if self.action_mode == "effort":
+            # TORQUE MODE: PD torques toward the tracked targets, clamped to
+            # each joint's real effort limit from the profile. The policy can
+            # now go soft (absorb) and stiff (hold) within one motion —
+            # the authority a rigid position pull never had.
+            data = self.robot.data
+            pos_err = self.targets[:, self.ctrl_ids] - data.joint_pos.torch[:, self.ctrl_ids]
+            vel = data.joint_vel.torch[:, self.ctrl_ids]
+            limits = self.effort_limits[self.ctrl_ids]
+            tau = (self.torque_kp * pos_err - self.torque_kd * vel).clamp(-limits, limits)
+            self.robot.actuators.target_command.set_effort_index(
+                value=tau, joint_ids=self.ctrl_ids)
+            return
         self.robot.actuators.target_command.set_position_index(value=self.targets)
         if self.rotors:
             data = self.robot.data

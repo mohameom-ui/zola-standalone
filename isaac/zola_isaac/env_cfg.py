@@ -280,6 +280,11 @@ class ZolaSitCfg(ZolaHandsCfg):
     # torque path is broken in this build: the effort-write Warp kernel is
     # missing on this device - see TRAINING_RUN.)
     actuators = ACTUATORS_SOFT
+    # THE DEPTH CURRICULUM: the sit deepens from the holdable flight-stance
+    # (knee 0.15) to the full knee 1.0 over ~1.5M env steps - the same trick
+    # that made the touchdown work (its drop ramped; the sit's depth never
+    # did, and v2/v3/v4 all trained at full depth from step one)
+    depth_ramp_steps = 1_500_000
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*(len(ARM_JOINTS)+12)+12
 

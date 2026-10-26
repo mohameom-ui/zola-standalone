@@ -41,6 +41,10 @@ class ZolaPrototypeEnv(DirectRLEnv):
         # reset does not resample it.
         self.fixed_pose = getattr(cfg, "fixed_pose", None)
         self.pose_approach_s = getattr(cfg, "pose_approach_s", 0.0)
+        # THE DEPTH CURRICULUM: the pose deepens over TRAINING time — the
+        # same trick that made the touchdown work (its drop ramped; the
+        # sit's depth never did, and sit_v2..v4 trained at full depth)
+        self.depth_ramp_steps = getattr(cfg, "depth_ramp_steps", 0)
         if self.fixed_pose:
             self.fixed_offsets = torch.tensor(
                 [self.fixed_pose.get(n, 0.0) for n in pose_joints], device=self.device)
@@ -109,6 +113,9 @@ class ZolaPrototypeEnv(DirectRLEnv):
 
     def _pre_physics_step(self, actions):
         self.env_steps += self.num_envs
+        if self.fixed_offsets is not None and self.depth_ramp_steps > 0:
+            frac = min(1.0, self.env_steps / self.depth_ramp_steps)
+            self.pos_targets[:] = self.fixed_offsets * frac
         if self.fixed_offsets is not None and self.pose_approach_s > 0:
             # MOVE INTO the pose instead of snapping to it: the arm flourish
             # reached at full actuator speed pumps ~30 N·m of reaction torque

@@ -184,6 +184,8 @@ export interface BrainHooks {
   canWalk?: () => boolean;
   /** THE TRICKS: play a named body clip right now (returns false if no body is attached). */
   playGesture?: (clip: string) => boolean;
+  /** THE DEFENSE WATCH: her host's security status (firewall, ports, processes, auth). */
+  defenseReport?: () => string | null;
   // routines (persisted in memory)
   addRoutine?: (label: string, task: string, everyMin: number) => string;
   getRoutines?: () => RoutineData[];

@@ -602,7 +602,12 @@ export class PetBrain {
     if (mentionsBodyMap(t)) {
       return bodyMapReport();
     }
-    // THE ENGINE REGISTRY — every part of her, and what training it honestly
+    // THE DEFENSE REPORT — her host monitoring, not her attack surface
+    if (has("defense", "protection", "are you secure", "security status")) {
+      const d = this.hooks.defenseReport?.();
+      return d ?? "My defense watch is not wired to this panel yet — run Scripts/defense-watch.mjs and I will read it.";
+    }
+    // THE ENGINE REGISTRY — every part of me, and what training it honestly
     // means ("engines" — "training" belongs to her drill command).
     if (has("engines", "engine report")) {
       const r = engineReport({

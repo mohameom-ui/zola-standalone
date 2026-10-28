@@ -31,6 +31,7 @@ Tools/blender-5.2.2-windows-x64/
 
 # isolated simulation environments and run artifacts
 isaac/.venv/
+.venv-isaac/
 isaac/*.egg-info/
 isaac/logs/
 isaac/outputs/

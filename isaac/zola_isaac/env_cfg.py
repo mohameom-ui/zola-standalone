@@ -118,10 +118,9 @@ class ZolaHandsCfg(ZolaBalanceCfg):
     action_scale = .3
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*len(ARM_JOINTS)+48  # 2*(34) states + 12 base + 22 targets + 34 actions
-    # the named body-language layer: a FIXED pose held every episode, halo
-    # thrust at the head, wind gusts, aero drag, an air spawn for landings
+    # the named body-language layer: a FIXED pose held every episode, wind
+    # gusts, an air spawn for landings (the collar drone carries the thrust)
     fixed_pose: dict[str, float] | None = None
-    halo_thrust = False
     gust_force = 0.0
     aero_drag = 2.0
     spawn_drop_m = 0.0

@@ -67,6 +67,12 @@ export function engineReport(hooks: {
       how: "\"my name is\", \"i like\", \"remember that\" — then EXPORT LIFE to carry it",
     },
   ];
+  engines.push({
+    name: "DEFENSE (host monitoring)",
+    mode: "WATCHING — she monitors her own host: firewall states, listening ports, process anomalies, failed auth attempts. She reads and alerts. She does not attack.",
+    metrics: "the defense watch runs at :3004 (Scripts/defense-watch.mjs) — sweeps every 30 s",
+    how: "the red team tools (Metasploit, Hashcat, sqlmap) stay behind the human keyboard — an AI companion does not decide what to attack",
+  });
   const lines = [
     "My engine training report — every part of me, and what training it honestly means:",
     ...engines.map((e) => `• ${e.name}: ${e.mode}. ${e.metrics}.`),

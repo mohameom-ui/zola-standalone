@@ -25,18 +25,21 @@ EFFORTS = {j["name"]: j["drive"]["effort"] for j in PROFILE["joints"]}
 G = 9.81
 
 # the canon poses (mirrored from env_cfg.py — keep in sync)
+# SYNCED 2026-11-03 to the sit_v10 canon: knee 0.55 (hip = ankle = knee/2),
+# the depth the sit campaign measured — 0.7 plateaued at 200/600, 1.0 fell.
 SIT_POSE = {
-    "left_hip_pitch": .55, "right_hip_pitch": .55,
-    "left_knee": 1.0, "right_knee": 1.0,
-    "left_ankle_pitch": .45, "right_ankle_pitch": .45,
+    "left_hip_pitch": .275, "right_hip_pitch": .275,
+    "left_knee": .55, "right_knee": .55,
+    "left_ankle_pitch": .275, "right_ankle_pitch": .275,
     "left_shoulder_pitch": .5, "right_shoulder_pitch": .5,
     "left_elbow": -.8, "right_elbow": -.8,
     "left_wrist_pitch": .15, "right_wrist_pitch": .15,
 }
 HERO_POSE = {
-    "left_hip_pitch": .35, "right_hip_pitch": .35,
-    "left_knee": .7, "right_knee": .7,
-    "left_ankle_pitch": .35, "right_ankle_pitch": .35,
+    # synced to touchdown_v9's frozen params (594.92/600): knee 0.45
+    "left_hip_pitch": .22, "right_hip_pitch": .22,
+    "left_knee": .45, "right_knee": .45,
+    "left_ankle_pitch": .23, "right_ankle_pitch": .23,
     "left_shoulder_pitch": .9, "left_elbow": -.6, "left_wrist_pitch": .15,
     "right_shoulder_pitch": -1.2, "right_elbow": -.9,
     "waist_yaw": .15, "neck_pitch": .1,
@@ -72,7 +75,7 @@ PICTURE_POSE = {
 TESTS = [
     ("BALANCE (stand)",   {},                          dict(hover=False, drop=0.0,    seconds=3.0)),
     ("FLIGHT (hover)",    FLIGHT_POSE,                 dict(hover=True,  drop=0.0,    seconds=5.0)),
-    ("SIT (knee 1.0)",    SIT_POSE,                    dict(hover=False, drop=0.0,    seconds=4.0)),
+    ("SIT (knee 0.55)",   SIT_POSE,                    dict(hover=False, drop=0.0,    seconds=4.0)),
     ("TOUCHDOWN (hero)",  HERO_POSE,                   dict(hover=False, drop=0.06,   seconds=4.0)),
     ("THUMBS UP",         THUMBS_POSE,                 dict(hover=False, drop=0.0,    seconds=3.0)),
     ("PICTURE POSE",      PICTURE_POSE,                dict(hover=False, drop=0.0,    seconds=3.0)),

@@ -25,6 +25,7 @@ const TASK_NAMES: Record<string, string> = {
   zola_picture: "posing for a picture",
   zola_thumbs: "thumbs up (finger dexterity)",
   zola_dance: "the halobeat (dancing on the beat)",
+  zola_talk: "talking body expression (the conversational routine)",
 };
 
 export async function GET(request: Request) {

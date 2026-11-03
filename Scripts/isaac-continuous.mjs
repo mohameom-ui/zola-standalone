@@ -19,10 +19,11 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const venv = process.env.ZOLA_VENV ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\isaac-venv\Scripts`;
+// the persistent in-repo venv (the old scratchpad venv was deleted)
+const venv = process.env.ZOLA_VENV ?? path.join(repo, ".venv-isaac", "Scripts");
 const isaaclab = path.join(venv, process.platform === "win32" ? "isaaclab.exe" : "isaaclab");
 const python = path.join(venv, process.platform === "win32" ? "python.exe" : "python");
-const logsRoot = process.env.ZOLA_LOGS ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\logs\rsl_rl`;
+const logsRoot = process.env.ZOLA_LOGS ?? path.join(repo, "logs", "rsl_rl");
 const rounds = Number(process.env.ZOLA_ROUNDS ?? 1);
 const iters = Number(process.env.ZOLA_ITERS ?? 1500);
 const numEnvs = Number(process.env.ZOLA_NUM_ENVS ?? 64);

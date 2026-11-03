@@ -15,7 +15,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const venv = process.env.ZOLA_VENV ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\isaac-venv\Scripts`;
+// the persistent in-repo venv (the old scratchpad venv was deleted)
+const venv = process.env.ZOLA_VENV ?? path.join(repo, ".venv-isaac", "Scripts");
 const pythonExe = process.platform === "win32" ? "python" : "python3";
 const isWin = process.platform === "win32";
 
@@ -147,7 +148,8 @@ checks.push({ name: "MuJoCo pose verdicts (the independent physics)", group: "ph
                  { timeout: 300_000 });
   const jsonStart = out.lastIndexOf("{");
   const verdicts = JSON.parse(out.slice(jsonStart));
-  const knownOpen = ["SIT (knee 1.0)", "TOUCHDOWN (hero)", "BALANCE (stand)", "THUMBS UP", "PICTURE POSE"];
+  // the sit label follows the canon depth (sit_v10: knee 0.55)
+  const knownOpen = ["SIT (knee 0.55)", "TOUCHDOWN (hero)", "BALANCE (stand)", "THUMBS UP", "PICTURE POSE"];
   const hover = verdicts["FLIGHT (hover)"];
   if (hover !== "HOLDS") throw new Error(`the hover verdict changed: ${hover}`);
   const unexpected = Object.entries(verdicts).filter(([k, v]) => v !== "HOLDS" && !knownOpen.includes(k));

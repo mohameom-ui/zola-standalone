@@ -14,12 +14,13 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, existsSync, openSync, copyFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, mkdirSync, openSync, copyFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const venv = process.env.ZOLA_VENV ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\isaac-venv\Scripts`;
+// the persistent in-repo venv (the old scratchpad venv was deleted)
+const venv = process.env.ZOLA_VENV ?? path.join(repo, ".venv-isaac", "Scripts");
 const isaaclab = path.join(venv, "isaaclab.exe");
 // ONE log home for every run — manual or console-launched — so TensorBoard
 // sees all curves and the selectors find all checkpoints
@@ -204,7 +205,9 @@ const server = http.createServer(async (req, res) => {
     // progress tail works live, and archived into the run dir on exit so the
     // best-checkpoint selector can do its job
     const expDir = path.join(logsRoot, exp);
-    if (!existsSync(expDir)) { res.writeHead(500); res.end("no experiment dir yet — train it once manually first"); return; }
+    // a first-ever task has no experiment dir yet — create it instead of
+    // refusing: the console can train any registered task from cold
+    if (!existsSync(expDir)) mkdirSync(expDir, { recursive: true });
     const consoleLog = path.join(expDir, `console_${Date.now().toString(36)}.log`);
     const out = openSync(consoleLog, "a");
     const proc = spawn(isaaclab, ["train", "--rl_library", "rsl_rl", "--task", t.id,

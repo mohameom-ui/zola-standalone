@@ -15,7 +15,7 @@ import walkV2Manifest from "../../../isaac/policies/zola_walk_model_1600.json";
 import walkV3Manifest from "../../../isaac/policies/zola_walk_model_2200.json";
 import handsManifest from "../../../isaac/policies/zola_hands_model_1400.json";
 import flightManifest from "../../../isaac/policies/zola_flight_model_1350.json";
-import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_3250.json";
+import touchdownManifest from "../../../isaac/policies/zola_touchdown_model_2400.json";
 import hoverManifest from "../../../isaac/policies/zola_hover_model_3499.json";
 import pictureManifest from "../../../isaac/policies/zola_picture_model_1450.json";
 import thumbsManifest from "../../../isaac/policies/zola_thumbs_model_1499.json";

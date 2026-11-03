@@ -31,7 +31,7 @@ export default function ZolaShell({
         <div className="zola-topbar-meta">
           <span className="zola-topbar-dot" />
           <span>INTERACTIVE AVATAR</span>
-          <span className="zola-version">V 6.0</span>
+          <span className="zola-version">V 13.0</span>
         </div>
       </header>
 

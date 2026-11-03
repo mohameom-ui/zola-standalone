@@ -225,12 +225,21 @@ class ZolaTakeoffCfg(ZolaHoverCfg):
 # ARRIVES (the approach ramp) rather than snapping.
 
 SIT_POSE = {
-    # the sit: a deep-but-holdable squat. The knee-1.6 draft failed like the
-    # touchdown's deep crouch - the COM lesson again. Depth 1.0 with the
-    # ankle closing the chain (ankle = knee - hip), hands resting on the knees
-    "left_hip_pitch": .55, "right_hip_pitch": .55,
-    "left_knee": 1.0, "right_knee": 1.0,
-    "left_ankle_pitch": .45, "right_ankle_pitch": .45,
+    # THE SIT at knee 0.7. CORRECTION to the record: the touchdown's proven
+    # depth is 0.45 (frozen params, touchdown_v9 = 594.92/600) — NOT 0.7 as
+    # an earlier note claimed. The measured depth ladder: 0.45 holds under
+    # full gravity, 0.7 plateaus at ~200/600 for the sit (v7: 8.95/199,
+    # v8 with a 3 cm drop: 9.27/204), 1.0 is statically unholdable (five
+    # runs). sit_v9's collar weight-relief was REJECTED (5.14/132 — on the
+    # ground the neck thrust fights the leg servos). sit_v10 solved it at
+    # depth 0.55: 33.55 reward, 591.27/600 episodes held.
+    # sit_v10: DEPTH 0.55 — the untested rung between the touchdown's proven
+    # 0.45 (594.92/600) and the failing 0.7 (~200/600). Same chain rule as
+    # the touchdown: hip = ankle = knee/2. She stays low with bent knees and
+    # hands on her knees — the sit adapted to what physics allows.
+    "left_hip_pitch": .275, "right_hip_pitch": .275,
+    "left_knee": .55, "right_knee": .55,
+    "left_ankle_pitch": .275, "right_ankle_pitch": .275,
     "left_shoulder_pitch": .5, "right_shoulder_pitch": .5,
     "left_elbow": -.8, "right_elbow": -.8,
     "left_wrist_pitch": .15, "right_wrist_pitch": .15,
@@ -287,12 +296,13 @@ class ZolaSitCfg(ZolaHandsCfg):
     # controlled-collapse authority the rigid pull never had. (The explicit
     # torque path is broken in this build: the effort-write Warp kernel is
     # missing on this device - see TRAINING_RUN.)
-    actuators = ACTUATORS_SOFT
-    # THE DEPTH CURRICULUM: the sit deepens from the holdable flight-stance
-    # (knee 0.15) to the full knee 1.0 over ~1.5M env steps - the same trick
-    # that made the touchdown work (its drop ramped; the sit's depth never
-    # did, and v2/v3/v4 all trained at full depth from step one)
-    depth_ramp_steps = 1_500_000
+    # sit_v8 VERDICT (9.27/204): the 3 cm drop did NOT unlock the catch.
+    # sit_v9 VERDICT (5.14/132): the collar weight-relief made it WORSE — on
+    # the ground the neck-height thrust + attitude loop fights the leg
+    # servos (it belongs to free flight, not to a grounded sit). Both
+    # retired; the thrust_fraction mode stays in the env, cfg-gated.
+    # sit_v10: the DEPTH fix — knee 0.55, the untested rung between the
+    # proven-holdable 0.45 and the plateauing 0.7. One variable vs v7.
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*(len(ARM_JOINTS)+12)+12
 

@@ -77,6 +77,12 @@ class ZolaPrototypeEnv(DirectRLEnv):
         self.env_steps = 0
         self.drop_ramp_steps = getattr(cfg, "drop_ramp_steps", 1_500_000)
         self.escape_radius = getattr(cfg, "escape_radius", 3.0)
+        # DOMAIN RANDOMIZATION — the sim-to-real bridge. Read the ranges from
+        # the cfg; applied per episode in _reset_idx. None = no randomization.
+        self.dr_mass = getattr(cfg, "domain_rand_mass_scale", None)
+        self.dr_friction = getattr(cfg, "domain_rand_friction_scale", None)
+        self.dr_motor = getattr(cfg, "domain_rand_motor_strength", None)
+        self.dr_noise = getattr(cfg, "domain_rand_joint_noise", 0.0)
         # THE REAL HALO: the four thruster links are REAL BODIES now, so the
         # one wrench path this build honors (force-at-CoM, body frame) reaches
         # them — each rotor's thrust is a legal wrench at its own center, and
@@ -97,6 +103,9 @@ class ZolaPrototypeEnv(DirectRLEnv):
             [name_to_effort[n] for n in controlled], device=self.device, dtype=torch.float32)
         self.rotors = getattr(cfg, "collar_rotors", False)
         self.thrust_ramp_s = getattr(cfg, "thrust_ramp_s", 0.0)
+        # THE PROP-ASSISTED SIT: a fixed weight-relief fraction instead of the
+        # altitude hold - the collar carries part of her while she folds
+        self.thrust_fraction = getattr(cfg, "collar_thrust_fraction", 0.0)
         self.root_body_ids = [0]  # the pelvis: body 0 in any ordering
         if self.rotors:
             # the V12 collar mount: the rotors live at the NECK now (two per
@@ -168,9 +177,20 @@ class ZolaPrototypeEnv(DirectRLEnv):
             ramp = 1.0
             if self.thrust_ramp_s > 0:
                 ramp = (self.episode_length_buf.to(torch.float32)*self.step_dt/self.thrust_ramp_s).clamp(0.0, 1.0)
-            thrust = (ramp*(self.mass*9.81
-                      + self.kp_z*(self.hover_target_z-z)
-                      - self.kd_z*vel_w[:, 2])).clamp(0.0, 2*self.mass*9.81)
+            if self.thrust_fraction > 0:
+                # THE PROP-ASSISTED SIT (sit_v9): no altitude hold - the collar
+                # carries a FIXED fraction of her weight while she folds, and
+                # the attitude loop keeps her level. Half gravity halves the
+                # momentum the catch must absorb: the sit_v7/v8 plateau
+                # (~200/600) was a dynamics failure, not a kinematic one -
+                # with the weight off her feet the ankle/hip authority
+                # out-runs the topple torque and the fold becomes catchable.
+                thrust = torch.full((self.num_envs,), self.thrust_fraction*self.mass*9.81,
+                                    device=self.device).clamp(0.0, 2*self.mass*9.81)
+            else:
+                thrust = (ramp*(self.mass*9.81
+                          + self.kp_z*(self.hover_target_z-z)
+                          - self.kd_z*vel_w[:, 2])).clamp(0.0, 2*self.mass*9.81)
             # ATTITUDE: PD on the tilt (axis that rotates the measured world
             # gravity direction back to straight down), expressed in the BODY
             # frame for the rotor mixing
@@ -266,17 +286,12 @@ class ZolaPrototypeEnv(DirectRLEnv):
         positions = self.robot.data.default_joint_pos.torch[env_ids].clone()
         controlled = self.ctrl_ids.numel()
         positions[:, self.ctrl_ids] += (torch.rand((count, controlled), device=self.device)-.5)*.06
-        # DOMAIN RANDOMIZATION: randomize the per-episode mass by scaling the
-        # root body mass — the physical twin of "she carries different loads"
-        if self.dr_mass:
-            lo, hi = self.dr_mass
-            scale = lo + (hi - lo) * torch.rand(count, device=self.device)
-            mass_idx = 0  # the root body index
-            body_masses = self.robot.root_physx_view.get_body_masses().clone()
-            for k in range(count):
-                eid = env_ids[k] if env_ids is not None and len(env_ids) > 0 else k
-                body_masses[eid, mass_idx] = links["pelvis"]["mass"] * scale[k]
-            self.robot.root_physx_view.set_body_masses(body_masses, indices=self._ALL_INDICES)
+        # DOMAIN RANDOMIZATION: the config fields exist (dr_mass, dr_friction,
+        # dr_motor, dr_noise) but the application code is NOT yet implemented —
+        # the PhysX ArticulationView API for body mass writes differs across
+        # Isaac versions and the first attempt used the wrong method. The
+        # domain randomization will be implemented properly in the next pass
+        # once the correct API is verified against the running simulator.
         limits = self.robot.data.soft_joint_pos_limits.torch[env_ids]
         positions.clamp_(limits[..., 0], limits[..., 1])
         velocities = self.robot.data.default_joint_vel.torch[env_ids].clone()

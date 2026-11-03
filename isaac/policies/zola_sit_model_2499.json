@@ -1,0 +1,26 @@
+{
+  "task": "zola_sit",
+  "run": "2026-11-03_05-55-22_sit_v10_depth55",
+  "checkpoint": "model_2499.pt",
+  "iteration": 2499,
+  "obs_dim": 148,
+  "action_dim": 34,
+  "hidden": [
+    128,
+    128
+  ],
+  "normalizer": {
+    "mean_head": 0.2990230619907379,
+    "std_head": 0.21483071148395538,
+    "folded": true
+  },
+  "deterministic": true,
+  "note": "Gaussian mean exported; the sampled policy adds log-std noise",
+  "onnx_sha256": "7c268fa68b2d19ef739de940e7bedfb26e9971610f787fc11efe3deee1465161",
+  "roundtrip_max_abs_drift": 7.152557373046875e-07,
+  "hardware_calibrated": false,
+  "source": "simulation-only artifact; not a hardware controller",
+  "selection": {
+    "mode": "last"
+  }
+}

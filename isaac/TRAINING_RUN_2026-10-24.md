@@ -171,6 +171,53 @@ The Touchdown export supersedes v8: `zola_touchdown_model_3499.onnx`.
 - Environment seed was unset in these first runs (Kit warning); set `--seed`
   for reproducible reruns.
 
+## Runs 11–13 — the sit campaign (2026-11-03)
+
+The sit is the hardest expression in the library because it is a controlled
+collapse: the COM walks toward the support-polygon edge as the knees fold.
+Six runs of record (the v1–v5 record lives in the git history, commit
+75de187): five at knee 1.0 (all ~100/600 — statically unholdable), then the
+holdable-depth attempt:
+
+| Run | Config | Result |
+|---|---|---|
+| sit_v7 | knee 0.7, rigid gains, full depth from step one | 8.95 / 199 |
+| sit_v8 | sit_v7 + 3 cm spawn drop | 9.27 / 204 |
+| sit_v9 | sit_v7 + collar weight-relief (50% thrust fraction) | 5.14 / 132 |
+| sit_v10 | knee 0.55 (hip = ankle = 0.275), no thrust, no drop | **33.55 / 591.27** |
+
+**sit_v8's verdict:** the drop did NOT unlock the catch — the reward curve
+tracked sit_v7 within noise for the full 2500 iterations (v8 was actually a
+hair BEHIND at matched iterations: 5.10/130 vs v7's 6.55/156 at iter 2000).
+The drop is retired from the sit.
+
+**A record correction:** an earlier note claimed "the touchdown proves knee
+0.7 is dynamically stable." The frozen params say otherwise — touchdown_v9
+(594.92/600) trained at knee **0.45**. The measured depth ladder is:
+0.45 holds under full gravity, 0.7 plateaus at ~200/600 for the sit, 1.0 is
+statically unholdable (five runs).
+
+**sit_v9 — the prop-assisted sit (the dynamics-aware interface):** her own
+collar rotors carried a fixed 50% of her weight while she folded
+(`collar_thrust_fraction`, a cfg-gated autopilot mode: no altitude hold,
+fixed partial thrust + the attitude loop). The theory was sound — half
+weight halves the fold's momentum — but the verdict is a clear REJECTION:
+5.14/132, well below v7. The mechanism: in free flight the neck-height
+thrust + attitude loop is the stabilizer; on the GROUND it fights the leg
+servos (the thrust line sits above the COM — the inverted-pendulum lesson
+again, now fighting the feet's own contact forces). The
+`collar_thrust_fraction` mode stays in the env, cfg-gated, but no grounded
+task should use it. Partial thrust belongs to flight, not to sitting.
+
+**sit_v10 — the depth fix: SOLVED.** knee 0.55, the untested rung between
+the proven-holdable 0.45 and the plateauing 0.7 (hip = ankle = knee/2, the
+touchdown's chain rule). One variable vs v7. Result: **33.55 reward,
+591.27/600 episodes** — from 199 to 591, ahead of v7's curve at every
+checkpoint from iteration 200 on. Exported `zola_sit_model_2499.onnx`
+(drift 7.15e-07) and wired into the brain's policy shelf. The sit's lesson
+joins the touchdown's in the canon: THE POSE ADAPTS TO THE PHYSICS — the
+training record is the measurement, not the wish.
+
 ## Reproduce
 
 ```powershell

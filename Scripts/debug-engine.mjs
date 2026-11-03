@@ -142,7 +142,8 @@ checks.push({ name: "capability pack route (the 500 fix)", group: "runtime", fn:
 
 // ---------- PHYSICS GROUP --------------------------------------------------------
 checks.push({ name: "MuJoCo pose verdicts (the independent physics)", group: "physics", fn: async () => {
-  const out = sh(`"${path.join(venv, process.platform === "win32" ? "python.exe" : "python")}" "${path.join(repo, "Scripts", "pose_physics_check.py")}"`,
+  // the system python has mujoco (installed with pip) — no venv needed
+  const out = sh(`${pythonExe} "${path.join(repo, "Scripts", "pose_physics_check.py")}"`,
                  { timeout: 300_000 });
   const jsonStart = out.lastIndexOf("{");
   const verdicts = JSON.parse(out.slice(jsonStart));

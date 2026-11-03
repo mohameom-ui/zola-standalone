@@ -266,6 +266,17 @@ class ZolaPrototypeEnv(DirectRLEnv):
         positions = self.robot.data.default_joint_pos.torch[env_ids].clone()
         controlled = self.ctrl_ids.numel()
         positions[:, self.ctrl_ids] += (torch.rand((count, controlled), device=self.device)-.5)*.06
+        # DOMAIN RANDOMIZATION: randomize the per-episode mass by scaling the
+        # root body mass — the physical twin of "she carries different loads"
+        if self.dr_mass:
+            lo, hi = self.dr_mass
+            scale = lo + (hi - lo) * torch.rand(count, device=self.device)
+            mass_idx = 0  # the root body index
+            body_masses = self.robot.root_physx_view.get_body_masses().clone()
+            for k in range(count):
+                eid = env_ids[k] if env_ids is not None and len(env_ids) > 0 else k
+                body_masses[eid, mass_idx] = links["pelvis"]["mass"] * scale[k]
+            self.robot.root_physx_view.set_body_masses(body_masses, indices=self._ALL_INDICES)
         limits = self.robot.data.soft_joint_pos_limits.torch[env_ids]
         positions.clamp_(limits[..., 0], limits[..., 1])
         velocities = self.robot.data.default_joint_vel.torch[env_ids].clone()

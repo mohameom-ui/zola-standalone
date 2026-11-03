@@ -92,6 +92,15 @@ class ZolaBalanceCfg(DirectRLEnvCfg):
     # observations (the hands task). 0 keeps balance/walk contracts identical.
     pose_tracking_weight = 0.0
     command_ranges = ((0.0, 0.0), (0.0, 0.0), (0.0, 0.0))
+    # DOMAIN RANDOMIZATION — the sim-to-real bridge. The env reads these
+    # ranges and randomizes per episode, so the policy learns to handle
+    # variability instead of one perfect simulation.
+    domain_rand_mass_scale = (0.8, 1.2)
+    domain_rand_friction_scale = (0.5, 1.5)
+    domain_rand_motor_strength = (0.8, 1.2)
+    domain_rand_joint_noise = 0.01
+    domain_rand_push_interval = 2.0
+    domain_rand_push_magnitude = 1.0
     sim: SimulationCfg = SimulationCfg(dt=1/120, render_interval=decimation, physics=ZolaPhysicsCfg())
     scene: ZolaSceneCfg = ZolaSceneCfg(num_envs=32, env_spacing=5.0, replicate_physics=True, clone_in_fabric=True)
 

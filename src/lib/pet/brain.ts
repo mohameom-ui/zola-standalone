@@ -12,6 +12,7 @@ import type { RoutineData } from "./memory";
 import { PersonaEngine, type PersonaName } from "./persona";
 import { correctHeard, lev, describeAppearance } from "./lexicon";
 import { modeByName } from "./modes";
+import { safeSpeak } from "./safetyFilter";
 import { pickVisualTrick } from "./visualTricks";
 import { bodyMapReport, isaacTrainingReport, mentionsBodyMap, mentionsIsaacTraining } from "./isaacPolicies";
 import { engineReport } from "./engineRegistry";
@@ -357,7 +358,16 @@ export class PetBrain {
   }
 
   /** Interpret a voice/text command. Returns a reply line, or null if unrecognized. */
+  /** THE PUBLIC COMMAND — every line she speaks passes through the safety
+   * gate before returning. The internal method does the work; this wrapper
+   * is the last check. */
   command(text: string, battery: number, noCorrect = false): string | null {
+    const raw = this._command(text, battery, noCorrect);
+    if (raw === null) return null;
+    return this.gate(raw);
+  }
+
+  private _command(text: string, battery: number, noCorrect = false): string | null {
     const t = text.toLowerCase().trim();
     if (!t) return null;
     const has = (...words: string[]) => words.some((w) => t.includes(w));
@@ -1481,6 +1491,14 @@ export class PetBrain {
 
   private walkUnavailableLine(): string {
     return "I can animate my legs in the 3D hangar, but physical leg servos are not connected to this flight relay yet.";
+  }
+
+  /** THE SAFETY GATE: every line that leaves the brain passes through here.
+   * If the line fails the filter, she says the replacement instead — always
+   * honest, always in character, never pretending the failed line didn't
+   * happen. This is the last check before speech. */
+  private gate(text: string): string {
+    return safeSpeak(text);
   }
 
   private ledColor(): string {

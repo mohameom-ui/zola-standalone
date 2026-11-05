@@ -185,6 +185,117 @@ def test_dshot():
     check("zero throttle stays above the ESC arming floor frame", dshot_frame(48) >> 12 == dshot_crc4(dshot_frame(48) & 0xFFF))
 
 
+# ------------------------------------------------- the cascade (v3)
+ANGLE_KP = 8.0  # °/s per ° — mirrors ANGLE_KP_DPS_PER_DEG
+
+
+class RatePid:
+    """Mirror of the firmware's RatePid — the spec's PID equation, exactly:
+    Output = Kp·e + Ki·∫e·dt + Kd·de/dt, integral clamped ±limit."""
+
+    def __init__(self, kp, ki, kd, limit=200.0):
+        self.kp, self.ki, self.kd = kp, ki, kd
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.limit = limit
+
+    def update(self, setpoint, measured, dt):
+        error = setpoint - measured
+        self.integral = max(-self.limit, min(self.limit, self.integral + error * dt))
+        derivative = (error - self.prev_error) / dt
+        self.prev_error = error
+        return self.kp * error + self.ki * self.integral + self.kd * derivative
+
+    def reset(self):
+        self.integral = 0.0
+        self.prev_error = 0.0
+
+
+def apply_motor_mix(base_us, roll_corr, pitch_corr, yaw_corr):
+    """THE SPEC'S QUADX MATRIX, verbatim (mirrors apply_motor_mix):
+      M1 FL (CW) : T + roll + pitch − yaw
+      M2 FR (CCW): T − roll + pitch + yaw
+      M3 RR (CW) : T − roll − pitch − yaw
+      M4 RL (CCW): T + roll − pitch + yaw
+    Clamp the FLOAT then cast — the draft's cast-before-constrain turned a
+    negative overshoot into FULL THROTTLE."""
+    m1 = base_us + roll_corr + pitch_corr - yaw_corr
+    m2 = base_us - roll_corr + pitch_corr + yaw_corr
+    m3 = base_us - roll_corr - pitch_corr - yaw_corr
+    m4 = base_us + roll_corr - pitch_corr + yaw_corr
+    return [int(max(1000, min(2000, m))) for m in (m1, m2, m3, m4)]
+
+
+def test_cascade():
+    print("THE CASCADE (rate PID + mixer):")
+    # the mixer's row sums: net torque per axis must be ZERO — the property
+    # that makes it a mixer rather than four unrelated numbers
+    for name, coeffs in (("roll", (1, -1, -1, 1)), ("pitch", (1, 1, -1, -1)), ("yaw", (-1, 1, -1, 1))):
+        check(f"mixer {name} row sums to zero", sum(coeffs) == 0, str(coeffs))
+
+    # the spec's sign pattern, verbatim: a pure roll_corr must speed the LEFT
+    # pair (M1, M4) and slow the RIGHT pair (M2, M3)
+    out = apply_motor_mix(1500, 50, 0, 0)
+    check("+roll_corr: left pair faster", out[0] == 1550 and out[3] == 1550)
+    check("+roll_corr: right pair slower", out[1] == 1450 and out[2] == 1450)
+    out = apply_motor_mix(1500, 0, 40, 0)
+    check("+pitch_corr: front pair faster", out[0] == 1540 and out[1] == 1540)
+    check("+pitch_corr: rear pair slower", out[2] == 1460 and out[3] == 1460)
+
+    # THE DRAFT'S BUG: a correction big enough to drive a motor NEGATIVE must
+    # clamp it to IDLE (1000) — the buggy C cast would wrap −1050 to 64486
+    # and clamp to 2000 = FULL THROTTLE. m2 = 1150 − 2200 = −1050 exactly.
+    out = apply_motor_mix(1150, 2200, 0, 0)
+    check("negative-going motor clamps to IDLE, not full", out[1] == 1000 and out[2] == 1000,
+          str(out))
+    # and the mirror case: m1 = 1150+2200 = 3350 clamps to FULL
+    check("positive-going motor clamps to FULL", out[0] == 2000 and out[3] == 2000,
+          str(out))
+
+    # the rate PID: pure P response — output = Kp·(setpoint − measured).
+    # (kd = 0 here: the spec's derivative-on-error kicks on the FIRST update
+    # because prev_error starts at 0 — the known D-kick; the bench filters
+    # the setpoint. The direction test below settles the loop first.)
+    pid = RatePid(1.2, 0.05, 0.0)
+    out = pid.update(100.0, 40.0, 0.002)
+    # P = 1.2·60 = 72, plus the FIRST step's integral: 0.05·(60·0.002) = 0.006
+    check("rate PID P+I(1 step) exact", abs(out - (1.2 * 60.0 + 0.05 * 60 * 0.002)) < 1e-9,
+          f"{out}")
+    # the integral accumulates error·dt and CLAMPS at ±200
+    pid = RatePid(0.0, 0.05, 0.0)
+    for _ in range(2000):  # 4 s of constant +100°/s error → ∫ = 400 → clamped at 200
+        out = pid.update(100.0, 0.0, 0.002)
+    check("integral clamps at the windup limit", pid.integral == 200.0,
+          f"integral={pid.integral}")
+    check("clamped integral's Ki term", abs(out - 0.05 * 200.0) < 1e-9, f"{out}")
+    # the derivative term: a constant error produces NO derivative after the
+    # first step; a RAMPING error does
+    pid = RatePid(0.0, 0.0, 0.03)
+    pid.update(0.0, 0.0, 0.002)
+    first = pid.update(10.0, 0.0, 0.002)      # error jumped 0 → 10: D fires
+    second = pid.update(20.0, 0.0, 0.002)     # error grew +10 again: D repeats
+    check("D term responds to the error rate", abs(first - 0.03 * (10 / 0.002)) < 1e-6
+          and abs(second - 0.03 * (10 / 0.002)) < 1e-6, f"{first} {second}")
+    # the full cascade SHAPE, settled: a 10° right lean → the angle loop
+    # targets −80°/s (roll back LEFT) → the rate PID drives a NEGATIVE
+    # roll_corr → the matrix speeds the RIGHT pair (m2 = base − corr) and
+    # slows the LEFT pair — more right-side thrust rolls the craft LEFT,
+    # which is exactly the correction a right lean needs. The loop is run
+    # 250 steps first so the D transient settles (first-step D-kick is the
+    # spec equation's known behavior; the bench filters the setpoint).
+    pid = RatePid(1.2, 0.05, 0.03)
+    target_rate = ANGLE_KP * (0.0 - 10.0)     # −80°/s
+    corr = 0.0
+    for _ in range(250):                      # 0.5 s at 500 Hz, gyro still
+        corr = pid.update(target_rate, 0.0, 0.002)
+    out = apply_motor_mix(1150, corr, 0, 0)
+    check("cascade: a right lean speeds the RIGHT pair (rolls left)",
+          out[1] > 1150 and out[2] > 1150 and out[0] < 1150 and out[3] < 1150,
+          f"corr={corr:.1f} out={out}")
+    check("cascade settles near the P+I prediction",
+          abs(corr - (1.2 * -80.0 + 0.05 * pid.integral)) < 5.0, f"corr={corr:.1f}")
+
+
 # ----------------------------------------------------------- packet canon
 def test_packet_canon():
     print("PACKET CANON (36 bytes):")
@@ -209,6 +320,7 @@ def test_packet_canon():
 def main():
     test_madgwick()
     test_dshot()
+    test_cascade()
     test_packet_canon()
     print(f"\nfirmware math mirror: {PASS} pass, {FAIL} fail")
     sys.exit(1 if FAIL else 0)

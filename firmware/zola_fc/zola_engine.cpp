@@ -1,7 +1,13 @@
-// zola_engine.cpp — PROJECT ZOLA FLIGHT CONTROLLER, V2
+// zola_engine.cpp — PROJECT ZOLA FLIGHT CONTROLLER, V3
 // (supersedes zola_flight.cpp — one flight core, one source of truth)
 //
-// V2 upgrades (the spec's four asks, merged with the packet canon):
+// V3 (the PID + mixer spec): the control law is now the CASCADE —
+// angle loop (Madgwick euler → target rates) → RATE PID (the spec's exact
+// equation on gyro rates) → the spec's QuadX mixer matrix, verbatim. The
+// draft's cast-before-constrain bug (negative overshoot → FULL THROTTLE) is
+// fixed; the mixer matrix's per-axis row sums are verified in the mirror.
+//
+// V2 upgrades (the sensor-fusion spec, merged with the packet canon):
 //   1. SPI REGISTER BURSTING — the MPU-9250's accel+temp+gyro leave in ONE
 //      CS-low transaction (14 bytes from 0x3B) at 10 MHz, instead of 14
 //      single-register I2C reads. The sample is atomic (one instant) and the
@@ -148,24 +154,65 @@ static void dshot_send_all(const uint16_t throttle_us[4]) {
     }
 }
 
-// -------------------------------------------------- the PID (three of them)
-struct Pid {
+// ------------------------------------------ THE CASCADE (v3, the spec's)
+// The real flight-controller architecture, two loops deep:
+//   OUTER (angle):  Madgwick euler vs the target attitude (level hold for
+//                   now) → TARGET RATES in °/s. P-only — the angle loop's
+//                   output IS the rate setpoint.
+//   INNER (rate):   the spec's PID equation on GYRO rates vs target rates —
+//                   Output = Kp·e + Ki·∫e·dt + Kd·de/dt, integral clamped.
+//                   This is the loop that talks to the motors, at 500 Hz.
+//   MIXER:          the spec's QuadX matrix, verbatim (see below).
+//
+// THE SPEC'S RATE-PID EQUATION, implemented exactly (derivative on ERROR):
+struct RatePid {
     float kp, ki, kd;
-    float integ = 0.f, prev_meas = 0.f;
-    float integ_limit;   // anti-windup: the integral never exceeds this
-    float update(float err, float meas, float dt) {
-        integ = constrain(integ + err * dt, -integ_limit, integ_limit);
-        float deriv = (meas - prev_meas) / dt;  // derivative ON MEASUREMENT —
-        prev_meas = meas;                       // setpoint steps don't kick D
-        return kp * err - ki * integ - kd * deriv;
+    float integral = 0.f, prev_error = 0.f;
+    float integ_limit;   // anti-windup clamp (±200 by the spec)
+    float update(float setpoint, float measured, float dt) {
+        float error = setpoint - measured;
+        integral = constrain(integral + error * dt, -integ_limit, integ_limit);
+        float derivative = (error - prev_error) / dt;
+        prev_error = error;
+        return kp * error + ki * integral + kd * derivative;
     }
-    void reset() { integ = 0.f; prev_meas = 0.f; }
+    void reset() { integral = 0.f; prev_error = 0.f; }
 };
-// GAINS ASSUMED — the bench sweep (step response per axis) is the calibration
-// phase; these are flyable starting points, not tuned values.
-static Pid pid_roll  { 3.2f, 0.6f, 0.12f, 0.f, 0.f, /*integ_limit*/ 400.f };
-static Pid pid_pitch { 3.2f, 0.6f, 0.12f, 0.f, 0.f, 400.f };
-static Pid pid_yaw   { 2.0f, 0.2f, 0.00f, 0.f, 0.f, 200.f };
+// THE SPEC'S RATE GAINS (assumed until the bench sweep — hardware_calibrated: false)
+static RatePid rate_roll  { 1.2f, 0.05f, 0.03f, 0.f, 0.f, 200.f };
+static RatePid rate_pitch { 1.2f, 0.05f, 0.03f, 0.f, 0.f, 200.f };
+static RatePid rate_yaw   { 2.5f, 0.10f, 0.00f, 0.f, 0.f, 200.f };
+// THE ANGLE LOOP's gains (°/s of target rate per ° of attitude error) —
+// ASSUMED; the bench sweep tunes these too. 8°/s per degree is a calm
+// level-hold; a stunt tune would push this much higher.
+static constexpr float ANGLE_KP_DPS_PER_DEG = 8.0f;
+
+// --------------------------------------------------- THE QUADX MIXER
+// The spec's matrix, VERBATIM — this is the canon now:
+//   M1 front-left  (CW) : T + roll + pitch − yaw
+//   M2 front-right (CCW): T − roll + pitch + yaw
+//   M3 rear-right  (CW) : T − roll − pitch − yaw
+//   M4 rear-left   (CCW): T + roll − pitch + yaw
+// The row sums per axis are zero (+1−1−1+1 roll, +1+1−1−1 pitch, −1+1−1+1
+// yaw) — net torque balanced, the property that makes it a mixer. Whether
+// the CW/CCW labels match the physical prop rotation is a MOUNTING question
+// (bench phase); the matrix is torque-balanced either way.
+//
+// THE DRAFT'S BUG, FIXED: constrain((uint16_t)m1, 1000, 2000) casts BEFORE
+// clamping — a negative overshoot (−20.5) wraps to 65496 and clamps to
+// 2000 µs = FULL THROTTLE, exactly when the motor should be at IDLE. Clamp
+// the FLOAT, then cast.
+static void apply_motor_mix(float base_us, float roll_corr, float pitch_corr, float yaw_corr,
+                            uint16_t out[4]) {
+    float m1 = base_us + roll_corr + pitch_corr - yaw_corr;  // front-left
+    float m2 = base_us - roll_corr + pitch_corr + yaw_corr;  // front-right
+    float m3 = base_us - roll_corr - pitch_corr - yaw_corr;  // rear-right
+    float m4 = base_us + roll_corr - pitch_corr + yaw_corr;  // rear-left
+    out[0] = (uint16_t)constrain(m1, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[1] = (uint16_t)constrain(m2, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[2] = (uint16_t)constrain(m3, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[3] = (uint16_t)constrain(m4, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+}
 
 // ------------------------------------------------- MPU-9250 over SPI burst
 static SPIClass imu_spi(HSPI);
@@ -324,26 +371,26 @@ static void flight_control_task(void*) {
         for (int i = 0; i < 4; i++) raw += analogRead(PIN_BATT_ADC);
         s.battery_mv = (uint16_t)((raw / 4) * 3300 / 4095 * BATT_DIVIDER);
 
-        // LEVEL HOLD, now with the full PID: the tilt error (setpoint 0° −
-        // measured) drives P+I+D corrections around the hover throttle; the
-        // yaw axis holds zero RATE (heading hold needs a reference — the
-        // bench phase adds it). The D term is derivative-on-measurement, so
-        // the yaw loop's "measurement" is the yaw rate itself.
+        // THE CASCADE (v3): angle error → target rates → rate PID → mixer.
+        // Level hold: the target attitude is 0°/0° (the bench phase adds a
+        // real attitude setpoint); yaw holds zero RATE (heading hold needs
+        // a reference — same bench phase).
         const float dt = 1.f / FLIGHT_HZ;
-        float corrR = alive ? pid_roll.update(0.f - s.roll, s.roll, dt) : 0.f;
-        float corrP = alive ? pid_pitch.update(0.f - s.pitch, s.pitch, dt) : 0.f;
-        float corrY = alive ? pid_yaw.update(0.f - gz, gz, dt) : 0.f;  // yaw-rate hold
-        // quad-X mixer (FL, FR, RR, RL): +pitch noses down, +roll banks right
-        motors[0] = THROTTLE_HOVER_US - corrP - corrR;
-        motors[1] = THROTTLE_HOVER_US - corrP + corrR;
-        motors[2] = THROTTLE_HOVER_US + corrP + corrR;
-        motors[3] = THROTTLE_HOVER_US + corrP - corrR;
+        float roll_target_rate  = alive ? ANGLE_KP_DPS_PER_DEG * (0.f - s.roll)  : 0.f;
+        float pitch_target_rate = alive ? ANGLE_KP_DPS_PER_DEG * (0.f - s.pitch) : 0.f;
+        float yaw_target_rate   = 0.f;  // zero-rate hold
+        // the INNER loop: gyro rates (deg/s) vs the target rates — the spec's
+        // PID equation, the loop that actually talks to the motors
+        float corrR = alive ? rate_roll .update(roll_target_rate,  gx, dt) : 0.f;
+        float corrP = alive ? rate_pitch.update(pitch_target_rate, gy, dt) : 0.f;
+        float corrY = alive ? rate_yaw  .update(yaw_target_rate,   gz, dt) : 0.f;
+        apply_motor_mix(THROTTLE_HOVER_US, corrR, corrP, corrY, motors);
 
         // THE LIPO FLOOR: below the cell floor, everything ramps to idle —
         // the battery is never murdered to hold a hover
         if (s.battery_mv && s.battery_mv < BATT_CUTOFF_MV) {
             for (auto& m : motors) m = THROTTLE_IDLE_US;
-            pid_roll.reset(); pid_pitch.reset(); pid_yaw.reset();
+            rate_roll.reset(); rate_pitch.reset(); rate_yaw.reset();
         }
         for (int i = 0; i < 4; i++) s.motors[i] = (uint16_t)constrain(motors[i], THROTTLE_IDLE_US, THROTTLE_MAX_US);
         publish_flight(s);

@@ -23,4 +23,9 @@ void broadcast(const uint8_t* packet_bytes, size_t packet_size);
 /// consults this before spending its slice on the radio.
 bool active();
 
+/// Drain ONE inbound datagram (a ground-station command frame) into buf.
+/// Returns the byte count, 0 when none is waiting. The socket is shared:
+/// the telemetry task alternates TX (broadcast) and RX (commands).
+size_t poll_inbound(uint8_t* buf, size_t max);
+
 }  // namespace zola_udp

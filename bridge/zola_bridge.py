@@ -73,6 +73,50 @@ def parse_frame(frame: bytes):
     }
 
 
+# ===========================================================================
+# THE COMMAND CANON (16 bytes inbound — the ground station's return path):
+#   [0]  CA FE   header (uint16 LE = 0xFECA)
+#   [2]  cmd_id  uint8  (0x00 heartbeat · 0x01 arm · 0x02 EMERGENCY DISARM
+#                        · 0x03 waypoint · 0x04 PID gains)
+#   [3]  payload 9 bytes (layout per command — see firmware/zola_failsafe.h)
+#   [12] crc16   uint16 over bytes [0..11]
+#   [14] EF AC   footer (uint16 LE = 0xACEF)
+# THE BRIDGE OWNS THE CRC: the panel sends a semantic command over the
+# WebSocket; the bridge is the single builder that stamps the canon.
+CMD_FRAME_SIZE = 16
+CMD_HEADER = 0xFECA    # wire bytes CA FE (LE)
+CMD_FOOTER = 0xACEF    # wire bytes EF AC (LE)
+CMD_CRC_SPAN = 12
+
+CMD_HEARTBEAT = 0x00
+CMD_ARM = 0x01
+CMD_EMERGENCY_DISARM = 0x02
+CMD_SET_WAYPOINT = 0x03
+CMD_UPDATE_PID = 0x04
+ARM_TOKEN = 0xA5
+
+
+def build_command_frame(cmd_id: int, payload: bytes) -> bytes:
+    """Build one 16-byte command frame (the bridge's canon-stamping job)."""
+    if len(payload) != 9:
+        raise ValueError(f"a command payload is exactly 9 bytes, got {len(payload)}")
+    frame = struct.pack("<HB9s", CMD_HEADER, cmd_id, payload[:9])[:12]
+    frame += struct.pack("<HH", zola_crc(frame), CMD_FOOTER)
+    return frame
+
+
+def parse_command_frame(frame: bytes):
+    """Validate + unpack one 16-byte command frame. None = invalid."""
+    if len(frame) != CMD_FRAME_SIZE:
+        return None
+    header, cmd_id, payload, crc, footer = struct.unpack("<HB9sHH", frame)
+    if header != CMD_HEADER or footer != CMD_FOOTER:
+        return None
+    if zola_crc(frame[:CMD_CRC_SPAN]) != crc:
+        return None
+    return {"cmd_id": cmd_id, "payload": payload}
+
+
 def find_serial_port():
     """Auto-detect the FC's serial port (env override wins)."""
     env = os.environ.get("ZOLA_FC_PORT")
@@ -134,6 +178,7 @@ class Bridge:
             print("[Zola Bridge] no serial port found — falling back to --sim", flush=True)
             return await self.sim_loop()
         ser = serial.Serial(port_name, BAUD_RATE, timeout=0.01)
+        self.ser = ser  # the command path writes here (same event loop — no race)
         print(f"[Zola Bridge] reading {port_name} @ {BAUD_RATE}", flush=True)
         buffer = bytearray()
         while True:
@@ -205,9 +250,28 @@ class Bridge:
     async def handler(self, websocket):
         self.clients.add(websocket)
         try:
-            await websocket.wait_closed()
+            async for raw in websocket:  # inbound: the ground station's commands
+                try:
+                    msg = json.loads(raw)
+                except Exception:
+                    continue
+                if msg.get("type") != "ZOLA_COMMAND":
+                    continue
+                frame = build_command_frame(int(msg["cmd_id"]), bytes.fromhex(msg.get("payload_hex", "")))
+                self.forward_command(frame)
         finally:
             self.clients.discard(websocket)
+
+    def forward_command(self, frame: bytes):
+        """The transport's write side: the serial lane writes the frame to the
+        FC's COM port. Logged — an operator's kill-switch deserves a paper
+        trail."""
+        _, cmd_id, payload, _, _ = struct.unpack("<HB9sHH", frame)
+        ser = getattr(self, "ser", None)
+        if ser is not None:
+            ser.write(frame)
+        print(f"[Zola Bridge] command forwarded: id=0x{cmd_id:02X} payload={payload.hex()}",
+              flush=True)
 
     async def run(self, host="127.0.0.1", port=8002):
         async with websockets.serve(self.handler, host, port):

@@ -57,4 +57,12 @@ void broadcast(const uint8_t* packet_bytes, size_t packet_size) {
 
 bool active() { return s_active; }
 
+size_t poll_inbound(uint8_t* buf, size_t max) {
+    if (!s_active) return 0;
+    const int psize = udp_socket.parsePacket();
+    if (psize <= 0) return 0;
+    const int n = udp_socket.read(buf, max);
+    return n > 0 ? (size_t)n : 0;
+}
+
 }  // namespace zola_udp

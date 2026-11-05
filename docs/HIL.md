@@ -81,7 +81,46 @@ she broadcasts the SAME 36-byte packets over her own air-gapped Wi-Fi AP:
 | Panel | `hilTelemetry.ts` | accepts BOTH lanes' envelopes — `ZOLA_TELEMETRY_UPDATE` and `ZOLA_UDP_TELEMETRY`; one truth, two transports |
 | Proof | `Scripts/hil-udp-test.mjs` | spins the sim bridge, then blasts its OWN independent datagrams (values the sim never generates) — proving the bridge PARSES rather than echoes; asserts per-source sequence monotonicity, source_ip identity, ~100 fps per FC — PASS |
 
-## 6. What the math mirror caught (the v2 war story)
+## 6. The closed loop (commands in, failsafe out)
+
+The return path completes the cycle — the panel (and the master kill-switch)
+speak to the FC in **16-byte command frames**:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 2 | header `CA FE` |
+| 2 | 1 | cmd_id — 0x00 heartbeat · 0x01 arm · 0x02 EMERGENCY DISARM · 0x03 waypoint · 0x04 PID gains |
+| 3 | 9 | payload (layout per command — see `zola_failsafe.h`) |
+| 12 | 2 | crc16 over bytes 0–11 |
+| 14 | 2 | footer `EF AC` |
+
+**Merge decisions (what the draft needed to function at all):**
+- **CRC enforced** — the draft obeyed any header-matching garbage; a flipped
+  ARM bit is a crash. Every frame is verified first (asserted in the mirror).
+- **THE MODE IS ENFORCED** — the draft's parser wrote `current_flight_mode`
+  and nothing ever read it: "EMERGENCY DISARM" disarmed nothing. The flight
+  task's FIRST gate is now `enforce()`: DISARMED → idle, FAILSAFE_LAND →
+  the 3-second controlled descent ramp → DISARMED, and only
+  STABILIZED/AUTONOMOUS run the cascade. **She boots DISARMED** — the
+  pre-failsafe firmware flew at hover with no operator at all.
+- **CMD_HEARTBEAT (0x00) added** — the spec's command list is event-driven;
+  with nothing periodic, EVERY flight would disarm 500 ms after arming. The
+  panel pulses the heartbeat automatically while connected.
+- **The arm interlock** — the ARM payload must carry 0xA5; an accidental arm
+  is a launch. Disarm takes NO token: killing must be easy. Arming is also
+  GATED (a live IMU, a battery above the cutoff) — she never arms blind or
+  on a dying cell.
+- **The failsafe recovery** — the draft's FAILSAFE_LAND had no exit (only a
+  power cycle could fly again). The descent ends in DISARMED; arm works from
+  there.
+- **The command routes**: panel semantics (`ZOLA_COMMAND` over WS) → the
+  bridge stamps the canon frame (the bridge owns the CRC — the panel never
+  ships raw bytes) → the serial bridge writes it to the COM port; the UDP
+  bridge flies it back to the address the FC's telemetry came from — the
+  mesh's return route, zero configuration. The FC parses commands from both
+  USB and UDP through the same sliding-window parser.
+
+## 7. What the math mirror caught (the v2 war story)
 
 Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
 
@@ -96,7 +135,7 @@ Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
    uses the exact gradient `s = Jᵀf` (equilibrium provably f = 0) and skips
    the step entirely when the gradient vanishes (no kicks from nothing).
 
-## 7. The v3 merge notes (the PID + mixer spec)
+## 8. The v3 merge notes (the PID + mixer spec)
 
 - **The draft's cast-before-constrain bug**: `constrain((uint16_t)m1, 1000,
   2000)` casts first — a negative overshoot (−1050 µs) wraps to 64486 and
@@ -114,7 +153,7 @@ Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
   −80°/s target rate → negative roll_corr → the RIGHT pair speeds up →
   the craft rolls left. That assertion is the loop's soul.
 
-## 8. Honest boundaries
+## 9. Honest boundaries
 
 - `hardware_calibrated: false` — same contract as Isaac: the DShot600 RMT
   tick rounding (12.5 → 12), the rate-PID gains (1.2/0.05/0.03 roll+pitch,

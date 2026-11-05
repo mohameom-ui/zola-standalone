@@ -34,7 +34,7 @@ import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zola_bridge import Bridge, parse_frame, zola_crc  # the one canon, one parser
+from zola_bridge import (Bridge, parse_frame, parse_command_frame, zola_crc)  # one canon, one parser
 
 UDP_PORT = 8888
 PACKET_SIZE = 36
@@ -63,7 +63,7 @@ def udp_reader_thread(q: "queue.Queue", port: int, stop: threading.Event):
     while not stop.is_set():
         try:
             data, addr = sock.recvfrom(PACKET_SIZE)
-            q.put((data, addr[0]))
+            q.put((data, addr))  # the FULL address — the port is the return route
         except socket.timeout:
             continue
         except OSError:
@@ -76,6 +76,7 @@ class UdpBridge(Bridge):
         super().__init__(source="udp", envelope_type="ZOLA_UDP_TELEMETRY")
         self.q: "queue.Queue" = queue.Queue()
         self.stop_event = threading.Event()
+        self.fc_addr = None  # the FC's mesh address, learned from its telemetry
 
     async def udp_loop(self):
         threading.Thread(target=udp_reader_thread,
@@ -83,8 +84,9 @@ class UdpBridge(Bridge):
         lost = 0
         last_seq = None
         while True:
-            data, source_ip = await asyncio.get_event_loop().run_in_executor(
+            data, source = await asyncio.get_event_loop().run_in_executor(
                 None, self.q.get)
+            source_ip = source[0]
             if len(data) != PACKET_SIZE:
                 self.frames_bad += 1
                 continue
@@ -97,6 +99,7 @@ class UdpBridge(Bridge):
             last_seq = decoded["sequence_id"]
             self.frames_ok += 1
             self.lost_datagrams = lost
+            self.fc_addr = source  # THE RETURN PATH: the address she spoke from
             await self.broadcast(decoded, source_ip=source_ip)
 
     async def stats_loop(self):
@@ -108,15 +111,37 @@ class UdpBridge(Bridge):
             self.frames_ok = 0
             self.frames_bad = 0
 
+    def forward_command(self, frame: bytes):
+        """The wireless return path: the command datagram flies BACK to the
+        address the FC's telemetry came from — the mesh's return route, no
+        configuration needed."""
+        _, cmd_id, payload, _, _ = struct.unpack("<HB9sHH", frame)
+        if self.fc_addr is None:
+            print("[Zola UDP Bridge] command dropped — no FC address known yet", flush=True)
+            return
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(frame, self.fc_addr)
+        print(f"[Zola UDP Bridge] command forwarded to {self.fc_addr[0]}: "
+              f"id=0x{cmd_id:02X} payload={payload.hex()}", flush=True)
+
+
+SIM_FC_PORT = 8889  # the fake FC's own port (the ground owns :8888 — on one
+                    # host the two cannot share; on the mesh they're different
+                    # machines and both are 8888)
+
 
 def fake_fc(stop: threading.Event, port: int, rate_hz: int = 100):
-    """--sim's fake FC: spec-shaped datagrams, on the mesh at 100 Hz."""
+    """--sim's fake FC: ONE bidirectional socket bound to its own port — it
+    sends telemetry FROM it (so the ground learns the return address) and
+    drains ground commands OFF it, exactly like the real FC's socket."""
     import math
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("127.0.0.1", SIM_FC_PORT))
+    sock.setblocking(False)
     seq = 0
     t0 = time.perf_counter()
     next_tick = t0 + 1.0 / rate_hz
-    print(f"[Zola UDP Bridge] SIM fake-FC broadcasting 100 Hz to 127.0.0.1:{port}", flush=True)
+    print(f"[Zola UDP Bridge] SIM fake-FC on :{SIM_FC_PORT} broadcasting 100 Hz to 127.0.0.1:{port}", flush=True)
     while not stop.is_set():
         now = time.perf_counter()
         if now < next_tick:
@@ -125,6 +150,20 @@ def fake_fc(stop: threading.Event, port: int, rate_hz: int = 100):
         next_tick += 1.0 / rate_hz
         if next_tick < now - 0.05:
             next_tick = now + 1.0 / rate_hz
+        # drain inbound commands (non-blocking; Windows raises
+        # ConnectionResetError on recvfrom after an ICMP port-unreachable —
+        # a UDP quirk, not an error)
+        while True:
+            try:
+                data, _ = sock.recvfrom(64)
+            except (BlockingIOError, InterruptedError):
+                break
+            except ConnectionResetError:
+                continue
+            cmd = parse_command_frame(data)
+            if cmd:
+                print(f"[SimFC] COMMAND RECEIVED id=0x{cmd['cmd_id']:02X} "
+                      f"payload={cmd['payload'].hex()}", flush=True)
         t = now - t0
         seq += 1
         frame = build_frame(seq, int(t * 1_000_000),

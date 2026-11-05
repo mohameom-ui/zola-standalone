@@ -14,6 +14,17 @@ export const HIL_PANEL_ID = "hil_telemetry_03";
 // the Wi-Fi/UDP ground bridge speaks ZOLA_UDP_TELEMETRY — byte-identical
 // packets on both, so the panel accepts either (and tags which it saw).
 
+// THE COMMAND CANON's ids (the bridge builds the 16-byte frame + CRC — the
+// panel sends semantics, never raw bytes):
+export const HIL_CMD = {
+  HEARTBEAT: 0x00,          // the link's pulse — the failsafe eats 500 ms of silence
+  ARM: 0x01,                // payload byte 0 must be 0xA5 (the interlock token)
+  EMERGENCY_DISARM: 0x02,   // no token — killing must be easy
+  SET_WAYPOINT: 0x03,
+  UPDATE_PID: 0x04,
+  ARM_TOKEN: 0xA5,
+} as const;
+
 export interface HilAttitude { roll: number; pitch: number; yaw: number }
 export interface HilFrame {
   sequence_id: number;
@@ -93,37 +104,84 @@ export class HilTelemetryLink {
   }
 
   disconnect(): void {
+    this.stopHeartbeat();
     try { this.ws?.close(); } catch { /* already gone */ }
     this.ws = null;
     this._connected = false;
   }
+
+  /** THE RETURN PATH: a semantic command to the FC. The bridge owns the
+   * frame canon and the CRC — the panel sends semantics, never raw bytes. */
+  sendCommand(cmdId: number, payload: number[] = []): boolean {
+    if (!this._connected || !this.ws) return false;
+    const bytes = new Uint8Array(9);  // the canon's payload is always 9 bytes
+    bytes.set(payload.slice(0, 9), 0);
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+    try {
+      this.ws.send(JSON.stringify({ type: "ZOLA_COMMAND", cmd_id: cmdId, payload_hex: hex }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The master kill-switch: EMERGENCY DISARM — no token, every mode. */
+  emergencyDisarm(): boolean {
+    return this.sendCommand(HIL_CMD.EMERGENCY_DISARM);
+  }
+
+  /** Arm with the interlock token (an accidental arm is a launch). */
+  arm(): boolean {
+    return this.sendCommand(HIL_CMD.ARM, [HIL_CMD.ARM_TOKEN]);
+  }
+
+  /** The heartbeat — the ground station must send this ≥ 2 Hz or the
+   * failsafe descends her. Pings whenever the socket is up (harmless while
+   * disarmed). */
+  startHeartbeat(intervalMs = 250): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => this.sendCommand(HIL_CMD.HEARTBEAT), intervalMs);
+  }
+
+  stopHeartbeat(): void {
+    if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+  }
+
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 }
 
-/** React hook: the latest flight frame + live fps, re-rendered at 10 Hz
- * (the HUD does not need 100 re-renders/s — the DATA is 100 Hz, the paint
- * is 10). */
+/** React hook: the latest flight frame + live fps + the LINK ITSELF (the
+ * HUD's kill-switch calls through it), re-rendered at 10 Hz — the DATA is
+ * 100 Hz, the paint is 10. */
 export function useHilTelemetry(url: string = HIL_WS_URL): {
-  frame: HilFrame | null; fps: number; connected: boolean;
+  frame: HilFrame | null; fps: number; connected: boolean; link: HilTelemetryLink | null;
 } {
   const linkRef = useRef<HilTelemetryLink | null>(null);
   const [state, setState] = useState<{ frame: HilFrame | null; fps: number; connected: boolean }>(
     { frame: null, fps: 0, connected: false },
   );
+  const [linkReady, setLinkReady] = useState(0);
   const [, force] = useState(0);
 
   useEffect(() => {
     const link = new HilTelemetryLink(url);
     linkRef.current = link;
+    setLinkReady((n) => n + 1);  // the ref is live — re-render so callers see it
     const paint = setInterval(() => {
       setState({ frame: link.frame, fps: link.fps, connected: link.connected });
       force((n) => n + 1);
     }, 100);
     link.connect(
-      () => setState({ frame: link.frame, fps: link.fps, connected: link.connected }),
+      () => {
+        // THE GROUND STATION'S FAILSAFE DUTY: while the panel listens, it
+        // pulses the heartbeat — silence longer than 500 ms descends her
+        link.startHeartbeat();
+        setState({ frame: link.frame, fps: link.fps, connected: link.connected });
+      },
       () => setState((s) => ({ ...s, connected: false })),
     );
     return () => { clearInterval(paint); link.disconnect(); };
   }, [url]);
 
-  return state;
+  return { ...state, link: linkReady >= 0 ? linkRef.current : null };
 }

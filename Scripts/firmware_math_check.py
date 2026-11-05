@@ -19,6 +19,7 @@ firmware/zola_fc/zola_engine.cpp must stay 1:1 with these routines:
 Run: python Scripts/firmware_math_check.py
 """
 import math
+import os
 import random
 import struct
 import sys
@@ -369,6 +370,39 @@ def test_cascade():
 
 
 # ----------------------------------------------------------- packet canon
+def test_command_canon():
+    print("THE COMMAND CANON (16 bytes, the return path):")
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bridge"))
+    from zola_bridge import (build_command_frame, parse_command_frame,
+                             CMD_HEADER, CMD_FOOTER, CMD_CRC_SPAN,
+                             CMD_HEARTBEAT, CMD_ARM, CMD_EMERGENCY_DISARM, ARM_TOKEN)
+
+    frame = build_command_frame(CMD_ARM, bytes([ARM_TOKEN, 0, 0, 0, 0, 0, 0, 0, 0]))
+    check("command frame is 16 bytes", len(frame) == 16, str(len(frame)))
+    check("wire header bytes are CA FE", frame[0] == 0xCA and frame[1] == 0xFE)
+    check("wire footer bytes are EF AC", frame[14] == 0xEF and frame[15] == 0xAC)
+    # CRC over bytes 0..11 — and the parse round-trips
+    parsed = parse_command_frame(frame)
+    check("command parse round-trips", parsed == {"cmd_id": CMD_ARM,
+          "payload": bytes([ARM_TOKEN, 0, 0, 0, 0, 0, 0, 0, 0])}, str(parsed))
+    # corruption: flip one payload bit — the parse must REJECT (the draft
+    # obeyed any header-matching garbage; a flipped ARM bit is a crash)
+    bad = bytearray(frame); bad[5] ^= 0x01
+    check("corrupt command rejected", parse_command_frame(bytes(bad)) is None)
+    # wrong length rejected
+    check("short command rejected", parse_command_frame(frame[:15]) is None)
+    # the payload layouts: the arm token rides byte 0; the PID payload is
+    # axis-mask + two floats (9 bytes = 1 + 4 + 4)
+    import struct as _s
+    pid_payload = _s.pack("<Bff", 0x3, 1.2, 0.05)  # mask: roll|pitch
+    check("PID payload is 9 bytes", len(pid_payload) == 9)
+    f = build_command_frame(0x04, pid_payload)
+    check("PID frame round-trips", parse_command_frame(f)["payload"] == pid_payload)
+    # the waypoint payload: 4 x int16 + flags = 9 bytes
+    wp = _s.pack("<4hB", 100, -50, 200, 900, 0)
+    check("waypoint payload is 9 bytes", len(wp) == 9)
+
+
 def test_packet_canon():
     print("PACKET CANON (36 bytes):")
     header, seq, ts = 0xFBFA, 7, 123456
@@ -394,6 +428,7 @@ def main():
     test_dshot()
     test_dshot_driver()
     test_cascade()
+    test_command_canon()
     test_packet_canon()
     print(f"\nfirmware math mirror: {PASS} pass, {FAIL} fail")
     sys.exit(1 if FAIL else 0)

@@ -54,6 +54,10 @@ const bridge = spawn(process.platform === "win32" ? "python" : "python3",
   { cwd: repo, stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PYTHONUTF8: "1" } });
 bridge.stderr.on("data", (d) => process.stderr.write(`[bridge] ${d}`));
+// the bridge's stdout is the closed loop's evidence: the SimFC logs every
+// command it receives after the bridge forwards it
+let bridgeLog = "";
+bridge.stdout.on("data", (d) => { bridgeLog += d.toString(); });
 
 const guard = setTimeout(() => fail(`the test never completed within ${SAMPLE_MS + 12000} ms`), SAMPLE_MS + 12000);
 const frames = [];
@@ -84,6 +88,17 @@ function onMessage(event) {
 }
 
 function onOpen() {
+  // THE COMMAND ROUND TRIP, part 1 — sent 600 ms after connect: an operator
+  // commands an FC she has HEARD (the bridge learns the FC's return address
+  // from its first telemetry datagram; a command sent before that has no
+  // route, and the bridge drops it — correctly).
+  setTimeout(() => {
+    ws.send(JSON.stringify({
+      type: "ZOLA_COMMAND",
+      cmd_id: 2,
+      payload_hex: "00".repeat(9),
+    }));
+  }, 600);
   // an INDEPENDENT second FC: our OWN datagrams, with values the bridge
   // never generated — proving the decode is real, not an echo of the sim
   const sock = createSocket("udp4");
@@ -107,7 +122,12 @@ function onOpen() {
     if (!ours.length) fail("our independent datagrams never arrived decoded — the bridge is echoing, not parsing");
     if (!sawSourceIp) fail("source_ip missing — the mesh node identity was dropped");
     console.log(`HIL-UDP: our datagrams decoded: ${ours.length} (last our-seq ${ourLastSeq}), total ${frames.length}`);
-    console.log("HIL-UDP PASS — the wireless lane is live end to end");
+    // THE COMMAND ROUND TRIP, part 2: the SimFC must have LOGGED the disarm
+    if (!bridgeLog.includes("[SimFC] COMMAND RECEIVED id=0x02")) {
+      fail(`the emergency-disarm never reached the FC — the closed loop is broken. Log:\n${bridgeLog.slice(-600)}`);
+    }
+    console.log("HIL-UDP: the panel's EMERGENCY DISARM reached the FC through the full loop (panel → bridge → FC)");
+    console.log("HIL-UDP PASS — the wireless lane is live end to end, both directions");
     ws.close();
     bridge.kill();
     process.exit(0);

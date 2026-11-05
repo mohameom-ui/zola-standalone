@@ -40,6 +40,7 @@
 #include "esp32-hal-rmt.h"
 #include "zola_dshot.h"
 #include "zola_udp.h"
+#include "zola_failsafe.h"
 
 // THE WIRELESS FALLBACK: 1 = the telemetry task broadcasts every packet to
 // the Wi-Fi mesh as well as USB (the two lanes are byte-identical by
@@ -360,6 +361,23 @@ static void flight_control_task(void*) {
         for (int i = 0; i < 4; i++) raw += analogRead(PIN_BATT_ADC);
         s.battery_mv = (uint16_t)((raw / 4) * 3300 / 4095 * BATT_DIVIDER);
 
+        // THE WATCHDOG: the link's death is checked here, on the flight core,
+        // every cycle — 500 ms without a valid command while armed → descent
+        zola_failsafe::check_watchdog(millis());
+
+        // THE MODE IS THE FIRST GATE — this is what the draft never wired:
+        // a parsed command that nothing enforces is a decoration. The mode
+        // can override the cascade outright (disarm / descent).
+        uint16_t mode_throttle[4];
+        if (zola_failsafe::enforce(millis(), (float)THROTTLE_HOVER_US, mode_throttle)) {
+            for (int i = 0; i < 4; i++) { motors[i] = mode_throttle[i]; s.motors[i] = mode_throttle[i]; }
+            rate_roll.reset(); rate_pitch.reset(); rate_yaw.reset();
+            publish_flight(s);
+            dshot_send_all(s.motors);
+            vTaskDelayUntil(&last, period);
+            continue;   // the cascade never ran this cycle — the mode owns it
+        }
+
         // THE CASCADE (v3): angle error → target rates → rate PID → mixer.
         // Level hold: the target attitude is 0°/0° (the bench phase adds a
         // real attitude setpoint); yaw holds zero RATE (heading hold needs
@@ -398,7 +416,20 @@ static void telemetry_task(void*) {
     uint32_t seq = 0;
     TickType_t last = xTaskGetTickCount();
     const TickType_t period = pdMS_TO_TICKS(1000 / TELEMETRY_HZ);
+    uint8_t rxBuf[128];
     for (;;) {
+        // THE RETURN PATH: read the ground station's commands — USB serial
+        // and the UDP socket both, feeding the same parser (core 0 owns I/O)
+        size_t n = 0;
+        while (Serial.available() && n < sizeof(rxBuf)) rxBuf[n++] = Serial.read();
+        if (n) zola_failsafe::feed_bytes(rxBuf, n);
+#if ZOLA_UDP_TELEMETRY
+        uint8_t dgram[64];
+        size_t dgram_len;
+        while ((dgram_len = zola_udp::poll_inbound(dgram, sizeof(dgram))) > 0) {
+            zola_failsafe::feed_bytes(dgram, dgram_len);
+        }
+#endif
         FlightState s = snapshot_flight();
         pkt.sequence_id = ++seq;
         pkt.timestamp_us = micros();
@@ -436,6 +467,25 @@ void setup() {
     // four RMT TX channels — one per DShot line (the module owns the tick:
     // 50 ns, ratio-encoded — the bench scope verifies the absolute rate)
     for (int pin : MOTOR_PINS) zola_dshot::init((gpio_num_t)pin);
+
+    // THE FAILSAFE'S HOOKS: the arm gate ("may she arm right now?") and the
+    // gain setter (the ground station's UPDATE_PID payload lands here). The
+    // gate reads the PUBLISHED state — the SPI bus belongs to core 1's flight
+    // loop alone; the gate must never touch it from the command path.
+    zola_failsafe::set_arm_gate([]() -> bool {
+        FlightState s = snapshot_flight();
+        return s.imu_alive && (s.battery_mv == 0 || s.battery_mv > BATT_CUTOFF_MV);
+    });
+    zola_failsafe::set_gain_hook([](const uint8_t* p) {
+        const uint8_t axis_mask = p[0] & 0x7;
+        float kp, ki;
+        memcpy(&kp, p + 1, 4);
+        memcpy(&ki, p + 5, 4);
+        if (axis_mask & 0x1) { rate_roll.kp = kp; rate_roll.ki = ki; }
+        if (axis_mask & 0x2) { rate_pitch.kp = kp; rate_pitch.ki = ki; }
+        if (axis_mask & 0x4) { rate_yaw.kp = kp; rate_yaw.ki = ki; }
+        Serial.printf("[Zola Tune] rate gains updated (mask 0x%X): kp=%.3f ki=%.3f\n", axis_mask, kp, ki);
+    });
 
     // THE CORE FLIP (this spec's allocation): flight control OWNS core 1 at
     // high priority; telemetry and comms ride core 0.

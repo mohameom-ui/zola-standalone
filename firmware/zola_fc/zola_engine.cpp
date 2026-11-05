@@ -38,6 +38,7 @@
 #include <Wire.h>
 #include "esp32-hal.h"
 #include "esp32-hal-rmt.h"
+#include "zola_dshot.h"
 
 // ------------------------------------------------------------------ config
 static constexpr uint16_t PKT_HEADER   = 0xFBFA;  // wire bytes FA FB (LE)
@@ -121,36 +122,18 @@ uint16_t calculate_zola_crc(const uint8_t* data, size_t length) {
 }
 
 // ------------------------------------------------------------------- DShot
-// DShot600: 600 kbit/s, 16-bit frame [11-bit throttle][telemetry bit][4-bit
-// CRC], one bit = 1.667 us. High time 1250 ns for '1', 625 ns for '0'
-// (RMT ticks at 100 ns: 12/5 and 6/11 — the 12.5→12 rounding is inside the
-// ESC's tolerance until the bench says otherwise).
-static rmt_data_t dshot_symbols[16 * 2];
-
-static uint16_t dshot_frame(uint16_t throttle_11bit, bool telemetry_req) {
-    uint16_t value = (throttle_11bit << 1) | (telemetry_req ? 1 : 0);
-    uint16_t crc = ((value ^ (value >> 4) ^ (value >> 8)) & 0xF) << 12;
-    return value | crc;
-}
-
-static void dshot_encode(uint16_t frame) {
-    for (int bit = 15; bit >= 0; bit--) {
-        bool one = frame & (1 << bit);
-        dshot_symbols[(15 - bit) * 2].duration0 = one ? 12 : 6;
-        dshot_symbols[(15 - bit) * 2].level0 = 1;
-        dshot_symbols[(15 - bit) * 2].duration1 = one ? 5 : 11;
-        dshot_symbols[(15 - bit) * 2].level1 = 0;
-    }
-}
+// The DShot600 driver lives in its own module now (zola_dshot.h/.cpp — the
+// motor-driver spec): correct MSB-first wire order, ratio-encoded waveform,
+// the reserved-command-band clamp. The engine's job is just the unit map:
+// mixer microseconds (1000-2000) → DShot 11-bit (48-2047) per motor.
+static const gpio_num_t MOTOR_PINS[4] = {PIN_MOTOR_FL, PIN_MOTOR_FR, PIN_MOTOR_RR, PIN_MOTOR_RL};
 
 static void dshot_send_all(const uint16_t throttle_us[4]) {
     for (int m = 0; m < 4; m++) {
         uint16_t us = constrain(throttle_us[m], THROTTLE_IDLE_US, THROTTLE_MAX_US);
-        uint16_t t11 = map(us, THROTTLE_IDLE_US, THROTTLE_MAX_US, 48, 2047);
-        dshot_encode(dshot_frame(t11, false));
-        rmtWrite(m == 0 ? PIN_MOTOR_FL : m == 1 ? PIN_MOTOR_FR
-                 : m == 2 ? PIN_MOTOR_RR : PIN_MOTOR_RL,
-                 dshot_symbols, 32, RMT_WAIT_FOR_EVER);
+        uint16_t t11 = map(us, THROTTLE_IDLE_US, THROTTLE_MAX_US, zola_dshot::THROTTLE_MIN, zola_dshot::THROTTLE_MAX);
+        zola_dshot::encode_msb_first(zola_dshot::prepare_packet(t11, false));
+        zola_dshot::send(MOTOR_PINS[m]);
     }
 }
 
@@ -434,11 +417,9 @@ void setup() {
         Wire.beginTransmission(0x68); Wire.write(MPU_ACCEL_CFG);  Wire.write(0x08); Wire.endTransmission();
     }
 
-    // four RMT TX channels at 100 ns tick — one per DShot line
-    for (int pin : {PIN_MOTOR_FL, PIN_MOTOR_FR, PIN_MOTOR_RR, PIN_MOTOR_RL}) {
-        rmtInit(pin, RMT_TX_MODE);
-        rmtSetTick(pin, 100);  // ns per tick
-    }
+    // four RMT TX channels — one per DShot line (the module owns the tick:
+    // 50 ns, ratio-encoded — the bench scope verifies the absolute rate)
+    for (int pin : MOTOR_PINS) zola_dshot::init((gpio_num_t)pin);
 
     // THE CORE FLIP (this spec's allocation): flight control OWNS core 1 at
     // high priority; telemetry and comms ride core 0.

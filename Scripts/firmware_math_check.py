@@ -163,6 +163,78 @@ def dshot_frame(throttle_11bit, telemetry_req=False):
     return value | (dshot_crc4(value) << 12)
 
 
+TICK_NS = 50  # mirrors zola_dshot.cpp's s_tick_ns
+zola_dshot_crc4 = dshot_crc4
+
+
+def zola_dshot_prepare(throttle, telemetry_request):
+    """Mirror of prepare_packet(): the CLAMPS are part of the contract —
+    0 stays DISARM, the reserved 1-47 band clamps to 48 (a runaway value can
+    never fire an ESC command by accident), 2048+ clamps to 2047."""
+    if throttle > 2047:
+        throttle = 2047
+    if 0 < throttle < 48:
+        throttle = 48
+    return dshot_frame(throttle, telemetry_request)
+
+
+def encode_msb_first(packet):
+    """Mirror of encode_msb_first(): a list of (high_ns, low_ns) per bit,
+    transmitted in order. MSB-FIRST — index 0 is bit 15."""
+    bit_ticks = 1667.0 / TICK_NS  # 33.34 @ 50 ns
+    one_high = round(0.75 * bit_ticks)
+    zero_high = round(0.375 * bit_ticks)
+    wire = []
+    for i in range(16):
+        one = packet & (0x8000 >> i)
+        high = one_high if one else zero_high
+        low = round(bit_ticks) - high
+        wire.append((high * TICK_NS, low * TICK_NS))
+    return wire
+
+
+def test_dshot_driver():
+    print("DSHOT600 DRIVER (wire order, ratios, reserved band):")
+    # MSB-FIRST: the first transmitted bit must be the frame's bit 15. The
+    # draft got this backwards (its loop wrote items[i] while iterating
+    # 15→0, reversing the frame on the wire — every ESC would read garbage).
+    wire = encode_msb_first(0b1000000000000000)
+    check("wire is MSB-first (bit 15 transmits first)", wire[0][0] > 800)  # a '1' is ~75% high
+    wire = encode_msb_first(0x0001)
+    check("wire is MSB-first (bit 0 transmits last)", wire[15][0] > 800 and wire[0][0] < 800)
+
+    # the spec's timing RATIOS hold for both bit types, and the bit period
+    # is constant — ESCs decode the high-fraction, so the tick scales safely
+    wire = encode_msb_first(0xFFFF)  # all '1' bits
+    periods = {h + l for h, l in wire}
+    check("all '1' bits share one period", len(periods) == 1, str(periods))
+    frac = wire[0][0] / (wire[0][0] + wire[0][1])
+    check("'1' high fraction ≈ 0.75", abs(frac - 0.75) < 0.02, f"{frac:.3f}")
+    wire = encode_msb_first(0x0000)  # all '0' bits
+    frac = wire[0][0] / (wire[0][0] + wire[0][1])
+    check("'0' high fraction ≈ 0.375", abs(frac - 0.375) < 0.02, f"{frac:.3f}")
+    bit_ns = wire[0][0] + wire[0][1]
+    check("bit period ≈ 1667 ns", abs(bit_ns - 1667) < 60, f"{bit_ns} ns")
+
+    # the reserved band: 0 = DISARM (preserved); 1-47 = ESC commands —
+    # clamped to 48 so a runaway value can never fire one by accident
+    check("throttle 0 stays DISARM", zola_dshot_prepare(0, False) == (0 << 4) | zola_dshot_crc4(0))
+    check("1-47 clamps to 48", zola_dshot_prepare(1, False) == zola_dshot_prepare(48, False)
+          and zola_dshot_prepare(47, False) == zola_dshot_prepare(48, False))
+    check("2048+ clamps to 2047", zola_dshot_prepare(3000, False) == zola_dshot_prepare(2047, False))
+    # the telemetry request bit rides bit 12 of the frame (bit 12 of the payload)
+    check("telemetry bit lands at frame bit 12",
+          (zola_dshot_prepare(48, True) >> 12) & 1 == 1 and (zola_dshot_prepare(48, False) >> 12) & 1 == 0)
+    # the draft's nibble-loop CRC and our fold form are the same function
+    for v in (0x001, 0xAAA, 0xFFF, 0x123, 0x7FF):
+        nibble_loop = 0
+        d = v
+        for _ in range(3):
+            nibble_loop ^= d & 0xF
+            d >>= 4
+        check(f"CRC forms agree for {hex(v)}", zola_dshot_crc4(v) == nibble_loop)
+
+
 def test_dshot():
     print("DSHOT600 frame + CRC4:")
     # known-value vectors: v=0 → crc folds to 0; the fold is idempotent-ish
@@ -320,6 +392,7 @@ def test_packet_canon():
 def main():
     test_madgwick()
     test_dshot()
+    test_dshot_driver()
     test_cascade()
     test_packet_canon()
     print(f"\nfirmware math mirror: {PASS} pass, {FAIL} fail")

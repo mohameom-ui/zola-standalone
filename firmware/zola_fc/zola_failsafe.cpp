@@ -77,12 +77,23 @@ Waypoint waypoint() {
     return w;
 }
 
-// the hooks the ENGINE fills (the failsafe module must not own the IMU or the PIDs)
+// the hooks the ENGINE fills (the failsafe module must not own the IMU,
+// the PIDs, or the blackbox)
 static bool (*s_can_arm)() = nullptr;
 void (*s_gain_hook)(const uint8_t* p) = nullptr;
+void (*s_dump_hook)() = nullptr;
 
 void set_arm_gate(bool (*gate)()) { s_can_arm = gate; }
 void set_gain_hook(void (*hook)(const uint8_t* p)) { s_gain_hook = hook; }
+void set_dump_hook(void (*hook)()) { s_dump_hook = hook; }
+
+void request_landing(const char* why) {
+    const FlightMode m = mode();
+    if (m == FlightMode::STABILIZED || m == FlightMode::AUTONOMOUS_MESH) {
+        set_mode(FlightMode::FAILSAFE_LAND, why);
+        s_descent_start = millis();
+    }
+}
 
 static void handle_command(uint8_t id, const uint8_t* p) {
     switch (id) {
@@ -132,15 +143,21 @@ static void handle_command(uint8_t id, const uint8_t* p) {
             if (s_gain_hook) s_gain_hook(p);
             break;
         }
+        case CMD_DUMP_BLACKBOX: {
+            // the observability lake pulls the log — ONLY when she is down:
+            // a dump's serial traffic would starve the flight link
+            if (mode() == FlightMode::DISARMED) {
+                if (s_dump_hook) s_dump_hook();
+            } else {
+                Serial.println("[Zola Blackbox] dump refused — she is not disarmed");
+            }
+            break;
+        }
         default:
             Serial.printf("[Zola Safety] unknown command 0x%02X — ignored\n", id);
             break;
     }
 }
-
-// the gain hook (set by the engine; the axis mask + kp + ki payload lands there)
-void (*s_gain_hook)(const uint8_t* p) = nullptr;
-void set_gain_hook(void (*hook)(const uint8_t* p)) { s_gain_hook = hook; }
 
 bool ingest(const uint8_t* frame, size_t len) {
     if (len != CMD_FRAME_SIZE) { s_bad_frames++; return false; }

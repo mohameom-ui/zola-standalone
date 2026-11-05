@@ -90,5 +90,10 @@ Waypoint waypoint();
 /// UPDATE_PID payload lands in the engine's PID objects).
 void set_arm_gate(bool (*gate)());
 void set_gain_hook(void (*hook)(const uint8_t* payload));
+void set_dump_hook(void (*hook)());
+
+/// The INTERNAL descent request — the thermal interlock (the PDB at 85°C)
+/// uses this to bring her home; the command path never calls it directly.
+void request_landing(const char* why);
 
 }  // namespace zola_failsafe

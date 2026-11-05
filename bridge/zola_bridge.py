@@ -57,8 +57,33 @@ def zola_crc(data: bytes) -> int:
     return crc
 
 
+def parse_pdb_frame(frame: bytes):
+    """THE PDB VARIANT (36 bytes, header FB FC): power/thermal telemetry —
+    decoded and routed as its own envelope; the flight canon is untouched."""
+    if len(frame) != PACKET_SIZE or frame[0] != 0xFB or frame[1] != 0xFC:
+        return None
+    seq = struct.unpack_from("<I", frame, 2)[0]
+    current_ma, power_cw, mah = struct.unpack_from("<HHH", frame, 6)
+    esc_temp = frame[12]
+    sag_mv = struct.unpack_from("<H", frame, 13)[0]
+    limit_pct = frame[15]
+    erpm = list(struct.unpack_from("<HHHH", frame, 16))
+    v_bus = struct.unpack_from("<H", frame, 24)[0]
+    flags = frame[26]
+    crc = struct.unpack_from("<H", frame, 34)[0]
+    if zola_crc(frame[:34]) != crc:
+        return None
+    return {
+        "sequence_id": seq, "current_ma": current_ma, "power_w": power_cw / 100.0,
+        "mah_used": mah, "esc_temp_max_c": esc_temp, "sag_mv": sag_mv,
+        "throttle_limit_pct": limit_pct, "erpm": erpm, "v_bus_mv": v_bus,
+        "thermal_brake": bool(flags & 1), "sag_limiting": bool(flags & 2),
+    }
+
+
 def parse_frame(frame: bytes):
-    """Validate + unpack one 36-byte frame. None = structurally invalid."""
+    """Validate + unpack one 36-byte flight frame. None = invalid. (The PDB
+    variant routes through parse_pdb_frame — the header is the type tag.)"""
     if len(frame) != PACKET_SIZE or frame[:2] != HEADER or frame[-2:] != FOOTER:
         return None
     header, seq, ts, roll, pitch, yaw, m1, m2, m3, m4, batt, crc, footer = UNPACK.unpack(frame)
@@ -141,7 +166,24 @@ class Bridge:
         self.clients: set = set()
         self.frames_ok = 0
         self.frames_bad = 0
+        self.dump_bytes = 0
         self.stats_interval = stats_interval
+
+    async def broadcast_pdb(self, data: dict):
+        """The PDB variant's envelope — power, thermal, eRPM, the sag state."""
+        message = json.dumps({
+            "type": "ZOLA_PDB_TELEMETRY",
+            "panel_id": "hil_telemetry_03",
+            "payload": data,
+        })
+        dead = []
+        for ws in self.clients:
+            try:
+                await asyncio.wait_for(ws.send(message), timeout=0.02)
+            except (asyncio.TimeoutError, Exception):
+                dead.append(ws)
+        for ws in dead:
+            self.clients.discard(ws)
 
     async def broadcast(self, data: dict, source_ip: str | None = None):
         message = json.dumps({
@@ -187,6 +229,24 @@ class Bridge:
             if not n:
                 continue
             buffer.extend(ser.read(n))
+            # THE DEMUX: the blackbox dump's chunks (FD 0D framing) share the
+            # stream with the telemetry frames — the dump lands in the
+            # observability lake (Saved/blackbox/), the frames stay frames.
+            # (The dump is USB-only — the wireless lane never carries it.)
+            while len(buffer) >= 12 and buffer[0] == 0xFD and buffer[1] == 0x0D:
+                seq, off, clen = struct.unpack_from("<HIH", buffer, 2)
+                if len(buffer) < 12 + clen:
+                    break  # the chunk is still arriving
+                chunk = bytes(buffer[10:10 + clen])
+                crc = struct.unpack_from("<H", buffer, 10 + clen)[0]
+                if zola_crc(bytes(buffer[:10 + clen])) == crc:
+                    os.makedirs("Saved/blackbox", exist_ok=True)
+                    with open("Saved/blackbox/dump.bin", "r+b" if os.path.exists("Saved/blackbox/dump.bin") else "wb") as f:
+                        f.seek(off); f.write(chunk)
+                    del buffer[:12 + clen]
+                    self.dump_bytes += clen
+                else:
+                    del buffer[:2]  # a bad dump chunk: resync
             while True:
                 start = buffer.find(HEADER)
                 if start < 0:
@@ -197,6 +257,16 @@ class Bridge:
                 if len(buffer) < PACKET_SIZE:
                     break
                 frame = bytes(buffer[:PACKET_SIZE])
+                # THE TYPE TAG: the flight canon (FA FB) vs the PDB variant (FB FC)
+                if frame[0] == 0xFB and frame[1] == 0xFC:
+                    data = parse_pdb_frame(frame)
+                    if data:
+                        del buffer[:PACKET_SIZE]
+                        self.frames_ok += 1
+                        await self.broadcast_pdb(data)
+                        continue
+                    del buffer[:2]
+                    continue
                 data = parse_frame(frame)
                 if data:
                     del buffer[:PACKET_SIZE]

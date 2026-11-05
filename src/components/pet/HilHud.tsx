@@ -8,9 +8,16 @@
 import { useHilTelemetry } from "@/lib/pet/hilTelemetry";
 
 export default function HilHud() {
-  const { frame, fps, connected, link } = useHilTelemetry();
+  const { frame, fps, connected, link, pdb } = useHilTelemetry();
   const batt = frame ? (frame.battery_mv / 1000).toFixed(2) : null;
   const low = frame ? frame.battery_mv < 10500 : false;
+  // THE SMART PDB READOUT: the 2 Hz power/thermal variant rides the same
+  // socket — amps, watts, the ESC's hottest temperature, the sag state
+  const pdbLine = pdb
+    ? `${(pdb.current_ma / 1000).toFixed(1)}A · ${pdb.power_w.toFixed(0)}W · ESC ${pdb.esc_temp_max_c}°C` +
+      (pdb.sag_limiting ? ` · SAG-LIMIT ${pdb.throttle_limit_pct}%` : "") +
+      (pdb.thermal_brake ? " · THERMAL BRAKE" : "")
+    : null;
 
   return (
     <div className="glass-soft rounded-xl p-2">
@@ -30,6 +37,7 @@ export default function HilHud() {
           <span>Y {frame.attitude.yaw.toFixed(1)}°</span>
           <span>M [{frame.motors.join(", ")}] µs</span>
           <span className={low ? "text-red-400" : ""}>BATT {batt} V{low ? " · LOW" : ""}</span>
+          {pdbLine && <span className={pdb?.thermal_brake ? "text-orange-400" : ""}>{pdbLine}</span>}
           {/* THE MASTER KILL-SWITCH: no token, every mode — killing must be easy */}
           <button
             onClick={() => { link?.emergencyDisarm(); }}

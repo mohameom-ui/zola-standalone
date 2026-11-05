@@ -429,6 +429,86 @@ def test_command_canon():
     check("waypoint payload is 9 bytes", len(wp) == 9)
 
 
+def test_blackbox_pdb_ota():
+    print("BLACKBOX + PDB + OTA MATH:")
+    PARTITION = 8 * 1024 * 1024
+    RECORD = 37  # 1 type + 36 payload
+
+    # THE RING ARITHMETIC (mirrors next_record_offset/wraps/capacity):
+    def next_record_offset(cursor, capacity=PARTITION):
+        off = cursor * RECORD
+        return 0 if off + RECORD > capacity else off
+    def wraps(cursor, capacity=PARTITION):
+        return cursor * RECORD + RECORD > capacity
+    def capacity(capacity=PARTITION):
+        return capacity // RECORD
+    check("capacity is floor-divided", capacity() == 8 * 1024 * 1024 // 37, str(capacity()))
+    check("record 0 sits at offset 0", next_record_offset(0) == 0)
+    last = capacity() - 1
+    check("the last record fits exactly", next_record_offset(last) + RECORD <= PARTITION)
+    check("the last record does NOT wrap", not wraps(last))
+    check("the cursor AT capacity wraps to 0", wraps(capacity()) and next_record_offset(capacity()) == 0)
+    check("the record PAST the ring wraps to 0", next_record_offset(last + 1) == 0)
+
+    # THE DSHOT TELEMETRY DECODE: the 3-byte GCR packet's 21-bit value = the
+    # electrical period in µs ÷ 4; eRPM = 60e6/period. A motor at 10,000 eRPM
+    # has a 6000 µs period → the value is 1500.
+    def erpm(gcr_value):
+        period = gcr_value * 4
+        return 0 if period == 0 else 60_000_000 // period
+    check("eRPM decode: 1500 → 10,000 eRPM", erpm(1500) == 10000)
+    check("eRPM decode: 0 → 0 (no telemetry)", erpm(0) == 0)
+    check("eRPM decode: 750 → 20,000", erpm(750) == 20000)
+
+    # THE mAh INTEGRAL: 5 A drawn for 72 s = 100 mAh
+    def mah_step(mah, current_ma, dt_s):
+        return mah + (current_ma * dt_s) / 3600.0
+    m = 0.0
+    for _ in range(3600):  # 72 s at 50 Hz
+        m = mah_step(m, 5000, 0.02)
+    check("mAh integral: 5 A × 72 s = 100 mAh", abs(m - 100.0) < 0.5, f"{m:.2f}")
+
+    # THE SAG LIMITER: at ≤300 mV sag the ceiling is 100%; deeper sag scales
+    # DOWN to a 55% floor — the loaded voltage never crosses the cutoff
+    def limit(sag_mv, ceiling=100):
+        guard = 300
+        if sag_mv <= guard:
+            return 100
+        return max(55, 100 - (sag_mv - guard) // 4)
+    check("no sag → 100%", limit(200) == 100)
+    check("the limiter's curve starts at the guard edge (320 mV → 95%)", limit(320) == 95)
+    check("the steep ramp reaches the floor fast (500 mV → 55%)", limit(500) == 55)
+    check("1.2 V sag → the 55% floor", limit(1200) == 55)
+    check("3 V sag → still the 55% floor (never zero)", limit(3000) == 55)
+
+    # THE PDB FRAME VARIANT: 36 bytes, the header FB FC is the TYPE TAG —
+    # the flight canon is untouched, the bridge and panel route by header
+    import struct as _s
+    pdb = bytearray(36)
+    pdb[0], pdb[1] = 0xFB, 0xFC
+    _s.pack_into("<I", pdb, 2, 1)      # seq
+    _s.pack_into("<H", pdb, 6, 8400)   # current mA
+    _s.pack_into("<H", pdb, 8, 9950)   # power cW (99.50 W)
+    _s.pack_into("<H", pdb, 10, 100)   # mAh
+    pdb[12] = 71                        # the ESC's max temp
+    _s.pack_into("<H", pdb, 13, 480)   # sag mV
+    pdb[15] = 88                        # the throttle ceiling %
+    for i in range(4):
+        _s.pack_into("<H", pdb, 16 + i * 2, 95)  # eRPM / 100 → 9500 eRPM
+    _s.pack_into("<H", pdb, 24, 11300)  # v bus
+    pdb[26] = 0x2                        # sag-limiting flagged
+    check("the PDB frame is 36 bytes", len(pdb) == 36)
+    check("the PDB header (FB FC) differs from the flight canon's (FA FB)",
+          (pdb[0], pdb[1]) == (0xFB, 0xFC))
+    check("PDB current reads back", _s.unpack_from("<H", pdb, 6)[0] == 8400)
+    check("PDB power is centi-watts", abs(_s.unpack_from("<H", pdb, 8)[0] * 0.01 - 99.5) < 1e-9)
+
+    # THE OTA PACKAGE: the tool's REAL ED25519 round trip is proven by its
+    # own selftest (valid verifies, one flipped image bit rejects). The
+    # firmware's commit() checks the digest FIRST, then the signature —
+    # order documented in zola_ota.h.
+
+
 def test_packet_canon():
     print("PACKET CANON (36 bytes):")
     header, seq, ts = 0xFBFA, 7, 123456
@@ -654,6 +734,7 @@ def main():
     test_packet_canon()
     test_nav_and_sensors()
     test_vision_and_swarm()
+    test_blackbox_pdb_ota()
     print(f"\nfirmware math mirror: {PASS} pass, {FAIL} fail")
     sys.exit(1 if FAIL else 0)
 

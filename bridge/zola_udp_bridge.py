@@ -90,6 +90,15 @@ class UdpBridge(Bridge):
             if len(data) != PACKET_SIZE:
                 self.frames_bad += 1
                 continue
+            # THE TYPE TAG: the flight canon vs the PDB variant (FB FC)
+            if data[0] == 0xFB and data[1] == 0xFC:
+                decoded = parse_pdb_frame(data)
+                if decoded:
+                    self.frames_ok += 1
+                    await self.broadcast_pdb(decoded)
+                else:
+                    self.frames_bad += 1
+                continue
             decoded = parse_frame(data)
             if decoded is None:
                 self.frames_bad += 1

@@ -59,6 +59,37 @@ static constexpr uint32_t TELEMETRY_HZ = 100;     // the Panel 3 contract
 static constexpr uint32_t FLIGHT_HZ    = 500;     // the spec's 2 ms flight loop
 static constexpr uint32_t BAUD         = 921600;
 
+// THE BLACKBOX'S STORAGE BINDING: the "zolalog" partition (8 MB) when the
+// partition CSV carries it, an in-RAM ring (128 KB) for the bench — the
+// LOGIC is identical, only the backing store differs.
+static uint8_t s_ram_log[128 * 1024];
+static bool ram_write(uint32_t off, const uint8_t* d, size_t len) {
+    if (off + len > sizeof(s_ram_log)) return false;
+    memcpy(s_ram_log + off, d, len);
+    return true;
+}
+static void ram_read(uint32_t off, uint8_t* out, size_t len) {
+    if (off + len <= sizeof(s_ram_log)) memcpy(out, s_ram_log + off, len);
+}
+static void bind_persistent_storage() {
+    const esp_partition_t* part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "zolalog");
+    if (part) {
+        zola_blackbox::bind_storage(
+            [part](uint32_t off, const uint8_t* d, size_t len) -> bool {
+                return esp_partition_write(part, off, d, len) == ESP_OK;
+            }, part->size);
+        zola_blackbox::bind_reader([part](uint32_t off, uint8_t* out, size_t len) {
+            esp_partition_read(part, off, out, len);
+        });
+        Serial.printf("[Zola Blackbox] flash partition: %u KB\n", (unsigned)(part->size / 1024));
+    } else {
+        zola_blackbox::bind_storage(ram_write, sizeof(s_ram_log));
+        zola_blackbox::bind_reader(ram_read);
+        Serial.println("[Zola Blackbox] no 'zolalog' partition — the RAM ring serves the bench");
+    }
+}
+
 // THE PIN MAP — REASSIGNED (the sensor-stack spec's merge decision): the
 // magnetometer/barometer live on I2C GPIO 8/9 "alongside the IMU" (this
 // spec's requirement) — one pin cannot serve two buses, so the SPI IMU's
@@ -456,6 +487,13 @@ static void flight_control_task(void*) {
                 heading_target = zola_sensors::heading_deg(); // hold THIS heading
                 zola_optical::capture_home();                 // hold THIS POSITION
             }
+            // THE EVENT TAG: every mode transition is timestamped in the
+            // blackbox — the post-flight FFT correlates against these marks
+            const uint8_t mode_detail[8] = {(uint8_t)now_mode};
+            zola_blackbox::log_event(
+                now_mode == zola_failsafe::FlightMode::FAILSAFE_LAND
+                    ? zola_blackbox::EVT_FAILSAFE : zola_blackbox::EVT_MODE_CHANGE,
+                millis(), mode_detail);
             last_mode = now_mode;
         }
         // THE VISION POSITION HOLD: when the flow + ToF are healthy, the
@@ -494,15 +532,46 @@ static void flight_control_task(void*) {
         }
         apply_motor_mix(base_us, corrR, corrP, corrY, motors);
 
+        // THE PDB at 50 Hz (every 10th flight cycle): the hall-effect
+        // current/power, the sag tracking, the mAh integral, the thermal state
+        if (++pdb_divider >= 10) { pdb_divider = 0; zola_pdb::poll(s.battery_mv); }
+        // THE SAG LIMITER: the mixer's ceiling scales with the bus sag so
+        // the loaded voltage never crosses the LiPo's premature-cutoff line
+        const uint16_t sag_max_us = zola_pdb::sag_limited_max_us(s.battery_mv, THROTTLE_MAX_US);
+        // THE THERMAL INTERLOCK: an ESC at 85°C+ brings her home — the PDB
+        // says so, the failsafe descends, the blackbox tags the event
+        if (zola_pdb::thermal_brake_required()) {
+            static uint32_t last_thermal_log = 0;
+            if (millis() - last_thermal_log > 2000) {
+                last_thermal_log = millis();
+                const uint8_t detail[8] = {zola_pdb::esc_temp_max_c()};
+                zola_blackbox::log_event(zola_blackbox::EVT_THERMAL_BRAKE, millis(), detail);
+                zola_failsafe::request_landing("ESC thermal limit reached");
+            }
+        }
         // THE LIPO FLOOR: below the cell floor, everything ramps to idle —
-        // the battery is never murdered to hold a hover
+        // the battery is never murdered to hold a hover (the sag limiter
+        // above already kept the ceiling honest under load)
         if (s.battery_mv && s.battery_mv < BATT_CUTOFF_MV) {
             for (auto& m : motors) m = THROTTLE_IDLE_US;
             rate_roll.reset(); rate_pitch.reset(); rate_yaw.reset();
         }
-        for (int i = 0; i < 4; i++) s.motors[i] = (uint16_t)constrain(motors[i], THROTTLE_IDLE_US, THROTTLE_MAX_US);
+        const uint16_t ceiling = min(sag_max_us, THROTTLE_MAX_US);
+        for (int i = 0; i < 4; i++) s.motors[i] = (uint16_t)constrain(motors[i], (float)THROTTLE_IDLE_US, (float)ceiling);
         publish_flight(s);
         dshot_send_all(s.motors);
+        // THE BLACKBOX: the telemetry frame lands in the ring at 100 Hz
+        // (every 5th flight cycle at 500 Hz) — events interleave separately
+        if (++log_divider >= 5) {
+            log_divider = 0;
+            ZolaTelemetryPacket bp; bp.header = PKT_HEADER; bp.footer = PKT_FOOTER;
+            bp.sequence_id = ++s_log_seq; bp.timestamp_us = micros();
+            bp.roll = s.roll; bp.pitch = s.pitch; bp.yaw = s.yaw;
+            bp.m1_throttle = s.motors[0]; bp.m2_throttle = s.motors[1];
+            bp.m3_throttle = s.motors[2]; bp.m4_throttle = s.motors[3];
+            bp.battery_mv = s.battery_mv; bp.crc16 = 0;
+            zola_blackbox::log_telemetry((uint8_t*)&bp);
+        }
         vTaskDelayUntil(&last, period);
     }
 }
@@ -512,6 +581,9 @@ static void flight_control_task(void*) {
 // broadcast is the fallback/second lane (zola_udp) — byte-identical frames
 // on both, so any ground station hears the same truth. The UDP send is
 // fire-and-forget: a dead radio can never stall the 100 Hz schedule.
+static uint8_t log_divider = 0, pdb_divider = 0, pdb_frame_divider = 0;
+static uint32_t s_log_seq = 0;
+
 static void telemetry_task(void*) {
     ZolaTelemetryPacket pkt;  // header/footer pre-set by the member defaults
     uint32_t seq = 0;
@@ -566,6 +638,27 @@ static void telemetry_task(void*) {
 #if ZOLA_UDP_TELEMETRY
         zola_udp::broadcast((uint8_t*)&pkt, sizeof(pkt));
 #endif
+
+        // THE PDB FRAME (2 Hz): power/thermal data is not flight-critical —
+        // a second packet variant (header FB FC) carries it; the canon is
+        // untouched, the bridge and the panel know the type by its header
+        if (++pdb_frame_divider >= 50) {
+            pdb_frame_divider = 0;
+            uint8_t pdb_frame[zola_pdb::PDB_FRAME_SIZE];
+            const size_t n = zola_pdb::build_frame(pdb_frame);
+            Serial.write(pdb_frame, n);
+#if ZOLA_UDP_TELEMETRY
+            zola_udp::broadcast(pdb_frame, n);
+#endif
+        }
+
+        // THE BLACKBOX DUMP (post-flight only — the command refuses while armed):
+        if (zola_blackbox::dump_active()) {
+            uint8_t chunk[256];
+            const size_t n = zola_blackbox::dump_next(chunk, sizeof(chunk));
+            if (n) Serial.write(chunk, n);
+        }
+
         vTaskDelayUntil(&last, period);
     }
 }
@@ -594,6 +687,16 @@ void setup() {
         Wire.beginTransmission(0x68); Wire.write(MPU_GYRO_CFG);   Wire.write(0x18); Wire.endTransmission();
         Wire.beginTransmission(0x68); Wire.write(MPU_ACCEL_CFG);  Wire.write(0x08); Wire.endTransmission();
     }
+
+    // THE BLACKBOX + THE PDB + THE OTA ROLLBACK GATE: the log's storage is
+    // bound (the "zolalog" partition when the CSV carries it, the RAM ring
+    // for the bench), the dump command is wired, the PDB's hall-effect
+    // front end comes up, and THIS boot's sensor handshake decides whether
+    // a freshly OTA'd bank sticks (the 10 s rollback backstop arms inside)
+    bind_persistent_storage();
+    zola_failsafe::set_dump_hook([]() { zola_blackbox::start_dump(); });
+    zola_pdb::init();
+    zola_ota::boot_health_gate(baro_ok || use_spi);
 
     // THE GYRO BIAS CALIBRATION (the spec's 3-second stationary startup):
     // the flight task's first 1500 cycles ARE the calibration — she must be

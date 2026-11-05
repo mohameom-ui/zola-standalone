@@ -171,7 +171,18 @@ Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
 | Backend pathfinder | `bridge/zola_pathfind.py` | NetworkX 3.6.1 A* over the FC's costmap (with a built-in A* fallback) — no-corner-cutting enforced; self-test: a wall routed around, path length > the blocked straight line |
 | Swarm mesh | `firmware/zola_fc/zola_swarm.h/.cpp` | ESP-NOW on 2.4 GHz, connectionless, NO router: 50 Hz encrypted state vectors (position, heading, waypoint index, battery, sequence); per-peer AES-128 (the LMKey — provisioned from the vault at bench, the DEV key for the bench mesh); THE ELECTION: the leader is the LOWEST LIVE node id — deterministic, every node computes it from its own peer table, zero chatter; the 200 ms timeout hands the crown over automatically |
 
-## 11. Honest boundaries
+## 11. The blackbox + power + OTA tier (the sixth spec)
+
+| Piece | File | Role |
+|---|---|---|
+| Blackbox | `firmware/zola_fc/zola_blackbox.h/.cpp` | the 8 MB ring buffer (37-byte records: a type byte + the 36-byte payload — flash partition "zolalog" when the CSV carries it, a 128 KB RAM ring for the bench); the telemetry frames at 100 Hz with EVENT tags interleaved (mode changes, failsafe, waypoint arrivals, calibration, thermal brake — timestamped); the ring arithmetic (floor capacity, the exact-fit last record, the wrap at cursor=capacity) asserted in the mirror; the DUMP command (0x05 — refused while armed, it would starve the flight link) streams offset-addressed CRC'd chunks the serial bridge DEMUXES into Saved/blackbox/ |
+| The FFT | `Scripts/blackbox_fft.py` | the post-flight spectral analyzer: numpy FFT on the euler-derived rate series, the resonance peaks → the dynamic-notch proposals; THE NYQUIST BOUNDARY documented: the 100 Hz log rate caps the analyzable band at 50 Hz — a 137 Hz resonance ALIASES (the demo proved it: it appeared at 37 Hz); resonances above 50 Hz need a faster logger. Self-test: a synthetic 31 Hz resonance found — PASS |
+| PDB | `firmware/zola_fc/zola_pdb.h/.cpp` | the INA226 hall-effect front end (current/power/mAh integral); the DShot telemetry decode (the 21-bit GCR value = period µs ÷ 4 → eRPM = 60e6/period — asserted); THE SAG LIMITER (the recent-minimum voltage tracking: 100% ceiling until 300 mV of sag, a steep ramp to the 55% floor — the loaded voltage never crosses the cutoff); THE THERMAL INTERLOCK (85°C → request_landing through the failsafe, tagged in the blackbox) |
+| The PDB frame | canon variant | 36 bytes with the header FB FC as the TYPE TAG — the flight canon untouched; the bridges route by header, the panel's HUD shows amps/watts/ESC-temp/sag live |
+| OTA | `firmware/zola_fc/zola_ota.h/.cpp` | dual-bank via the native ota_0/ota_1 (Update library — a failed flash never touches the running bank); the chunk protocol (START/DATA/COMMIT/ABORT frames); verification: the SHA-256 digest FIRST, then the signature — ED25519 (the TPM-vault key, flag-gated in the core) with the HMAC-SHA256 device-key floor; THE ROLLBACK: a 10-second esp_timer backstop — a new bank that fails the boot sensor handshake reboots into the previous bank automatically; a bricked fleet cannot happen |
+| OTA tool | `Scripts/zota_ota_tool.py` | REAL ED25519 signing (`cryptography` lib; the vault's key at production): sign/verify/selftest — the selftest signs, verifies, corrupts ONE image bit, and proves the rejection — PASS |
+
+## 12. Honest boundaries
 
 - `hardware_calibrated: false` — same contract as Isaac: the DShot600 RMT
   tick rounding, the rate-PID gains (1.2/0.05/0.03 roll+pitch, 2.5/0.1/0.0

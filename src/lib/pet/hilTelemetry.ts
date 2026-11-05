@@ -50,6 +50,27 @@ export function isValidHilFrame(p: unknown): p is HilFrame {
 export interface HilEnvelope { type: string; panel_id: string; payload: unknown }
 
 const VALID_TYPES = new Set(["ZOLA_TELEMETRY_UPDATE", "ZOLA_UDP_TELEMETRY"]);
+const VALID_PDB_TYPES = new Set(["ZOLA_PDB_TELEMETRY"]);
+
+/** The PDB variant's payload (the FB FC frame — power/thermal/eRPM). */
+export interface PdbFrame {
+  sequence_id: number; current_ma: number; power_w: number; mah_used: number;
+  esc_temp_max_c: number; sag_mv: number; throttle_limit_pct: number;
+  erpm: number[]; v_bus_mv: number; thermal_brake: boolean; sag_limiting: boolean;
+}
+
+export function parsePdbEnvelope(raw: string): PdbFrame | null {
+  try {
+    const msg = JSON.parse(raw) as HilEnvelope;
+    if (!VALID_PDB_TYPES.has(msg.type) || msg.panel_id !== HIL_PANEL_ID) return null;
+    const p = msg.payload as Record<string, unknown>;
+    if (typeof p.sequence_id !== "number" || typeof p.current_ma !== "number" ||
+        typeof p.esc_temp_max_c !== "number" || !Array.isArray(p.erpm)) return null;
+    return p as unknown as PdbFrame;
+  } catch {
+    return null;
+  }
+}
 
 export function parseHilEnvelope(raw: string): HilFrame | null {
   try {
@@ -66,12 +87,14 @@ export class HilTelemetryLink {
   private frameCount = 0;
   private rateStart = 0;
   private _frame: HilFrame | null = null;
+  private _pdb: PdbFrame | null = null;
   private _fps = 0;
   private _connected = false;
 
   constructor(private url: string = HIL_WS_URL) {}
 
   get frame(): HilFrame | null { return this._frame; }
+  get pdb(): PdbFrame | null { return this._pdb; }
   get fps(): number { return this._fps; }
   get connected(): boolean { return this._connected; }
 
@@ -85,7 +108,10 @@ export class HilTelemetryLink {
       onChange?.();
     };
     socket.onmessage = (ev) => {
-      const frame = parseHilEnvelope(typeof ev.data === "string" ? ev.data : "");
+      const raw = typeof ev.data === "string" ? ev.data : "";
+      const pdb = parsePdbEnvelope(raw);   // the PDB variant rides the same socket
+      if (pdb) this._pdb = pdb;
+      const frame = parseHilEnvelope(raw);
       if (!frame) return; // foreign or malformed traffic — ignored, never trusted
       this._frame = frame;
       this.frameCount++;
@@ -155,10 +181,11 @@ export class HilTelemetryLink {
  * 100 Hz, the paint is 10. */
 export function useHilTelemetry(url: string = HIL_WS_URL): {
   frame: HilFrame | null; fps: number; connected: boolean; link: HilTelemetryLink | null;
+  pdb: PdbFrame | null;
 } {
   const linkRef = useRef<HilTelemetryLink | null>(null);
-  const [state, setState] = useState<{ frame: HilFrame | null; fps: number; connected: boolean }>(
-    { frame: null, fps: 0, connected: false },
+  const [state, setState] = useState<{ frame: HilFrame | null; fps: number; connected: boolean; pdb: PdbFrame | null }>(
+    { frame: null, fps: 0, connected: false, pdb: null },
   );
   const [linkReady, setLinkReady] = useState(0);
   const [, force] = useState(0);
@@ -168,7 +195,7 @@ export function useHilTelemetry(url: string = HIL_WS_URL): {
     linkRef.current = link;
     setLinkReady((n) => n + 1);  // the ref is live — re-render so callers see it
     const paint = setInterval(() => {
-      setState({ frame: link.frame, fps: link.fps, connected: link.connected });
+      setState({ frame: link.frame, fps: link.fps, connected: link.connected, pdb: link.pdb });
       force((n) => n + 1);
     }, 100);
     link.connect(
@@ -176,7 +203,7 @@ export function useHilTelemetry(url: string = HIL_WS_URL): {
         // THE GROUND STATION'S FAILSAFE DUTY: while the panel listens, it
         // pulses the heartbeat — silence longer than 500 ms descends her
         link.startHeartbeat();
-        setState({ frame: link.frame, fps: link.fps, connected: link.connected });
+        setState({ frame: link.frame, fps: link.fps, connected: link.connected, pdb: link.pdb });
       },
       () => setState((s) => ({ ...s, connected: false })),
     );

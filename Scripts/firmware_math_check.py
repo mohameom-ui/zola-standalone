@@ -449,6 +449,74 @@ def test_packet_canon():
     check("bridge unpack reads the same battery", unpacked[10] == batt)
 
 
+def test_vision_and_swarm():
+    print("VISION + OBSTACLE + SWARM MATH:")
+
+    # THE PINHOLE CONVERSION: the flow's angular rate × height = velocity.
+    # The PMW3901's scale: 0.00061697 rad/count. At 2 m AGL, 100 counts/s
+    # sweeps 0.0617 rad → 0.123 m/s; at 20 m the SAME flow is 1.23 m/s —
+    # which is why the ToF closes the equation.
+    FLOW_RAD = 0.00061697
+    def flow_velocity(counts, dt, height_m):
+        return counts * FLOW_RAD * height_m / dt
+    check("flow @2 m: 100 counts/s → 0.123 m/s", abs(flow_velocity(100, 1.0, 2.0) - 0.12339) < 0.001,
+          f"{flow_velocity(100, 1.0, 2.0):.4f}")
+    check("flow @20 m: the same counts are 10× faster",
+          abs(flow_velocity(100, 1.0, 20.0) - flow_velocity(100, 1.0, 2.0) * 10) < 1e-9)
+
+    # THE COMPLEMENTARY VELOCITY FILTER: the accel integrates (and DRIFTS);
+    # the flow corrects. With a biased accel (+0.1 m/s² — a real IMU) and a
+    # true 1.0 m/s hover drift read by the flow, the fused velocity settles
+    # to the flow's truth, NOT the accel's runaway integration.
+    vx = 0.0; dt = 0.002; corrector = 2.0
+    true_v = 1.0
+    for _ in range(2500):  # 5 s
+        ax = 0.1  # the accel's bias: alone, it would integrate to +0.5 m/s
+        flow_v = true_v + _rng.gauss(0, 0.05)
+        vx += ax * dt
+        vx -= (vx - flow_v) * corrector * dt
+    check("velocity fusion rejects the accel bias", abs(vx - true_v) < 0.2, f"vx={vx:.3f}")
+
+    # THE EMERGENCY BRAKE: the 0.7 m threshold — an obstacle DEAD AHEAD
+    # (bearing 0°) brakes with PITCH; one on the RIGHT (bearing +90°) brakes
+    # with ROLL toward the left; the strength ramps as the distance closes.
+    BRAKE_KP, THRESH = 220.0, 0.7
+    def brake(dist_m, bearing_deg):
+        if dist_m >= THRESH:
+            return (0.0, 0.0)
+        strength = (THRESH - dist_m) / THRESH
+        mag = BRAKE_KP * strength
+        rad = math.radians(bearing_deg)
+        # (roll, pitch) µs — the SAME assignment as brake_override():
+        # pitch = mag·cos(bearing), roll = −mag·sin(bearing)
+        return (-mag * math.sin(rad), mag * math.cos(rad))
+    r, p = brake(0.3, 0.0)
+    check("dead-ahead obstacle: pitch brakes, roll is silent",
+          abs(p - 220.0 * (0.4 / 0.7)) < 1e-6 and abs(r) < 1e-6, f"r={r} p={p}")
+    r, p = brake(0.35, 90.0)
+    check("right-side obstacle: roll brakes LEFT",
+          abs(r + 220.0 * (0.35 / 0.7)) < 1e-6 and abs(p) < 1e-6, f"r={r} p={p}")
+    check("no braking outside the 0.7 m threshold", brake(0.71, 0.0) == (0.0, 0.0))
+    _, p1 = brake(0.6, 0.0); _, p2 = brake(0.3, 0.0)  # bearing 0: pitch is the active axis
+    check("the brake ramps as the obstacle closes", abs(p2) > abs(p1), f"{p1} → {p2}")
+
+    # THE LEADER ELECTION: the lowest LIVE id wins — deterministically, from
+    # every node's own table, with zero negotiation. A leader's timeout
+    # hands the crown to the next-lowest live id automatically.
+    def elect(my_id, peers):
+        # peers: {id: alive_seconds_since_seen} — 200 ms window
+        leader = my_id
+        for pid, age in sorted(peers.items()):
+            if age <= 0.2 and pid < leader:
+                leader = pid
+        return leader
+    check("the lowest live id leads", elect(5, {3: 0.05, 7: 0.1}) == 3)
+    check("a dead leader hands over (3 gone: 7 leads)", elect(9, {3: 0.5, 7: 0.1}) == 7)
+    check("alone on the mesh, she leads herself", elect(4, {}) == 4)
+    check("a peer INSIDE the 200 ms window counts", elect(5, {2: 0.19}) == 2)
+    check("a peer OUTSIDE the 200 ms window is dead", elect(5, {2: 0.21}) == 5)
+
+
 def test_nav_and_sensors():
     print("NAVIGATION + SENSOR MATH:")
     import math as m
@@ -585,6 +653,7 @@ def main():
     test_command_canon()
     test_packet_canon()
     test_nav_and_sensors()
+    test_vision_and_swarm()
     print(f"\nfirmware math mirror: {PASS} pass, {FAIL} fail")
     sys.exit(1 if FAIL else 0)
 

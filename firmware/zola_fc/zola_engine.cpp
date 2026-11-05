@@ -43,6 +43,9 @@
 #include "zola_failsafe.h"
 #include "zola_sensors.h"
 #include "zola_nav.h"
+#include "zola_optical.h"
+#include "zola_obstacle.h"
+#include "zola_swarm.h"
 
 // THE WIRELESS FALLBACK: 1 = the telemetry task broadcasts every packet to
 // the Wi-Fi mesh as well as USB (the two lanes are byte-identical by
@@ -371,6 +374,20 @@ static void flight_control_task(void*) {
         zola_sensors::mag_poll(mq[0], mq[1], mq[2], mq[3], gz, 1.f / FLIGHT_HZ);
         zola_sensors::report_imu(alive);
 
+        // THE VISION STACK: the optical flow + ToF velocity fusion needs the
+        // GRAVITY-FREE acceleration. The measured accel is the SPECIFIC FORCE
+        // f = a − g; the true acceleration is a = f + g_b, where g_b is the
+        // body-frame gravity (rotated by the quaternion). SIGN CHECKED: a
+        // nose-up rest reads f_x = −g·sinφ and g_b,x = +g·sinφ — they SUM to
+        // zero (a hovering craft is not accelerating). The mirror asserts it.
+        {
+            const float q0 = mq[0], q1 = mq[1], q2 = mq[2], q3 = mq[3];
+            const float gbx = 2.f*(q1*q3 - q0*q2)*(-9.81f);
+            const float gby = 2.f*(q2*q3 + q0*q1)*(-9.81f);
+            const float ax_lin = ax + gbx, ay_lin = ay + gby;
+            zola_optical::poll(ax_lin, ay_lin, 1.f / FLIGHT_HZ);
+        }
+
         FlightState s = snapshot_flight();
         s.imu_alive = alive;
         s.q[0] = mq[0]; s.q[1] = mq[1]; s.q[2] = mq[2]; s.q[3] = mq[3];
@@ -437,11 +454,19 @@ static void flight_control_task(void*) {
                 now_mode == zola_failsafe::FlightMode::AUTONOMOUS_MESH) {
                 alt_target = zola_sensors::altitude_m();      // hold HERE
                 heading_target = zola_sensors::heading_deg(); // hold THIS heading
+                zola_optical::capture_home();                 // hold THIS POSITION
             }
             last_mode = now_mode;
         }
-        float roll_target_rate  = alive ? ANGLE_KP_DPS_PER_DEG * (0.f - s.roll)  : 0.f;
-        float pitch_target_rate = alive ? ANGLE_KP_DPS_PER_DEG * (0.f - s.pitch) : 0.f;
+        // THE VISION POSITION HOLD: when the flow + ToF are healthy, the
+        // angle setpoints come from the POSITION error (drift 0.5 m right →
+        // bank left) instead of the hardcoded level — GPS-denied hovering
+        float hold_roll = 0.f, hold_pitch = 0.f;
+        if (alive && zola_optical::flow_healthy() && zola_optical::tof_healthy()) {
+            zola_optical::position_hold_angles(hold_roll, hold_pitch);
+        }
+        float roll_target_rate  = alive ? ANGLE_KP_DPS_PER_DEG * (hold_roll  - s.roll)  : 0.f;
+        float pitch_target_rate = alive ? ANGLE_KP_DPS_PER_DEG * (hold_pitch - s.pitch) : 0.f;
         // the heading hold through the SHORT ARC: a 350° → 10° error is +20°,
         // not −340° of spinning
         float heading_err = zola_sensors::heading_deg() - heading_target;
@@ -461,6 +486,12 @@ static void flight_control_task(void*) {
         float corrR = alive ? rate_roll .update(roll_target_rate,  gx, dt) : 0.f;
         float corrP = alive ? rate_pitch.update(pitch_target_rate, gy, dt) : 0.f;
         float corrY = alive ? rate_yaw  .update(yaw_target_rate,   gz, dt) : 0.f;
+        // THE EMERGENCY BRAKE: the OAK-D's 0.7 m override OUTRANKS the PID —
+        // its correction is added on top, pushing AWAY from the obstacle
+        float brakeR = 0.f, brakeP = 0.f;
+        if (zola_obstacle::brake_override(brakeR, brakeP)) {
+            corrR += brakeR; corrP += brakeP;
+        }
         apply_motor_mix(base_us, corrR, corrP, corrY, motors);
 
         // THE LIPO FLOOR: below the cell floor, everything ramps to idle —
@@ -493,6 +524,17 @@ static void telemetry_task(void*) {
         size_t n = 0;
         while (Serial.available() && n < sizeof(rxBuf)) rxBuf[n++] = Serial.read();
         if (n) zola_failsafe::feed_bytes(rxBuf, n);
+        // THE OAK-D's DETECTION STREAM: UART2 feeds the obstacle parser
+        while (Serial2.available()) {
+            uint8_t ob = (uint8_t)Serial2.read();
+            zola_obstacle::feed_bytes(&ob, 1);
+        }
+        // THE SWARM: the state vector broadcast at 50 Hz (the telemetry task
+        // owns the mesh — core 0)
+        zola_swarm::publish_local(zola_optical::position_x(), zola_optical::position_y(),
+                                  zola_sensors::altitude_m(), zola_sensors::heading_deg(),
+                                  zola_nav::waypoint_index(), pkt.battery_mv);
+        zola_swarm::poll(millis());
         // THE GPS: line-based NMEA off UART1 (100 Hz is far more than the
         // M8N's update rate — nothing is missed)
         while (Serial1.available()) {
@@ -560,6 +602,11 @@ void setup() {
 
     // THE GPS: UART1 @ 115200, the M8N's NMEA stream (the nav module parses)
     Serial1.begin(115200, SERIAL_8N1, PIN_GPS_RX, -1);
+    // THE VISION STACK + THE OAK-D's DETECTION STREAM (UART2) + THE SWARM
+    zola_optical::init();
+    Serial2.begin(115200, SERIAL_8N1, 16, 17);  // the OAK-D's obstacle frames
+    zola_swarm::set_node_id(1);
+    zola_swarm::init();
 
     // four RMT TX channels — one per DShot line (the module owns the tick:
     // 50 ns, ratio-encoded — the bench scope verifies the absolute rate)

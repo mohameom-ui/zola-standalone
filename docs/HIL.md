@@ -162,7 +162,16 @@ Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
 | The pin reassignment | `zola_engine.cpp` | THE MERGE DECISION: this spec needs I2C 8/9 for the mag/baro "alongside the IMU" — one pin cannot serve two buses, so the SPI IMU moved to 12/13/11/10; 8/9 are I2C-only (mag + baro always, the IMU's fallback too) |
 | The pre-arm gate | `zola_failsafe` + the engine | the FULL diagnostic before ARM may fire: live IMU · gyro bias calibrated · level within ±3.5° · battery ≥ 11.1 V (stricter than the 10.5 V in-flight floor) |
 
-## 10. Honest boundaries
+## 10. The vision + swarm tier (the fifth spec)
+
+| Piece | File | Role |
+|---|---|---|
+| Optical flow | `firmware/zola_fc/zola_optical.h/.cpp` | the PMW3901 (SPI, CS on 14) reports ANGULAR flow — the pinhole conversion (angular × the VL53L1X's ToF height = velocity) closes the GPS-denied positioning equation; the complementary velocity filter (the accel integrates, the flow corrects — a biased accel settles to the flow's truth); the ILLUMINATION VERDICT: a maxed shutter or low quality REJECTS the frame instead of drinking motion blur; the position hold feeds the cascade's angle setpoints (drift 0.5 m right → bank left) |
+| Depth + braking | `firmware/zola_fc/zola_obstacle.h/.cpp` | the OAK-D's compact 16-byte detection frames (UART2, CRC-verified); the LOCAL costmap (5 × 5 m, 0.5 m cells, the 3 m frustum); THE 0.7 m EMERGENCY BRAKE — a correction vector pushing AWAY from the obstacle, ramping as it closes, applied ON TOP of the PID before the mixer; the GLOBAL re-planning is the backend's job (below) — the FC never runs graphs |
+| Backend pathfinder | `bridge/zola_pathfind.py` | NetworkX 3.6.1 A* over the FC's costmap (with a built-in A* fallback) — no-corner-cutting enforced; self-test: a wall routed around, path length > the blocked straight line |
+| Swarm mesh | `firmware/zola_fc/zola_swarm.h/.cpp` | ESP-NOW on 2.4 GHz, connectionless, NO router: 50 Hz encrypted state vectors (position, heading, waypoint index, battery, sequence); per-peer AES-128 (the LMKey — provisioned from the vault at bench, the DEV key for the bench mesh); THE ELECTION: the leader is the LOWEST LIVE node id — deterministic, every node computes it from its own peer table, zero chatter; the 200 ms timeout hands the crown over automatically |
+
+## 11. Honest boundaries
 
 - `hardware_calibrated: false` — same contract as Isaac: the DShot600 RMT
   tick rounding, the rate-PID gains (1.2/0.05/0.03 roll+pitch, 2.5/0.1/0.0
@@ -177,6 +186,18 @@ Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
 - The magnetometer's tilt compensation uses the Madgwick quaternion —
   during a fast tumble the heading readout degrades (the mag is a slow
   sensor); the gyro carries those instants.
+- The VL53L1X's driver is the SIMPLIFIED bring-up (the essential init +
+  range poll); the full ST ultra-lite calibration sequence is the bench
+  phase — the ToF's 4 m envelope and its accuracy are bench numbers.
+- The PMW3901's FLOW_RAD_PER_COUNT (0.00061697 rad/count) is the vendor's
+  angular scale — the bench verifies it against a known-speed slide.
+- The optical flow's position hold requires TEXTURED ground — over water,
+  sand, or a featureless floor the flow degrades and the hold silently
+  reverts to plain level (the health gates handle it, but the drift
+  protection is gone — that is physics, not code).
+- The swarm's DEV key is compiled in for the bench; PRODUCTION keys are
+  provisioned from the vault per node, and an encryption-less peer is
+  dropped by the radio itself.
 - The firmware's stabilization is a level-hold baseline with zero-rate yaw
   (heading hold needs a reference — the bench phase adds it).
 - The websockets 14.2 timer distortion we measured on Windows (a

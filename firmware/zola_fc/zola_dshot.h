@@ -1,5 +1,6 @@
 // zola_dshot.h — THE DSHOT600 DRIVER (module interface)
-// One RMT TX channel per motor line (the ESP32-S3 has 8; we use 4).
+// One RMT channel per motor line (the ESP32-S3 has 8 TX channels; we use 4)
+// as rmt_obj_t handles — the compile taught us the wrapper's true shape.
 // The pulse timing lives entirely in the RMT hardware — the CPU's only job
 // per frame is building 32 rmt symbols, so the 500 Hz flight loop never
 // stalls on wire timing and the pulses carry no software jitter.
@@ -32,11 +33,10 @@ uint16_t crc4(uint16_t payload_12bit);
 /// tick duration scales the whole waveform without breaking the decode.
 void encode_msb_first(uint16_t packet);
 
-/// One-shot init: rmtInit + tick setup per motor pin. Call once in setup().
-void init(gpio_num_t motor_pin);
+/// One-shot init per motor (index 0-3, its GPIO). Call once in setup().
+bool init(int motor_index, gpio_num_t motor_pin);
 
-/// Write the current encoded frame to one motor's channel (non-blocking
-/// from the CPU's perspective — RMT hardware clocks the symbols out).
-void send(gpio_num_t motor_pin);
+/// Write the current encoded frame to one motor's channel.
+void send(int motor_index);
 
 }  // namespace zola_dshot

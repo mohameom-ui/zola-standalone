@@ -14,6 +14,8 @@
 //   3. THE API: the draft used the IDF-v4 legacy rmt_config/rmt_write_items
 //      API. This codebase standardizes on the Arduino-ESP32 RMT wrapper
 //      (rmtInit/rmtSetTick/rmtWrite) — one API across the whole firmware.
+//      NOTE (the compile's lesson): the wrapper wants rmt_obj_t HANDLES —
+//      one per motor line — not bare GPIO numbers.
 //
 // PROTOCOL NOTES:
 //   * Throttle 0 is the DISARM command — preserved, never clamped.
@@ -41,6 +43,7 @@ uint16_t prepare_packet(uint16_t throttle, bool telemetry_request) {
 // the waveform: RMT symbol pairs (high ticks, low ticks) at the configured
 // tick — one pair per bit, 16 bits = 32 symbols, MSB transmitted first
 static rmt_data_t symbols[16 * 2];
+static rmt_obj_t* s_rmt[4] = {nullptr, nullptr, nullptr, nullptr};
 static uint16_t s_tick_ns = 50;  // the RMT tick — the bench scope verifies it
 
 void encode_msb_first(uint16_t packet) {
@@ -59,13 +62,19 @@ void encode_msb_first(uint16_t packet) {
     }
 }
 
-void init(gpio_num_t motor_pin) {
-    rmtInit(motor_pin, RMT_TX_MODE);
-    rmtSetTick(motor_pin, s_tick_ns);
+bool init(int motor_index, gpio_num_t motor_pin) {
+    if (motor_index < 0 || motor_index > 3) return false;
+    // the Arduino wrapper's signature: rmtInit(pin, tx?, memory block) —
+    // RMT_MEM_64 (64 × 32-bit symbols) is ample for a 32-symbol frame
+    s_rmt[motor_index] = rmtInit((int)motor_pin, true, RMT_MEM_64);
+    if (!s_rmt[motor_index]) return false;
+    rmtSetTick(s_rmt[motor_index], (uint8_t)s_tick_ns);
+    return true;
 }
 
-void send(gpio_num_t motor_pin) {
-    rmtWrite(motor_pin, symbols, 16 * 2, RMT_WAIT_FOR_EVER);
+void send(int motor_index) {
+    if (motor_index < 0 || motor_index > 3 || !s_rmt[motor_index]) return;
+    rmtWrite(s_rmt[motor_index], symbols, 16 * 2);
 }
 
 }  // namespace zola_dshot

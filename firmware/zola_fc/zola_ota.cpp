@@ -13,6 +13,7 @@
 #include "mbedtls/sha256.h"
 #include "mbedtls/md.h"
 #include <string.h>
+#include "zola_crc.h"
 
 namespace zola_ota {
 
@@ -32,6 +33,7 @@ static void fail(const char* why) {
 }
 
 const char* last_error() { return s_err; }
+bool streaming() { return s_streaming; }
 
 bool begin_start(uint32_t total_size) {
     s_err[0] = 0;
@@ -47,7 +49,7 @@ bool begin_start(uint32_t total_size) {
 bool feed_data(const uint8_t* data, size_t len) {
     if (!s_streaming) { fail("no OTA in progress"); return false; }
     mbedtls_sha256_update(&s_sha, data, len);
-    const size_t wrote = Update.write(data, len);
+    const size_t wrote = Update.write(const_cast<uint8_t*>(data), len);  // the Update API takes a non-const buffer — the compile's lesson
     s_written += wrote;
     if (wrote != len) { fail("flash write short"); return false; }
     return true;
@@ -112,10 +114,71 @@ static void rollback_timer_fire(void*) {
 static esp_timer_handle_t s_rollback_timer = nullptr;
 static bool s_gate_armed = false;
 
+// ------------------------------------------------- the inbound stream
+// THE OTA FRAME: [0F 0D][phase][seq u16][total u32][offset u32][len u16]
+//                [payload len][crc16 over the prefix+payload]
+// The commit's payload carries the 32-byte digest + the 64-byte signature.
+static constexpr size_t OTA_PREFIX = 15;  // 2 hdr + 1 phase + 2 seq + 4 total + 4 offset + 2 len
+// the BIGGEST frame: commit = header + 32-byte digest + 64-byte ED25519
+// signature + 2 crc = 112 — the buffer must hold it whole
+static uint8_t s_obuf[128];
+static size_t s_olen = 0;
+
+void feed_bytes(const uint8_t* data, size_t len) {
+    while (len--) {
+        if (s_olen < sizeof(s_obuf)) s_obuf[s_olen++] = *data;
+        else { memmove(s_obuf, s_obuf + 1, sizeof(s_obuf) - 1); s_obuf[sizeof(s_obuf) - 1] = *data; }
+        if (s_olen < 2) continue;
+        if (!(s_obuf[0] == 0x0F && s_obuf[1] == 0x0D)) {
+            memmove(s_obuf, s_obuf + 1, s_olen - 1); s_olen--;  // not ours — skip
+            continue;
+        }
+        if (s_olen < OTA_PREFIX) continue;  // the fixed prefix is still arriving
+        const uint8_t phase = s_obuf[2];
+        uint16_t declared; memcpy(&declared, s_obuf + 13, 2);
+        const size_t frame_len = OTA_PREFIX + declared + 2;
+        if (frame_len > sizeof(s_obuf)) { memmove(s_obuf, s_obuf + 1, s_olen - 1); s_olen--; continue; }
+        if (s_olen < frame_len) continue;  // the payload is still arriving
+        const uint16_t crc = calculate_zola_crc(s_obuf, OTA_PREFIX + declared);
+        uint16_t wire_crc; memcpy(&wire_crc, s_obuf + OTA_PREFIX + declared, 2);
+        if (wire_crc != crc) { memmove(s_obuf, s_obuf + 1, s_olen - 1); s_olen--; continue; }
+        const uint8_t* payload = s_obuf + OTA_PREFIX;
+        switch (phase) {
+            case PHASE_START: {
+                uint32_t total; memcpy(&total, s_obuf + 5, 4);
+                begin_start(total);
+                break;
+            }
+            case PHASE_DATA: {
+                feed_data(payload, declared);
+                break;
+            }
+            case PHASE_COMMIT: {
+                // the commit's payload: the 32-byte digest + the signature
+                if (declared >= 32) commit(payload, payload + 32, declared - 32);
+                break;
+            }
+            case PHASE_ABORT:
+                abort_update();
+                break;
+        }
+        memmove(s_obuf, s_obuf + frame_len, s_olen - frame_len);
+        s_olen -= frame_len;
+    }
+}
+
 void boot_health_gate(bool sensors_healthy) {
     if (!s_gate_armed) {
         // arm the 10 s backstop the moment the gate is first consulted
-        const esp_timer_create_args_t args = {"zola_rollback", rollback_timer_fire, nullptr, nullptr, nullptr};
+        // (the args struct is designated-initializer territory — the compile
+        // taught the field order)
+        const esp_timer_create_args_t args = {
+            .callback = &rollback_timer_fire,
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "zola_rollback",
+            .skip_unhandled_events = true,
+        };
         esp_timer_create(&args, &s_rollback_timer);
         esp_timer_start_once(s_rollback_timer, 10ULL * 1000000ULL);  // 10 s in µs
         s_gate_armed = true;

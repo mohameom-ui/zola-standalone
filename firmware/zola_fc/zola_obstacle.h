@@ -28,5 +28,6 @@ uint8_t costmap_cell(float forward_m, float lateral_m);  // 1 = occupied
 void costmap_snapshot(uint8_t* out, size_t max);         // row-major 11×11
 
 bool recently_seen(uint32_t within_ms);
+bool brake_active();   // the braking override's current state (the telemetry annex)
 
 }  // namespace zola_obstacle

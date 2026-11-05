@@ -8,6 +8,7 @@
 // mesh — the FC asks, the backend answers; the FC never runs graphs.
 
 #include "zola_obstacle.h"
+#include "zola_crc.h"
 
 namespace zola_obstacle {
 
@@ -30,7 +31,7 @@ static float s_obs_bearing_deg = 0.f;              // 0 = dead ahead
 static float s_obs_dist_m = 999.f;
 static bool s_braking = false;
 
-extern uint16_t calculate_zola_crc(const uint8_t* data, size_t length);
+using ::calculate_zola_crc;  // the global CRC — the namespace must not own it
 
 static uint8_t s_buf[DETECT_FRAME_SIZE * 2];
 static size_t s_len = 0;
@@ -96,5 +97,6 @@ void costmap_snapshot(uint8_t* out, size_t max) {
 }
 
 bool recently_seen(uint32_t within_ms) { return (millis() - s_last_seen) < within_ms; }
+bool brake_active() { return s_braking; }
 
 }  // namespace zola_obstacle

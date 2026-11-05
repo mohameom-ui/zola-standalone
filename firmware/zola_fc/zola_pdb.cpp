@@ -15,6 +15,7 @@
 #include "zola_pdb.h"
 #include <Wire.h>
 #include <string.h>
+#include "zola_crc.h"
 
 namespace zola_pdb {
 
@@ -108,7 +109,7 @@ uint16_t sag_limited_max_us(uint16_t v_bus_mv, uint16_t nominal_max_us) {
 bool thermal_brake_required() { return s_thermal_brake; }
 uint8_t esc_temp_max_c() { return s_esc_temp_max; }
 
-size_t build_frame(uint8_t* out) {
+size_t build_frame(uint8_t* out, FlightStateAnnex annex) {
     memset(out, 0, PDB_FRAME_SIZE);
     out[0] = 0xFB; out[1] = 0xFC;
     static uint32_t seq = 0;
@@ -128,9 +129,14 @@ size_t build_frame(uint8_t* out) {
         memcpy(out + 16 + i * 2, &e, 2);
     }
     out[26] = (s_thermal_brake ? 1 : 0) | ((s_limit_pct < 100) ? 2 : 0);
+    // THE STATE ANNEX (the reserved bytes — one frame, both stories)
+    out[27] = annex.mode; out[28] = annex.sensor_flags;
+    out[29] = annex.wp_index; out[30] = annex.wp_count;
+    out[31] = annex.leader_id; out[32] = annex.live_peers;
+    out[33] = annex.braking;
     // the CRC over bytes 0..33 (the same rule as the flight canon: everything
     // before the CRC field)
-    const uint16_t crc = calculate_zola_crc_public(out, 34);
+    const uint16_t crc = calculate_zola_crc(out, 34);
     memcpy(out + 34, &crc, 2);
     return PDB_FRAME_SIZE;
 }

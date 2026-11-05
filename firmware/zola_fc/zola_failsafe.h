@@ -25,6 +25,7 @@ enum CommandId : uint8_t {
     CMD_EMERGENCY_DISARM  = 0x02,
     CMD_SET_WAYPOINT      = 0x03,
     CMD_UPDATE_PID        = 0x04,
+    CMD_DUMP_BLACKBOX     = 0x05,
 };
 
 // FlightMode — the state machine the flight task OBEYS every cycle
@@ -95,5 +96,24 @@ void set_dump_hook(void (*hook)());
 /// The INTERNAL descent request — the thermal interlock (the PDB at 85°C)
 /// uses this to bring her home; the command path never calls it directly.
 void request_landing(const char* why);
+
+// ------------------------------------------------------- the ACK canon
+// 14 bytes outbound: the ground station must KNOW a command landed —
+// inference from telemetry is not confirmation.
+//   [0]  'O' 'K'         header
+//   [2]  cmd_id          uint8 — which command this acknowledges
+//   [3]  result          uint8 (0 ok · 1 rejected · 2 unknown · 3 refused-state)
+//   [4]  timestamp_ms    uint32
+//   [8]  mode            uint8 (the FlightMode after the command)
+//   [9]  pad             uint8
+//   [10] crc16           over bytes 0..9
+//   [12] '!' '!'         footer
+static constexpr size_t ACK_FRAME_SIZE = 14;
+
+enum AckResult : uint8_t { ACK_OK = 0, ACK_REJECTED = 1, ACK_UNKNOWN = 2, ACK_REFUSED = 3 };
+
+/// Pop ONE queued ACK frame (the telemetry task drains them to the ground);
+/// returns the frame size, 0 when none is queued.
+size_t pop_ack(uint8_t* out);
 
 }  // namespace zola_failsafe

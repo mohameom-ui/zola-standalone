@@ -43,4 +43,10 @@ void boot_health_gate(bool sensors_healthy);
 /// The SHA-256 streamer (the running digest is kept by feed_data).
 const uint8_t* running_digest();
 
+/// THE INBOUND STREAM: feed raw bytes from the command lane; the parser
+/// syncs on the 0F 0D header, ignores everything else (the command canon's
+/// parser runs beside it — each owns its own header).
+void feed_bytes(const uint8_t* data, size_t len);
+bool streaming();   // an OTA session is in progress (the relay's gate)
+
 }  // namespace zola_ota

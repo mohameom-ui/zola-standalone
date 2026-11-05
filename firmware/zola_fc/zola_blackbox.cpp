@@ -9,6 +9,7 @@
 
 #include "zola_blackbox.h"
 #include <string.h>
+#include "zola_crc.h"
 
 namespace zola_blackbox {
 
@@ -69,6 +70,7 @@ uint32_t events_written() { return s_events; }
 
 // ---- the dump ----
 static void (*s_read)(uint32_t offset, uint8_t* out, size_t len) = nullptr;
+void bind_reader(void (*page_reader)(uint32_t, uint8_t*, size_t)) { s_read = page_reader; }
 static bool s_dumping = false;
 static uint32_t s_dump_cursor = 0;
 static uint16_t s_dump_seq = 0;
@@ -99,7 +101,7 @@ size_t dump_next(uint8_t* out, size_t max_bytes) {
         // the storage reader hook — the engine binds a page reader too
         if (s_read) s_read(byte_offset, p, len);
     }
-    const uint16_t crc = calculate_zola_crc_public(out, (size_t)(p - out) + len);
+    const uint16_t crc = calculate_zola_crc(out, (size_t)(p - out) + len);
     memcpy(p + len, &crc, 2);
     p += len + 2;
     s_dump_cursor++;
@@ -110,9 +112,3 @@ size_t dump_next(uint8_t* out, size_t max_bytes) {
 
 }  // namespace zola_blackbox
 
-// the engine's CRC routine, exposed for the dump framing (a narrow bridge —
-// the canon's one CRC everywhere)
-uint16_t calculate_zola_crc_public(const uint8_t* data, size_t length) {
-    extern uint16_t calculate_zola_crc(const uint8_t*, size_t);
-    return calculate_zola_crc(data, length);
-}

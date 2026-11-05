@@ -14,6 +14,7 @@ Packages a firmware binary for the Zola fleet's OTA lane:
 Usage:
     python Scripts/zota_ota_tool.py sign <firmware.bin> [--key dev_ota_key.pem]
     python Scripts/zota_ota_tool.py verify <package.bin> [--key dev_ota_key_pub.pem]
+    python Scripts/zota_ota_tool.py deploy <package.zota>   # through the bridge to the FC
     python Scripts/zota_ota_tool.py selftest
 """
 import argparse
@@ -98,14 +99,54 @@ def selftest():
     print("OTA-TOOL SELFTEST PASS — valid verifies, corrupted rejects")
 
 
+def deploy(pkg_path, ws_url="ws://127.0.0.1:8002", chunk=200):
+    """THE DEPLOY: stream the package through the bridge to the FC —
+    BEGIN (size/digest/signature) → CHUNKs → COMMIT. The bridge builds the
+    wire frames (one canon, one builder); the tool speaks the semantics."""
+    import asyncio
+    import json
+    import websockets
+
+    raw = open(pkg_path, "rb").read()
+    magic, size = struct.unpack_from("<4sI", raw, 0)
+    assert magic == MAGIC, "not a Zola OTA package — run `sign` first"
+    digest = raw[8:40]
+    signature = raw[40:104]
+    image = raw[104:104 + size]
+
+    async def run():
+        async with websockets.connect(ws_url) as ws:
+            await ws.send(json.dumps({
+                "type": "ZOTA_BEGIN", "size": size,
+                "sha256_hex": digest.hex(), "sig_hex": signature.hex(),
+            }))
+            sent = 0
+            while sent < size:
+                data = image[sent:sent + chunk]
+                await ws.send(json.dumps({"type": "ZOTA_CHUNK", "offset": sent,
+                                          "data_hex": data.hex()}))
+                sent += len(data)
+            await ws.send(json.dumps({"type": "ZOTA_COMMIT"}))
+            print(f"[zota] deployed {size} bytes ({(size + chunk - 1) // chunk} chunks) → {ws_url}")
+            print("[zota] the FC verifies digest + signature, then the 10 s boot")
+            print("      health gate decides: stick, or roll back to the old bank")
+
+    asyncio.run(run())
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["sign", "verify", "selftest"])
+    parser.add_argument("action", choices=["sign", "verify", "selftest", "deploy"])
     parser.add_argument("path", nargs="?")
     parser.add_argument("--key", default=DEV_KEY)
     args = parser.parse_args()
     if args.action == "selftest":
         selftest()
+        return
+    if args.action == "deploy":
+        if not args.path:
+            sys.exit("usage: zota_ota_tool.py deploy <package.zota>")
+        deploy(args.path)
         return
     if args.action == "sign":
         if not args.path:

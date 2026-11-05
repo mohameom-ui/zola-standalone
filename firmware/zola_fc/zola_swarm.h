@@ -11,7 +11,7 @@ namespace zola_swarm {
 // THE STATE VECTOR (the 50 Hz broadcast payload, encrypted by ESP-NOW):
 //   node_id, leader_id, wp_index, flags, x, y, z (m, float), yaw (deg),
 //   battery_mv, seq — 24 bytes packed
-static constexpr size_t STATE_SIZE = 24;
+static constexpr size_t STATE_SIZE = 26;
 static constexpr uint32_t BROADCAST_HZ = 50;
 static constexpr uint32_t PEER_TIMEOUT_MS = 200;
 
@@ -35,5 +35,10 @@ uint8_t leader_id();
 bool is_leader();
 uint8_t live_peer_count();
 float peer_battery(uint8_t node_id);   // -1 = unknown
+
+/// THE OTA MESH RELAY: the leader enqueues OTA chunks here and poll()
+/// broadcasts them to the fleet (encrypted); every node's receiver feeds
+/// its own zola_ota verification stream. ≤ 200 bytes per chunk.
+void enqueue_ota_relay(const uint8_t* data, size_t len);
 
 }  // namespace zola_swarm

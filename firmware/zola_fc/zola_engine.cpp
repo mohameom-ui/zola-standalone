@@ -46,6 +46,11 @@
 #include "zola_optical.h"
 #include "zola_obstacle.h"
 #include "zola_swarm.h"
+#include "zola_blackbox.h"
+#include "zola_pdb.h"
+#include "zola_ota.h"
+#include "zola_crc.h"
+#include <esp_partition.h>
 
 // THE WIRELESS FALLBACK: 1 = the telemetry task broadcasts every packet to
 // the Wi-Fi mesh as well as USB (the two lanes are byte-identical by
@@ -59,6 +64,11 @@ static constexpr uint32_t TELEMETRY_HZ = 100;     // the Panel 3 contract
 static constexpr uint32_t FLIGHT_HZ    = 500;     // the spec's 2 ms flight loop
 static constexpr uint32_t BAUD         = 921600;
 
+// THE FLIGHT LOOP'S LOG STATICS (declared before the tasks that use them —
+// the compile taught us: a static used at line 495 cannot live at line 515)
+static uint8_t log_divider = 0, pdb_divider = 0;
+static uint32_t s_log_seq = 0;
+
 // THE BLACKBOX'S STORAGE BINDING: the "zolalog" partition (8 MB) when the
 // partition CSV carries it, an in-RAM ring (128 KB) for the bench — the
 // LOGIC is identical, only the backing store differs.
@@ -71,18 +81,24 @@ static bool ram_write(uint32_t off, const uint8_t* d, size_t len) {
 static void ram_read(uint32_t off, uint8_t* out, size_t len) {
     if (off + len <= sizeof(s_ram_log)) memcpy(out, s_ram_log + off, len);
 }
+// the plain statics the blackbox binds (the compile's lesson: a capturing
+// lambda cannot become the function pointer the bind API takes)
+static const esp_partition_t* s_log_partition = nullptr;
+static bool flash_write(uint32_t off, const uint8_t* d, size_t len) {
+    return s_log_partition && esp_partition_write(s_log_partition, off, d, len) == ESP_OK;
+}
+static void flash_read(uint32_t off, uint8_t* out, size_t len) {
+    if (s_log_partition) esp_partition_read(s_log_partition, off, out, len);
+}
+
 static void bind_persistent_storage() {
-    const esp_partition_t* part = esp_partition_find_first(
+    s_log_partition = esp_partition_find_first(
         ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "zolalog");
-    if (part) {
-        zola_blackbox::bind_storage(
-            [part](uint32_t off, const uint8_t* d, size_t len) -> bool {
-                return esp_partition_write(part, off, d, len) == ESP_OK;
-            }, part->size);
-        zola_blackbox::bind_reader([part](uint32_t off, uint8_t* out, size_t len) {
-            esp_partition_read(part, off, out, len);
-        });
-        Serial.printf("[Zola Blackbox] flash partition: %u KB\n", (unsigned)(part->size / 1024));
+    if (s_log_partition) {
+        zola_blackbox::bind_storage(flash_write, s_log_partition->size);
+        zola_blackbox::bind_reader(flash_read);
+        Serial.printf("[Zola Blackbox] flash partition: %u KB\n",
+                      (unsigned)(s_log_partition->size / 1024));
     } else {
         zola_blackbox::bind_storage(ram_write, sizeof(s_ram_log));
         zola_blackbox::bind_reader(ram_read);
@@ -174,14 +190,16 @@ uint16_t calculate_zola_crc(const uint8_t* data, size_t length) {
 // motor-driver spec): correct MSB-first wire order, ratio-encoded waveform,
 // the reserved-command-band clamp. The engine's job is just the unit map:
 // mixer microseconds (1000-2000) → DShot 11-bit (48-2047) per motor.
-static const gpio_num_t MOTOR_PINS[4] = {PIN_MOTOR_FL, PIN_MOTOR_FR, PIN_MOTOR_RR, PIN_MOTOR_RL};
+static const gpio_num_t MOTOR_PINS[4] = {  // the pin constants are ints — cast at the array
+    (gpio_num_t)PIN_MOTOR_FL, (gpio_num_t)PIN_MOTOR_FR,
+    (gpio_num_t)PIN_MOTOR_RR, (gpio_num_t)PIN_MOTOR_RL };
 
 static void dshot_send_all(const uint16_t throttle_us[4]) {
     for (int m = 0; m < 4; m++) {
         uint16_t us = constrain(throttle_us[m], THROTTLE_IDLE_US, THROTTLE_MAX_US);
         uint16_t t11 = map(us, THROTTLE_IDLE_US, THROTTLE_MAX_US, zola_dshot::THROTTLE_MIN, zola_dshot::THROTTLE_MAX);
         zola_dshot::encode_msb_first(zola_dshot::prepare_packet(t11, false));
-        zola_dshot::send(MOTOR_PINS[m]);
+        zola_dshot::send(m);
     }
 }
 
@@ -197,6 +215,10 @@ static void dshot_send_all(const uint16_t throttle_us[4]) {
 //
 // THE SPEC'S RATE-PID EQUATION, implemented exactly (derivative on ERROR):
 struct RatePid {
+    // THE CONSTRUCTOR (the compile's lesson): with default member
+    // initializers, the brace-init lists in the gains below need a real ctor
+    RatePid(float p, float i, float d, float limit)
+        : kp(p), ki(i), kd(d), integral(0.f), prev_error(0.f), integ_limit(limit) {}
     float kp, ki, kd;
     float integral = 0.f, prev_error = 0.f;
     float integ_limit;   // anti-windup clamp (±200 by the spec)
@@ -210,9 +232,9 @@ struct RatePid {
     void reset() { integral = 0.f; prev_error = 0.f; }
 };
 // THE SPEC'S RATE GAINS (assumed until the bench sweep — hardware_calibrated: false)
-static RatePid rate_roll  { 1.2f, 0.05f, 0.03f, 0.f, 0.f, 200.f };
-static RatePid rate_pitch { 1.2f, 0.05f, 0.03f, 0.f, 0.f, 200.f };
-static RatePid rate_yaw   { 2.5f, 0.10f, 0.00f, 0.f, 0.f, 200.f };
+static RatePid rate_roll  { 1.2f, 0.05f, 0.03f, 200.f };
+static RatePid rate_pitch { 1.2f, 0.05f, 0.03f, 200.f };
+static RatePid rate_yaw   { 2.5f, 0.10f, 0.00f, 200.f };
 // THE ANGLE LOOP's gains (°/s of target rate per ° of attitude error) —
 // ASSUMED; the bench sweep tunes these too. 8°/s per degree is a calm
 // level-hold; a stunt tune would push this much higher.
@@ -234,15 +256,15 @@ static constexpr float ANGLE_KP_DPS_PER_DEG = 8.0f;
 // 2000 µs = FULL THROTTLE, exactly when the motor should be at IDLE. Clamp
 // the FLOAT, then cast.
 static void apply_motor_mix(float base_us, float roll_corr, float pitch_corr, float yaw_corr,
-                            uint16_t out[4]) {
+                            float out[4]) {  // the cascade's array is float — the compile's lesson
     float m1 = base_us + roll_corr + pitch_corr - yaw_corr;  // front-left
     float m2 = base_us - roll_corr + pitch_corr + yaw_corr;  // front-right
     float m3 = base_us - roll_corr - pitch_corr - yaw_corr;  // rear-right
     float m4 = base_us + roll_corr - pitch_corr + yaw_corr;  // rear-left
-    out[0] = (uint16_t)constrain(m1, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
-    out[1] = (uint16_t)constrain(m2, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
-    out[2] = (uint16_t)constrain(m3, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
-    out[3] = (uint16_t)constrain(m4, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[0] = constrain(m1, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[1] = constrain(m2, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[2] = constrain(m3, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
+    out[3] = constrain(m4, (float)THROTTLE_IDLE_US, (float)THROTTLE_MAX_US);
 }
 
 // ------------------------------------------------- MPU-9250 over SPI burst
@@ -439,7 +461,7 @@ static void flight_control_task(void*) {
         // THE MODE IS THE FIRST GATE — this is what the draft never wired:
         // a parsed command that nothing enforces is a decoration. The mode
         // can override the cascade outright (disarm / descent).
-        uint16_t mode_throttle[4];
+        uint16_t mode_throttle[4];  // the failsafe's override values (uint16 — the wire unit)
         if (zola_failsafe::enforce(millis(), (float)THROTTLE_HOVER_US, mode_throttle)) {
             for (int i = 0; i < 4; i++) { motors[i] = mode_throttle[i]; s.motors[i] = mode_throttle[i]; }
             rate_roll.reset(); rate_pitch.reset(); rate_yaw.reset();
@@ -454,7 +476,7 @@ static void flight_control_task(void*) {
         // computed here; the STEERING (bearing → rate setpoints) is the
         // bench phase, so the loop holds the level cascade meanwhile. The
         // mesh-alive fuse is the failsafe's clock: > 2 s silent → RTH.
-        if (zola_failsafe::mode() == FlightMode::AUTONOMOUS_MESH) {
+        if (zola_failsafe::mode() == zola_failsafe::FlightMode::AUTONOMOUS_MESH) {
             static uint32_t last_nav_log = 0;
             zola_nav::Fix f = zola_nav::fix();
             if (f.valid) {
@@ -581,8 +603,7 @@ static void flight_control_task(void*) {
 // broadcast is the fallback/second lane (zola_udp) — byte-identical frames
 // on both, so any ground station hears the same truth. The UDP send is
 // fire-and-forget: a dead radio can never stall the 100 Hz schedule.
-static uint8_t log_divider = 0, pdb_divider = 0, pdb_frame_divider = 0;
-static uint32_t s_log_seq = 0;
+static uint8_t pdb_frame_divider = 0;  // (log/pdb dividers live up top — the compile's lesson)
 
 static void telemetry_task(void*) {
     ZolaTelemetryPacket pkt;  // header/footer pre-set by the member defaults
@@ -595,7 +616,27 @@ static void telemetry_task(void*) {
         // and the UDP socket both, feeding the same parser (core 0 owns I/O)
         size_t n = 0;
         while (Serial.available() && n < sizeof(rxBuf)) rxBuf[n++] = Serial.read();
-        if (n) zola_failsafe::feed_bytes(rxBuf, n);
+        if (n) {
+            // THREE parsers share the inbound stream, each owning its own
+            // header: the command canon (CA FE), the OTA chunks (0F 0D),
+            // and the swarm's OTA relay — the LEADER rebroadcasts the
+            // ground's chunks to the fleet while its session is live
+            zola_failsafe::feed_bytes(rxBuf, n);
+            if (zola_ota::streaming() && zola_swarm::is_leader()) {
+                zola_swarm::enqueue_ota_relay(rxBuf, n);
+            }
+            zola_ota::feed_bytes(rxBuf, n);
+        }
+        // THE ACK DRAIN: every command gets CONFIRMED back to the ground —
+        // inference from telemetry is not confirmation
+        uint8_t ack[zola_failsafe::ACK_FRAME_SIZE];
+        size_t ack_len;
+        while ((ack_len = zola_failsafe::pop_ack(ack)) > 0) {
+            Serial.write(ack, ack_len);
+#if ZOLA_UDP_TELEMETRY
+            zola_udp::broadcast(ack, ack_len);
+#endif
+        }
         // THE OAK-D's DETECTION STREAM: UART2 feeds the obstacle parser
         while (Serial2.available()) {
             uint8_t ob = (uint8_t)Serial2.read();
@@ -641,11 +682,24 @@ static void telemetry_task(void*) {
 
         // THE PDB FRAME (2 Hz): power/thermal data is not flight-critical —
         // a second packet variant (header FB FC) carries it; the canon is
-        // untouched, the bridge and the panel know the type by its header
+        // untouched, the bridge and the panel know the type by its header.
+        // THE STATE ANNEX rides bytes 27-33: the mode, the sensor health,
+        // the waypoint progress, and the swarm role — one frame, both stories
         if (++pdb_frame_divider >= 50) {
             pdb_frame_divider = 0;
+            uint8_t sensor_flags = 0;
+            if (zola_optical::flow_healthy()) sensor_flags |= 1;
+            if (zola_optical::tof_healthy()) sensor_flags |= 2;
+            if (zola_sensors::health().mag_ok) sensor_flags |= 4;
+            if (zola_sensors::health().baro_ok) sensor_flags |= 8;
+            if (zola_sensors::gyro_bias_ready()) sensor_flags |= 16;
             uint8_t pdb_frame[zola_pdb::PDB_FRAME_SIZE];
-            const size_t n = zola_pdb::build_frame(pdb_frame);
+            const size_t n = zola_pdb::build_frame(pdb_frame, {
+                (uint8_t)zola_failsafe::mode(), sensor_flags,
+                zola_nav::waypoint_index(), zola_nav::waypoint_count(),
+                zola_swarm::leader_id(), zola_swarm::live_peer_count(),
+                (uint8_t)zola_obstacle::brake_active()
+            });
             Serial.write(pdb_frame, n);
 #if ZOLA_UDP_TELEMETRY
             zola_udp::broadcast(pdb_frame, n);
@@ -713,7 +767,7 @@ void setup() {
 
     // four RMT TX channels — one per DShot line (the module owns the tick:
     // 50 ns, ratio-encoded — the bench scope verifies the absolute rate)
-    for (int pin : MOTOR_PINS) zola_dshot::init((gpio_num_t)pin);
+    for (int m = 0; m < 4; m++) zola_dshot::init(m, MOTOR_PINS[m]);
 
     // THE FAILSAFE'S HOOKS: the arm gate is now the FULL PRE-ARM DIAGNOSTIC
     // (the sensor-health spec): a live IMU, the gyro bias calibrated, the

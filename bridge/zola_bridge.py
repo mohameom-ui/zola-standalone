@@ -24,6 +24,7 @@ Run:
 """
 import argparse
 import asyncio
+import itertools
 import json
 import os
 import struct
@@ -73,11 +74,16 @@ def parse_pdb_frame(frame: bytes):
     crc = struct.unpack_from("<H", frame, 34)[0]
     if zola_crc(frame[:34]) != crc:
         return None
+    # THE STATE ANNEX (bytes 27-33): the flight mode, the sensor health, the
+    # waypoint progress, the swarm role — one frame, both stories
     return {
         "sequence_id": seq, "current_ma": current_ma, "power_w": power_cw / 100.0,
         "mah_used": mah, "esc_temp_max_c": esc_temp, "sag_mv": sag_mv,
         "throttle_limit_pct": limit_pct, "erpm": erpm, "v_bus_mv": v_bus,
         "thermal_brake": bool(flags & 1), "sag_limiting": bool(flags & 2),
+        "mode": frame[27], "sensor_flags": frame[28],
+        "wp_index": frame[29], "wp_count": frame[30],
+        "leader_id": frame[31], "live_peers": frame[32], "braking": bool(frame[33]),
     }
 
 
@@ -142,6 +148,31 @@ def parse_command_frame(frame: bytes):
     return {"cmd_id": cmd_id, "payload": payload}
 
 
+# ---- THE OTA FRAME CANON (zota_ota.h's wire format, built bridge-side):
+#   [0F 0D][phase 1][seq u16][total u32][offset u32][len u16][payload][crc16]
+#   the prefix before the payload is 15 bytes; the CRC covers the prefix + payload
+PHASE_START, PHASE_DATA, PHASE_COMMIT, PHASE_ABORT = 0, 1, 2, 3
+OTA_CHUNK_MAX = 200   # the ESP-NOW relay's MTU bounds the chunk size
+_OTA_SEQ = itertools.count()
+
+
+def build_ota_frame(phase: int, payload: bytes, total: int = 0, offset: int = 0) -> bytes:
+    head = struct.pack("<2sBHIIH", b"\x0f\x0d", phase, next(_OTA_SEQ) & 0xFFFF, total, offset, len(payload))
+    return head + payload + struct.pack("<H", zola_crc(head + payload))
+
+
+def parse_ack_frame(frame: bytes):
+    """The ACK canon (14 bytes: 'OK' + cmd_id + result + ts + mode + crc + '!!')."""
+    if len(frame) != 14 or frame[:2] != b"OK" or frame[12:14] != b"!!":
+        return None
+    crc = struct.unpack_from("<H", frame, 10)[0]
+    if zola_crc(frame[:10]) != crc:
+        return None
+    cmd_id, result = frame[2], frame[3]
+    ts = struct.unpack_from("<I", frame, 4)[0]
+    return {"cmd_id": cmd_id, "result": result, "timestamp_ms": ts, "mode": frame[8]}
+
+
 def find_serial_port():
     """Auto-detect the FC's serial port (env override wins)."""
     env = os.environ.get("ZOLA_FC_PORT")
@@ -168,6 +199,19 @@ class Bridge:
         self.frames_bad = 0
         self.dump_bytes = 0
         self.stats_interval = stats_interval
+
+    async def broadcast_ack(self, ack: dict):
+        """The command's confirmation — the panel stops guessing."""
+        message = json.dumps({"type": "ZOLA_COMMAND_ACK", "panel_id": "hil_telemetry_03",
+                              "payload": ack})
+        dead = []
+        for ws in self.clients:
+            try:
+                await asyncio.wait_for(ws.send(message), timeout=0.02)
+            except (asyncio.TimeoutError, Exception):
+                dead.append(ws)
+        for ws in dead:
+            self.clients.discard(ws)
 
     async def broadcast_pdb(self, data: dict):
         """The PDB variant's envelope — power, thermal, eRPM, the sag state."""
@@ -229,10 +273,19 @@ class Bridge:
             if not n:
                 continue
             buffer.extend(ser.read(n))
-            # THE DEMUX: the blackbox dump's chunks (FD 0D framing) share the
-            # stream with the telemetry frames — the dump lands in the
-            # observability lake (Saved/blackbox/), the frames stay frames.
-            # (The dump is USB-only — the wireless lane never carries it.)
+            # THE DEMUX: three framings share this stream — the ACK canon
+            # ('OK'...'!!', 14 bytes), the blackbox dump's chunks (FD 0D), and
+            # the flight/PDB frames. Each goes to its own consumer.
+            while len(buffer) >= 14 and buffer[0] == 0x4F and buffer[1] == 0x4B:
+                ack = parse_ack_frame(bytes(buffer[:14]))
+                if ack:
+                    del buffer[:14]
+                    self.frames_ok += 1
+                    await self.broadcast_ack(ack)
+                else:
+                    del buffer[:2]
+            # the blackbox dump's chunks (FD 0D) land in the observability
+            # lake (Saved/blackbox/); the dump is USB-only by design
             while len(buffer) >= 12 and buffer[0] == 0xFD and buffer[1] == 0x0D:
                 seq, off, clen = struct.unpack_from("<HIH", buffer, 2)
                 if len(buffer) < 12 + clen:
@@ -320,17 +373,48 @@ class Bridge:
     async def handler(self, websocket):
         self.clients.add(websocket)
         try:
-            async for raw in websocket:  # inbound: the ground station's commands
+            async for raw in websocket:  # inbound: commands + OTA chunks
                 try:
                     msg = json.loads(raw)
                 except Exception:
                     continue
-                if msg.get("type") != "ZOLA_COMMAND":
-                    continue
-                frame = build_command_frame(int(msg["cmd_id"]), bytes.fromhex(msg.get("payload_hex", "")))
-                self.forward_command(frame)
+                mtype = msg.get("type")
+                if mtype == "ZOLA_COMMAND":
+                    frame = build_command_frame(int(msg["cmd_id"]), bytes.fromhex(msg.get("payload_hex", "")))
+                    self.forward_command(frame)
+                elif mtype == "ZOTA_BEGIN":
+                    # the OTA session opens: the START frame carries the total
+                    # size; the digest + signature ride the COMMIT frame
+                    self._ota = {
+                        "size": int(msg["size"]),
+                        "sha": bytes.fromhex(msg["sha256_hex"]),
+                        "sig": bytes.fromhex(msg["sig_hex"]),
+                    }
+                    self.forward_ota(build_ota_frame(PHASE_START, struct.pack("<I", self._ota["size"])))
+                elif mtype == "ZOTA_CHUNK":
+                    if not self._ota:
+                        continue  # a chunk without a session is dropped
+                    data = bytes.fromhex(msg["data_hex"])
+                    head = struct.pack("<I", msg["offset"])
+                    self.forward_ota(build_ota_frame(PHASE_DATA, head + data))
+                elif mtype == "ZOTA_COMMIT":
+                    if not self._ota:
+                        continue
+                    commit_payload = self._ota["sha"] + self._ota["sig"]
+                    # the commit exceeds one 240-byte frame? digest+sig = 96/64 — fits
+                    self.forward_ota(build_ota_frame(PHASE_COMMIT, commit_payload))
+                    self._ota = None
+                elif mtype == "ZOTA_ABORT":
+                    self.forward_ota(build_ota_frame(PHASE_ABORT, b""))
+                    self._ota = None
         finally:
             self.clients.discard(websocket)
+
+    def forward_ota(self, frame: bytes):
+        """The OTA chunk's transport (the serial write). Logged sparsely."""
+        ser = getattr(self, "ser", None)
+        if ser is not None:
+            ser.write(frame)
 
     def forward_command(self, frame: bytes):
         """The transport's write side: the serial lane writes the frame to the

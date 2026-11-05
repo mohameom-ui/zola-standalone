@@ -34,7 +34,7 @@ import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zola_bridge import (Bridge, parse_frame, parse_command_frame, zola_crc)  # one canon, one parser
+from zola_bridge import (Bridge, parse_frame, parse_command_frame, parse_ack_frame, parse_pdb_frame, zola_crc)  # one canon, one parser
 
 UDP_PORT = 8888
 PACKET_SIZE = 36
@@ -87,6 +87,16 @@ class UdpBridge(Bridge):
             data, source = await asyncio.get_event_loop().run_in_executor(
                 None, self.q.get)
             source_ip = source[0]
+            # TWO frame sizes ride this lane: the 14-byte command ACKs and
+            # the 36-byte telemetry/PDB frames — length routes first
+            if len(data) == 14:
+                ack = parse_ack_frame(data)
+                if ack:
+                    self.frames_ok += 1
+                    await self.broadcast_ack(ack)
+                else:
+                    self.frames_bad += 1
+                continue
             if len(data) != PACKET_SIZE:
                 self.frames_bad += 1
                 continue

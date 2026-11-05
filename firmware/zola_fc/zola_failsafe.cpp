@@ -25,6 +25,7 @@
 
 #include "zola_failsafe.h"
 #include "esp32-hal.h"
+#include "zola_crc.h"
 
 extern uint16_t calculate_zola_crc(const uint8_t* data, size_t length);  // the engine's routine
 
@@ -77,6 +78,37 @@ Waypoint waypoint() {
     return w;
 }
 
+// THE ACK QUEUE: the commands get CONFIRMED, not assumed — the telemetry
+// task drains these to the ground. Depth 6: a command burst cannot wedge
+// the link; an overflowed ack is a lost confirmation, not a lost safety.
+static uint8_t s_ack_ring[6][ACK_FRAME_SIZE];
+static volatile uint8_t s_ack_head = 0, s_ack_tail = 0;
+
+static void queue_ack(uint8_t cmd_id, uint8_t result) {
+    uint8_t frame[ACK_FRAME_SIZE];
+    frame[0] = 'O'; frame[1] = 'K';
+    frame[2] = cmd_id;
+    frame[3] = result;
+    const uint32_t now = millis();
+    memcpy(frame + 4, &now, 4);
+    frame[8] = (uint8_t)mode();
+    frame[9] = 0;
+    const uint16_t crc = calculate_zola_crc(frame, 10);
+    memcpy(frame + 10, &crc, 2);
+    frame[12] = '!'; frame[13] = '!';
+    const uint8_t next = (uint8_t)((s_ack_head + 1) % 6);
+    if (next == s_ack_tail) return;  // full: the oldest confirmation drops
+    memcpy(s_ack_ring[s_ack_head], frame, ACK_FRAME_SIZE);
+    s_ack_head = next;
+}
+
+size_t pop_ack(uint8_t* out) {
+    if (s_ack_tail == s_ack_head) return 0;
+    memcpy(out, s_ack_ring[s_ack_tail], ACK_FRAME_SIZE);
+    s_ack_tail = (s_ack_tail + 1) % 6;
+    return ACK_FRAME_SIZE;
+}
+
 // the hooks the ENGINE fills (the failsafe module must not own the IMU,
 // the PIDs, or the blackbox)
 static bool (*s_can_arm)() = nullptr;
@@ -95,30 +127,30 @@ void request_landing(const char* why) {
     }
 }
 
-static void handle_command(uint8_t id, const uint8_t* p) {
+static uint8_t handle_command(uint8_t id, const uint8_t* p) {
     switch (id) {
         case CMD_HEARTBEAT:
-            // the pulse itself: the watchdog refresh already happened in ingest()
-            break;
+            return ACK_OK;  // the pulse itself: the watchdog refreshed in ingest()
         case CMD_ARM: {
             FlightMode m = mode();
             if (p[0] != ARM_TOKEN) {  // THE INTERLOCK
                 Serial.println("[Zola Safety] ARM rejected — missing the 0xA5 interlock token");
-                return;
+                return ACK_REJECTED;
             }
             if (m == FlightMode::DISARMED || m == FlightMode::FAILSAFE_LAND) {
                 if (s_can_arm && !s_can_arm()) {  // THE GATE: not blind, not dying
                     Serial.println("[Zola Safety] ARM rejected — IMU dead or battery under the cutoff");
-                    return;
+                    return ACK_REJECTED;
                 }
                 set_mode(FlightMode::STABILIZED, "armed by the operator");
+                return ACK_OK;
             }
-            break;
+            return ACK_REFUSED;  // already flying: arm means nothing here
         }
         case CMD_EMERGENCY_DISARM:
             // THE KILL-SWITCH: immediate, unconditional, every mode
             set_mode(FlightMode::DISARMED, "EMERGENCY DISARM from the operator");
-            break;
+            return ACK_OK;
         case CMD_SET_WAYPOINT: {
             portENTER_CRITICAL(&s_mux);
             s_wp.x_cm = (int16_t)(p[0] | (p[1] << 8));
@@ -132,6 +164,7 @@ static void handle_command(uint8_t id, const uint8_t* p) {
             } else {
                 Serial.println("[Zola Navigation] waypoint stored (mode unchanged)");
             }
+            return ACK_OK;
             // HONESTY: the nav loop that FLIES the waypoint is the bench/next
             // phase — AUTONOMOUS_MESH currently flies the same level-hold
             // cascade as STABILIZED. The waypoint is stored and logged.
@@ -140,22 +173,21 @@ static void handle_command(uint8_t id, const uint8_t* p) {
         case CMD_UPDATE_PID: {
             // the engine registers its gain setters (the failsafe module must
             // not own the PID objects — the extern hook below)
-            if (s_gain_hook) s_gain_hook(p);
-            break;
+            if (s_gain_hook) { s_gain_hook(p); return ACK_OK; }
+            return ACK_REJECTED;  // nobody home to receive the gains
         }
         case CMD_DUMP_BLACKBOX: {
             // the observability lake pulls the log — ONLY when she is down:
             // a dump's serial traffic would starve the flight link
             if (mode() == FlightMode::DISARMED) {
-                if (s_dump_hook) s_dump_hook();
-            } else {
-                Serial.println("[Zola Blackbox] dump refused — she is not disarmed");
+                if (s_dump_hook) { s_dump_hook(); return ACK_OK; }
+                return ACK_REJECTED;  // no storage bound — nothing to dump
             }
-            break;
+            return ACK_REFUSED;  // the dump's traffic would starve a live flight
         }
         default:
             Serial.printf("[Zola Safety] unknown command 0x%02X — ignored\n", id);
-            break;
+            return ACK_UNKNOWN;
     }
 }
 
@@ -175,7 +207,7 @@ bool ingest(const uint8_t* frame, size_t len) {
     portENTER_CRITICAL(&s_mux);
     s_last_command_ms = millis();
     portEXIT_CRITICAL(&s_mux);
-    handle_command(frame[2], frame + 3);
+    queue_ack(frame[2], handle_command(frame[2], frame + 3));
     return true;
 }
 

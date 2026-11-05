@@ -503,6 +503,41 @@ def test_blackbox_pdb_ota():
     check("PDB current reads back", _s.unpack_from("<H", pdb, 6)[0] == 8400)
     check("PDB power is centi-watts", abs(_s.unpack_from("<H", pdb, 8)[0] * 0.01 - 99.5) < 1e-9)
 
+    # THE ACK CANON (14 bytes: 'OK' + cmd_id + result + ts + mode + crc + '!!'):
+    # the ground must KNOW a command landed — inference is not confirmation
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bridge"))
+    from zola_bridge import parse_ack_frame as bridge_ack_parse, zola_crc
+    ack = bytearray(b"OK")
+    ack += bytes([0x02, 0x00])                     # the disarm, OK
+    ack += struct.pack("<I", 123456)               # the timestamp
+    ack += bytes([0x00, 0x00])                     # mode DISARMED + pad
+    ack += struct.pack("<H", zola_crc(bytes(ack)))  # over bytes 0..9
+    ack += b"!!"
+    check("the ACK frame is 14 bytes", len(ack) == 14)
+    parsed = bridge_ack_parse(bytes(ack))
+    check("the ACK parse round-trips", parsed == {"cmd_id": 2, "result": 0,
+          "timestamp_ms": 123456, "mode": 0}, str(parsed))
+    bad = bytearray(ack); bad[2] = 0x03
+    check("a corrupt ACK rejected", bridge_ack_parse(bytes(bad)) is None)
+
+    # THE OTA FRAME CANON (the bridge builds it; the firmware parses it —
+    # the layouts MUST agree byte for byte):
+    from zola_bridge import build_ota_frame, PHASE_START, PHASE_DATA, PHASE_COMMIT
+    start = build_ota_frame(PHASE_START, struct.pack("<I", 20480), total=20480)
+    check("the OTA START frame's prefix is 15 bytes",
+          len(start) == 15 + 4 + 2 and start[0] == 0x0F and start[1] == 0x0D)
+    check("the START's total reads at byte 5",
+          struct.unpack_from("<I", start, 5)[0] == 20480)
+    check("the START's len reads at byte 13",
+          struct.unpack_from("<H", start, 13)[0] == 4)
+    # a DATA chunk round trip through the same layout the firmware parses
+    chunk = build_ota_frame(PHASE_DATA, struct.pack("<I", 512) + b"\xAA" * 8)
+    check("the DATA frame's length matches the layout",
+          len(chunk) == 15 + 12 + 2 and chunk[2] == PHASE_DATA)
+    # the CRC covers the prefix + payload (the firmware verifies exactly this span)
+    from zola_bridge import zola_crc as zcrc
+    check("the OTA CRC covers prefix+payload",
+          struct.unpack_from("<H", chunk, 15 + 12)[0] == zcrc(chunk[:15 + 12]))
     # THE OTA PACKAGE: the tool's REAL ED25519 round trip is proven by its
     # own selftest (valid verifies, one flipped image bit rejects). The
     # firmware's commit() checks the digest FIRST, then the signature —

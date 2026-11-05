@@ -31,12 +31,15 @@ describe("HIL telemetry", () => {
     expect(parseHilEnvelope(JSON.stringify({ type: "ZOLA_UDP_TELEMETRY", panel_id: "hil_telemetry_03", payload: goodPayload }))).toEqual(goodPayload);
   });
 
-  it("accepts the PDB variant and rejects a broken one", () => {
+  it("accepts the PDB variant (with the state annex) and rejects a broken one", () => {
     const pdb = {
       sequence_id: 9, current_ma: 8400, power_w: 99.5, mah_used: 100,
       esc_temp_max_c: 71, sag_mv: 480, throttle_limit_pct: 88,
       erpm: [9500, 9500, 9480, 9520], v_bus_mv: 11300,
       thermal_brake: false, sag_limiting: true,
+      // THE STATE ANNEX (bytes 27-33): the mode, the sensors, the mission, the swarm
+      mode: 1, sensor_flags: 31, wp_index: 0, wp_count: 0,
+      leader_id: 1, live_peers: 0, braking: false,
     };
     expect(parsePdbEnvelope(JSON.stringify({ type: "ZOLA_PDB_TELEMETRY", panel_id: "hil_telemetry_03", payload: pdb }))).toEqual(pdb);
     expect(parsePdbEnvelope(JSON.stringify({ type: "ZOLA_PDB_TELEMETRY", panel_id: "hil_telemetry_03", payload: { ...pdb, current_ma: "8400" } }))).toBeNull();

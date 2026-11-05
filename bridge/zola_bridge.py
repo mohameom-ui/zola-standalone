@@ -89,18 +89,22 @@ def find_serial_port():
 
 
 class Bridge:
-    def __init__(self, source, stats_interval=5.0):
-        self.source = source          # "serial" | "sim"
+    def __init__(self, source, stats_interval=5.0, envelope_type="ZOLA_TELEMETRY_UPDATE",
+                 panel_id="hil_telemetry_03"):
+        self.source = source          # "serial" | "sim" | "udp"
+        self.envelope_type = envelope_type
+        self.panel_id = panel_id
         self.clients: set = set()
         self.frames_ok = 0
         self.frames_bad = 0
         self.stats_interval = stats_interval
 
-    async def broadcast(self, data: dict):
+    async def broadcast(self, data: dict, source_ip: str | None = None):
         message = json.dumps({
-            "type": "ZOLA_TELEMETRY_UPDATE",
-            "panel_id": "hil_telemetry_03",
+            "type": self.envelope_type,
+            "panel_id": self.panel_id,
             "payload": data,
+            **({"source_ip": source_ip} if source_ip else {}),
         })
         dead = []
         for ws in self.clients:

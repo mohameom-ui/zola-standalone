@@ -10,6 +10,10 @@ import { useEffect, useRef, useState } from "react";
 export const HIL_WS_URL = process.env.NEXT_PUBLIC_ZOLA_HIL_WS ?? "ws://127.0.0.1:8002";
 export const HIL_PANEL_ID = "hil_telemetry_03";
 
+// TWO LANES, ONE TRUTH: the USB-serial bridge speaks ZOLA_TELEMETRY_UPDATE,
+// the Wi-Fi/UDP ground bridge speaks ZOLA_UDP_TELEMETRY — byte-identical
+// packets on both, so the panel accepts either (and tags which it saw).
+
 export interface HilAttitude { roll: number; pitch: number; yaw: number }
 export interface HilFrame {
   sequence_id: number;
@@ -34,10 +38,12 @@ export function isValidHilFrame(p: unknown): p is HilFrame {
 
 export interface HilEnvelope { type: string; panel_id: string; payload: unknown }
 
+const VALID_TYPES = new Set(["ZOLA_TELEMETRY_UPDATE", "ZOLA_UDP_TELEMETRY"]);
+
 export function parseHilEnvelope(raw: string): HilFrame | null {
   try {
     const msg = JSON.parse(raw) as HilEnvelope;
-    if (msg.type !== "ZOLA_TELEMETRY_UPDATE" || msg.panel_id !== HIL_PANEL_ID) return null;
+    if (!VALID_TYPES.has(msg.type) || msg.panel_id !== HIL_PANEL_ID) return null;
     return isValidHilFrame(msg.payload) ? msg.payload : null;
   } catch {
     return null;

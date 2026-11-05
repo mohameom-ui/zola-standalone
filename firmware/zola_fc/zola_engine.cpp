@@ -39,6 +39,12 @@
 #include "esp32-hal.h"
 #include "esp32-hal-rmt.h"
 #include "zola_dshot.h"
+#include "zola_udp.h"
+
+// THE WIRELESS FALLBACK: 1 = the telemetry task broadcasts every packet to
+// the Wi-Fi mesh as well as USB (the two lanes are byte-identical by
+// construction). 0 = a bench build that keeps the radio off.
+#define ZOLA_UDP_TELEMETRY 1
 
 // ------------------------------------------------------------------ config
 static constexpr uint16_t PKT_HEADER   = 0xFBFA;  // wire bytes FA FB (LE)
@@ -383,6 +389,10 @@ static void flight_control_task(void*) {
 }
 
 // ------------------------------------------- CORE 0: the telemetry task
+// TWO SINKS, ONE PACKET: the USB serial line is primary; the Wi-Fi UDP
+// broadcast is the fallback/second lane (zola_udp) — byte-identical frames
+// on both, so any ground station hears the same truth. The UDP send is
+// fire-and-forget: a dead radio can never stall the 100 Hz schedule.
 static void telemetry_task(void*) {
     ZolaTelemetryPacket pkt;  // header/footer pre-set by the member defaults
     uint32_t seq = 0;
@@ -398,6 +408,9 @@ static void telemetry_task(void*) {
         pkt.battery_mv = s.battery_mv;
         pkt.crc16 = calculate_zola_crc((uint8_t*)&pkt, sizeof(pkt) - 4);
         Serial.write((uint8_t*)&pkt, sizeof(pkt));
+#if ZOLA_UDP_TELEMETRY
+        zola_udp::broadcast((uint8_t*)&pkt, sizeof(pkt));
+#endif
         vTaskDelayUntil(&last, period);
     }
 }
@@ -406,6 +419,9 @@ void setup() {
     Serial.begin(BAUD);
     Serial.setTxBufferSize(512);
     analogReadResolution(12);
+#if ZOLA_UDP_TELEMETRY
+    zola_udp::init();  // the Wi-Fi mesh + the UDP socket (non-fatal if it fails)
+#endif
 
     // IMU bring-up: SPI first (the burst path), I2C on the same pins if the
     // SPI WHO_AM_I misses — either way the stream continues

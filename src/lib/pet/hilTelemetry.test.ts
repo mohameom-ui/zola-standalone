@@ -23,6 +23,14 @@ describe("HIL telemetry", () => {
     expect(parseHilEnvelope(JSON.stringify({ type: "ZOLA_TELEMETRY_UPDATE", panel_id: "panel_9", payload: goodPayload }))).toBeNull();
   });
 
+  it("accepts BOTH lanes' envelopes — USB serial and Wi-Fi/UDP", () => {
+    // one packet canon, two transports: the USB bridge speaks
+    // ZOLA_TELEMETRY_UPDATE, the wireless ground bridge speaks
+    // ZOLA_UDP_TELEMETRY — the panel hears the same truth on either
+    expect(parseHilEnvelope(envelope(goodPayload))).toEqual(goodPayload);
+    expect(parseHilEnvelope(JSON.stringify({ type: "ZOLA_UDP_TELEMETRY", panel_id: "hil_telemetry_03", payload: goodPayload }))).toEqual(goodPayload);
+  });
+
   it("rejects structurally broken payloads (every field checked)", () => {
     expect(isValidHilFrame(null)).toBe(false);
     expect(isValidHilFrame({ ...goodPayload, sequence_id: "7" })).toBe(false);

@@ -58,16 +58,30 @@ RMT peripheral. Telemetry: UART0/USB-C **or** LoRa radio at 921,600 baud.
 # the pipeline, right now, no hardware:
 node Scripts/hil-test.mjs          # spins the sim bridge, asserts 100 Hz + schema + monotonic seq
 
-# the bridge standalone:
-python bridge/zola_bridge.py --sim # bench frames on ws://127.0.0.1:8002
+# the bridges standalone:
+python bridge/zola_bridge.py --sim # bench frames on ws://127.0.0.1:8002 (USB lane)
 python bridge/zola_bridge.py       # real FC (auto-detects the port; ZOLA_FC_PORT overrides)
+python bridge/zola_udp_bridge.py --sim   # the WIRELESS lane: fake FC + UDP :8888 → ws :8003
+python bridge/zola_udp_bridge.py         # the real FC's Wi-Fi broadcast → the panel
 
 # the firmware (needs PlatformIO + the ESP32-S3):
 pio run -e zola_fc -t upload       # in firmware/zola_fc/
 pio device monitor -b 921600       # the raw 100 Hz binary stream
 ```
 
-## 5. What the math mirror caught (the v2 war story)
+## 5. The wireless lane (Wi-Fi/UDP fallback)
+
+When the USB-C serial line isn't there — outdoor flight, mesh monitoring —
+she broadcasts the SAME 36-byte packets over her own air-gapped Wi-Fi AP:
+
+| Piece | File | Role |
+|---|---|---|
+| Firmware sink | `firmware/zola_fc/zola_udp.h/.cpp` | softAP `Zola_Flight_Mesh` + UDP socket :8888; the telemetry task drives BOTH sinks (USB primary, UDP fallback) — byte-identical frames by construction; fire-and-forget: a dead radio can never stall the 100 Hz schedule; `ZOLA_UDP_TELEMETRY=0` builds a radio-less bench binary |
+| Ground bridge | `bridge/zola_udp_bridge.py` | UDP :8888 → WebSocket :8003; decodes with the SAME parse/CRC canon as the serial bridge; ONE reader thread → N clients (the draft bound one socket per client); lost datagrams counted (UDP loses by design — the sequence id exposes the gaps) |
+| Panel | `hilTelemetry.ts` | accepts BOTH lanes' envelopes — `ZOLA_TELEMETRY_UPDATE` and `ZOLA_UDP_TELEMETRY`; one truth, two transports |
+| Proof | `Scripts/hil-udp-test.mjs` | spins the sim bridge, then blasts its OWN independent datagrams (values the sim never generates) — proving the bridge PARSES rather than echoes; asserts per-source sequence monotonicity, source_ip identity, ~100 fps per FC — PASS |
+
+## 6. What the math mirror caught (the v2 war story)
 
 Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
 

@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import FlightReplay from "./FlightReplay";
+import HilHud from "./HilHud";
 import { AmbientMusic } from "@/lib/pet/ambient";
 import { Blackbox } from "@/lib/pet/blackbox";
 import { Storyteller } from "@/lib/pet/storyteller";
@@ -2481,6 +2482,9 @@ export default function DronePetPanel() {
 
         {/* --- flight replay (WAVE 9) ---------------------------------------------- */}
         <FlightReplay getEntries={() => blackboxRef.current.snapshot()} />
+
+        {/* --- HIL telemetry (the ESP32-S3 FC lane) ---------------------------------- */}
+        <HilHud />
 
         {/* --- mission planner (WAVE 10) -------------------------------------------- */}
         <div className="glass-soft rounded-xl p-2">

@@ -153,13 +153,30 @@ Two real bugs, found by `Scripts/firmware_math_check.py` before any flash:
   −80°/s target rate → negative roll_corr → the RIGHT pair speeds up →
   the craft rolls left. That assertion is the loop's soul.
 
-## 9. Honest boundaries
+## 9. The navigation + sensor tier (the fourth spec)
+
+| Piece | File | Role |
+|---|---|---|
+| Sensors | `firmware/zola_fc/zola_sensors.h/.cpp` | BMP280 baro @ 50 Hz (Bosch temperature compensation, the ISA altitude inversion) + HMC5883L compass, tilt-compensated by the Madgwick quaternion, fused with the gyro-z via the complementary filter (the long-term yaw drift dies); the 3-second stationary gyro-bias calibration; the pre-arm math (±3.5° level, ≥ 11.1 V) |
+| Navigation | `firmware/zola_fc/zola_nav.h/.cpp` | the M8N GPS on UART1 @ 115200 (checksum-verified NMEA GGA/RMC), Haversine distance + bearing, the waypoint sequencer with the 2 m arrival boundary, and the RTH: mesh death > 2 s in AUTONOMOUS_MESH flies her HOME (the 500 ms descent remains the manual-mode response — the two clocks protect different modes) |
+| The pin reassignment | `zola_engine.cpp` | THE MERGE DECISION: this spec needs I2C 8/9 for the mag/baro "alongside the IMU" — one pin cannot serve two buses, so the SPI IMU moved to 12/13/11/10; 8/9 are I2C-only (mag + baro always, the IMU's fallback too) |
+| The pre-arm gate | `zola_failsafe` + the engine | the FULL diagnostic before ARM may fire: live IMU · gyro bias calibrated · level within ±3.5° · battery ≥ 11.1 V (stricter than the 10.5 V in-flight floor) |
+
+## 10. Honest boundaries
 
 - `hardware_calibrated: false` — same contract as Isaac: the DShot600 RMT
-  tick rounding (12.5 → 12), the rate-PID gains (1.2/0.05/0.03 roll+pitch,
-  2.5/0.1/0.0 yaw — the spec's values, assumed until the bench sweep), the
-  angle-loop gain (8°/s per °), the hover throttle, and the battery divider
-  ratio are engineering-accurate and **uncalibrated** until the bench runs.
+  tick rounding, the rate-PID gains (1.2/0.05/0.03 roll+pitch, 2.5/0.1/0.0
+  yaw — the spec's values, assumed until the bench sweep), the angle-loop
+  gain (8°/s per °), the baro altitude-hold gain (12 µs per metre), the sea-
+  level pressure constant (1013.25 hPa), the compass declination, the hover
+  throttle, and the battery divider ratio are engineering-accurate and
+  **uncalibrated** until the bench runs.
+- The AUTONOMOUS_MESH mode stores waypoints, computes the target and logs
+  it, but the NAV STEERING (bearing → rate setpoints) is the bench phase —
+  she flies the level hold meanwhile. Honest, stated, not hidden.
+- The magnetometer's tilt compensation uses the Madgwick quaternion —
+  during a fast tumble the heading readout degrades (the mag is a slow
+  sensor); the gyro carries those instants.
 - The firmware's stabilization is a level-hold baseline with zero-rate yaw
   (heading hold needs a reference — the bench phase adds it).
 - The websockets 14.2 timer distortion we measured on Windows (a

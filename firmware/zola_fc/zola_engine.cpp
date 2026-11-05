@@ -41,6 +41,8 @@
 #include "zola_dshot.h"
 #include "zola_udp.h"
 #include "zola_failsafe.h"
+#include "zola_sensors.h"
+#include "zola_nav.h"
 
 // THE WIRELESS FALLBACK: 1 = the telemetry task broadcasts every packet to
 // the Wi-Fi mesh as well as USB (the two lanes are byte-identical by
@@ -54,13 +56,18 @@ static constexpr uint32_t TELEMETRY_HZ = 100;     // the Panel 3 contract
 static constexpr uint32_t FLIGHT_HZ    = 500;     // the spec's 2 ms flight loop
 static constexpr uint32_t BAUD         = 921600;
 
-// THE PIN MAP (the spec's table + the SPI extension the v2 draft implied)
-static constexpr int PIN_SPI_SCK   = 8;   // SPI2 (the table's "GPIO 8,9")
-static constexpr int PIN_SPI_MISO  = 9;
-static constexpr int PIN_SPI_MOSI  = 3;   // assigned — the table names two pins
-static constexpr int PIN_SPI_CS    = 10;  // the v2 draft's IMU_SPI_CS_PIN
-static constexpr int PIN_I2C_SDA   = 8;   // the fallback reuses the same two
-static constexpr int PIN_I2C_SCL   = 9;   // pins the table already committed
+// THE PIN MAP — REASSIGNED (the sensor-stack spec's merge decision): the
+// magnetometer/barometer live on I2C GPIO 8/9 "alongside the IMU" (this
+// spec's requirement) — one pin cannot serve two buses, so the SPI IMU's
+// SCK/MISO moved OFF 8/9 to 12/13 (MOSI 11, CS 10 unchanged). 8/9 are now
+// I2C-ONLY: the BMP280 + HMC5883L always, and the IMU's I2C fallback path.
+static constexpr int PIN_SPI_SCK   = 12;  // moved off 8 — see the reassignment note
+static constexpr int PIN_SPI_MISO  = 13;
+static constexpr int PIN_SPI_MOSI  = 11;
+static constexpr int PIN_SPI_CS    = 10;
+static constexpr int PIN_I2C_SDA   = 8;   // the spec's bus: mag + baro + IMU fallback
+static constexpr int PIN_I2C_SCL   = 9;
+static constexpr int PIN_GPS_RX    = 44;  // UART1: the M8N GPS @ 115200 (NMEA)
 static constexpr int PIN_MOTOR_FL  = 5;   // motor 1, front-left
 static constexpr int PIN_MOTOR_FR  = 18;  // motor 2, front-right
 static constexpr int PIN_MOTOR_RR  = 19;  // motor 3, rear-right
@@ -344,12 +351,25 @@ static void flight_control_task(void*) {
         float gx = 0, gy = 0, gz = 0, ax = 0, ay = 0, az = 0;
         bool alive = use_spi ? mpu_spi_burst(gx, gy, gz, ax, ay, az)
                              : mpu_i2c_burst(gx, gy, gz, ax, ay, az);
+        // THE PRE-ARM GYRO BIAS: the calibrated zero-rate offsets come off
+        // EVERY reading — a cold gyro's bias is a slow spin the level hold
+        // cannot win against
+        zola_sensors::apply_gyro_bias(gx, gy, gz);
+        zola_sensors::feed_gyro(gx, gy, gz);   // feeds the 3-second boot calibration
         // THE UNIT CONTRACT: Madgwick's canonical form consumes RADIANS/SECOND
         // — the mirror test caught the degrees/s hand-off (a 90°/s yaw
         // integrated to 102.86°). The PID keeps degrees (its gains are in
         // µs/degree); the filter gets the radian conversion here.
         constexpr float DEG2RAD = 0.017453292519943295f;
         if (alive) madgwick_step(gx * DEG2RAD, gy * DEG2RAD, gz * DEG2RAD, ax, ay, az, 1.f / FLIGHT_HZ);
+
+        // THE SUPPORT SENSORS: the baro at 50 Hz (every 10th flight cycle)
+        // and the tilt-compensated compass every cycle — the fused heading
+        // kills the long-term yaw drift the accel alone cannot see
+        static uint8_t baro_divider = 0;
+        if (++baro_divider >= 10) { baro_divider = 0; zola_sensors::baro_poll(); }
+        zola_sensors::mag_poll(mq[0], mq[1], mq[2], mq[3], gz, 1.f / FLIGHT_HZ);
+        zola_sensors::report_imu(alive);
 
         FlightState s = snapshot_flight();
         s.imu_alive = alive;
@@ -362,7 +382,10 @@ static void flight_control_task(void*) {
         s.battery_mv = (uint16_t)((raw / 4) * 3300 / 4095 * BATT_DIVIDER);
 
         // THE WATCHDOG: the link's death is checked here, on the flight core,
-        // every cycle — 500 ms without a valid command while armed → descent
+        // every cycle. THE TWO CLOCKS: 500 ms of silence → the controlled
+        // descent (STABILIZED); in AUTONOMOUS_MESH the mission has a longer
+        // fuse — > 2 s of mesh death engages the RTH (the nav module flies
+        // her home instead of dropping her in a field).
         zola_failsafe::check_watchdog(millis());
 
         // THE MODE IS THE FIRST GATE — this is what the draft never wired:
@@ -378,20 +401,67 @@ static void flight_control_task(void*) {
             continue;   // the cascade never ran this cycle — the mode owns it
         }
 
+        // THE AUTONOMOUS MESH: when the mode is AUTONOMOUS_MESH, the nav
+        // module's mission runs — the active waypoint (or the RTH target) is
+        // computed here; the STEERING (bearing → rate setpoints) is the
+        // bench phase, so the loop holds the level cascade meanwhile. The
+        // mesh-alive fuse is the failsafe's clock: > 2 s silent → RTH.
+        if (zola_failsafe::mode() == FlightMode::AUTONOMOUS_MESH) {
+            static uint32_t last_nav_log = 0;
+            zola_nav::Fix f = zola_nav::fix();
+            if (f.valid) {
+                const bool mesh_alive = zola_failsafe::ms_since_last_command() < 2000;
+                auto t = zola_nav::step(f.lat, f.lon, mesh_alive);
+                if (t.active && millis() - last_nav_log > 1000) {
+                    last_nav_log = millis();
+                    Serial.printf("[Zola Nav] target %.6f,%.6f dist %.1f m\n",
+                                  t.lat, t.lon,
+                                  zola_nav::haversine_m(f.lat, f.lon, t.lat, t.lon));
+                }
+            }
+        }
+
         // THE CASCADE (v3): angle error → target rates → rate PID → mixer.
         // Level hold: the target attitude is 0°/0° (the bench phase adds a
-        // real attitude setpoint); yaw holds zero RATE (heading hold needs
-        // a reference — same bench phase).
+        // real attitude setpoint); the yaw holds the MAG-FUSED heading (the
+        // long-term drift the accel alone cannot see is now corrected).
         const float dt = 1.f / FLIGHT_HZ;
+        // THE HOLD TARGETS are captured when she ENTERS a flight mode (arm or
+        // the mission start) — NOT "once ever": a re-arm must capture the
+        // new hover altitude and the new heading, not chase the old ones.
+        static float alt_target = -1000.f, heading_target = 0.f;
+        static zola_failsafe::FlightMode last_mode = zola_failsafe::FlightMode::DISARMED;
+        auto now_mode = zola_failsafe::mode();
+        if (now_mode != last_mode) {
+            if (now_mode == zola_failsafe::FlightMode::STABILIZED ||
+                now_mode == zola_failsafe::FlightMode::AUTONOMOUS_MESH) {
+                alt_target = zola_sensors::altitude_m();      // hold HERE
+                heading_target = zola_sensors::heading_deg(); // hold THIS heading
+            }
+            last_mode = now_mode;
+        }
         float roll_target_rate  = alive ? ANGLE_KP_DPS_PER_DEG * (0.f - s.roll)  : 0.f;
         float pitch_target_rate = alive ? ANGLE_KP_DPS_PER_DEG * (0.f - s.pitch) : 0.f;
-        float yaw_target_rate   = 0.f;  // zero-rate hold
+        // the heading hold through the SHORT ARC: a 350° → 10° error is +20°,
+        // not −340° of spinning
+        float heading_err = zola_sensors::heading_deg() - heading_target;
+        if (heading_err > 180.f) heading_err -= 360.f;
+        if (heading_err < -180.f) heading_err += 360.f;
+        float yaw_target_rate = alive ? 4.0f * (0.f - heading_err) : 0.f;
+        // THE ALTITUDE HOLD: the baro's error trims the hover throttle; the
+        // gains are ASSUMED until the bench.
+        float base_us = THROTTLE_HOVER_US;
+        {
+            float alt_err = alt_target - zola_sensors::altitude_m();
+            base_us = constrain(THROTTLE_HOVER_US + 12.f * alt_err,
+                                THROTTLE_IDLE_US + 50.f, THROTTLE_MAX_US);
+        }
         // the INNER loop: gyro rates (deg/s) vs the target rates — the spec's
         // PID equation, the loop that actually talks to the motors
         float corrR = alive ? rate_roll .update(roll_target_rate,  gx, dt) : 0.f;
         float corrP = alive ? rate_pitch.update(pitch_target_rate, gy, dt) : 0.f;
         float corrY = alive ? rate_yaw  .update(yaw_target_rate,   gz, dt) : 0.f;
-        apply_motor_mix(THROTTLE_HOVER_US, corrR, corrP, corrY, motors);
+        apply_motor_mix(base_us, corrR, corrP, corrY, motors);
 
         // THE LIPO FLOOR: below the cell floor, everything ramps to idle —
         // the battery is never murdered to hold a hover
@@ -423,6 +493,18 @@ static void telemetry_task(void*) {
         size_t n = 0;
         while (Serial.available() && n < sizeof(rxBuf)) rxBuf[n++] = Serial.read();
         if (n) zola_failsafe::feed_bytes(rxBuf, n);
+        // THE GPS: line-based NMEA off UART1 (100 Hz is far more than the
+        // M8N's update rate — nothing is missed)
+        while (Serial1.available()) {
+            char c = (char)Serial1.read();
+            if (c == '\n') continue;
+            if (c == '\r') {
+                rxBuf[n] = 0;
+                if (n > 0) { zola_nav::feed_nmea_line((char*)rxBuf); n = 0; }
+                continue;
+            }
+            if (n < sizeof(rxBuf) - 1) rxBuf[n++] = c;
+        }
 #if ZOLA_UDP_TELEMETRY
         uint8_t dgram[64];
         size_t dgram_len;
@@ -454,27 +536,47 @@ void setup() {
     zola_udp::init();  // the Wi-Fi mesh + the UDP socket (non-fatal if it fails)
 #endif
 
-    // IMU bring-up: SPI first (the burst path), I2C on the same pins if the
+    // THE SUPPORT SENSOR BUS FIRST: I2C 8/9 @ 400 kHz is the mag + baro's
+    // home (and the IMU's fallback path — same bus, no conflict now)
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 400000);
+    const bool baro_ok = zola_sensors::baro_init();
+    const bool mag_ok = zola_sensors::mag_init();
+    Serial.printf("[Zola Sensors] baro %s · mag %s\n",
+                  baro_ok ? "OK" : "MISSING", mag_ok ? "OK" : "MISSING");
+
+    // IMU bring-up: SPI first (the burst path), I2C on the same bus if the
     // SPI WHO_AM_I misses — either way the stream continues
     use_spi = mpu_spi_init();
     if (!use_spi) {
-        Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 400000);
         Wire.beginTransmission(0x68); Wire.write(MPU_PWR_MGMT_1); Wire.write(0x00); Wire.endTransmission();
         Wire.beginTransmission(0x68); Wire.write(MPU_GYRO_CFG);   Wire.write(0x18); Wire.endTransmission();
         Wire.beginTransmission(0x68); Wire.write(MPU_ACCEL_CFG);  Wire.write(0x08); Wire.endTransmission();
     }
 
+    // THE GYRO BIAS CALIBRATION (the spec's 3-second stationary startup):
+    // the flight task's first 1500 cycles ARE the calibration — she must be
+    // STILL (the pre-arm level check is the operator's promise)
+    zola_sensors::start_gyro_bias_calibration();
+
+    // THE GPS: UART1 @ 115200, the M8N's NMEA stream (the nav module parses)
+    Serial1.begin(115200, SERIAL_8N1, PIN_GPS_RX, -1);
+
     // four RMT TX channels — one per DShot line (the module owns the tick:
     // 50 ns, ratio-encoded — the bench scope verifies the absolute rate)
     for (int pin : MOTOR_PINS) zola_dshot::init((gpio_num_t)pin);
 
-    // THE FAILSAFE'S HOOKS: the arm gate ("may she arm right now?") and the
-    // gain setter (the ground station's UPDATE_PID payload lands here). The
-    // gate reads the PUBLISHED state — the SPI bus belongs to core 1's flight
-    // loop alone; the gate must never touch it from the command path.
+    // THE FAILSAFE'S HOOKS: the arm gate is now the FULL PRE-ARM DIAGNOSTIC
+    // (the sensor-health spec): a live IMU, the gyro bias calibrated, the
+    // chassis LEVEL within ±3.5°, and the battery above the SPEC'S 11.1 V
+    // pre-arm threshold (stricter than the 10.5 V in-flight floor). The
+    // gate reads the PUBLISHED state — the SPI bus belongs to core 1 alone.
     zola_failsafe::set_arm_gate([]() -> bool {
         FlightState s = snapshot_flight();
-        return s.imu_alive && (s.battery_mv == 0 || s.battery_mv > BATT_CUTOFF_MV);
+        if (!s.imu_alive) return false;
+        if (!zola_sensors::gyro_bias_ready()) return false;
+        if (!zola_sensors::level_within(s.roll, s.pitch)) return false;
+        if (s.battery_mv != 0 && !zola_sensors::battery_above_pream(s.battery_mv)) return false;
+        return true;
     });
     zola_failsafe::set_gain_hook([](const uint8_t* p) {
         const uint8_t axis_mask = p[0] & 0x7;

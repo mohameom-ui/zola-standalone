@@ -24,6 +24,32 @@ import random
 import struct
 import sys
 
+
+def haversine_m(lat1, lon1, lat2, lon2):
+    """Mirror of the nav module's Haversine (metres, WGS84 mean radius)."""
+    r = 6371000.0
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def bearing_deg(lat1, lon1, lat2, lon2):
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    b = math.degrees(math.atan2(y, x))
+    return b + 360 if b < 0 else b
+
+
+def level_within(roll, pitch, threshold=3.5):
+    return abs(roll) <= threshold and abs(pitch) <= threshold
+
+
+def battery_above_pream(mv, threshold=11100.0):
+    return mv >= threshold
+
 # a seeded RNG: the sensor noise is realistic AND the test is deterministic
 _rng = random.Random(4501)
 
@@ -423,6 +449,134 @@ def test_packet_canon():
     check("bridge unpack reads the same battery", unpacked[10] == batt)
 
 
+def test_nav_and_sensors():
+    print("NAVIGATION + SENSOR MATH:")
+    import math as m
+
+    # HAVERSINE against a known distance: NYC's Columbus Circle to Central
+    # Park South ≈ measured great-circle values — verify against the formula's
+    # own independent implementation (the spherical law of cosines)
+    def law_cos(lat1, lon1, lat2, lon2):
+        p1, p2, dl = m.radians(lat1), m.radians(lat2), m.radians(lon2 - lon1)
+        return 6371000.0 * m.acos(min(1, m.sin(p1) * m.sin(p2) + m.cos(p1) * m.cos(p2) * m.cos(dl)))
+    cases = [(40.7128, -74.0060, 40.7580, -73.9855),   # Manhattan-ish
+             (0.0, 0.0, 0.0, 1.0),                     # 1° of longitude at the equator ≈ 111.19 km
+             (51.5007, -0.1246, 51.5033, -0.1277)]     # London eye → Trafalgar
+    for a, b, c, d in cases:
+        hv = haversine_m(a, b, c, d)
+        ref = law_cos(a, b, c, d)
+        check(f"haversine agrees with the law of cosines ({a},{b})", abs(hv - ref) / ref < 0.001,
+              f"{hv:.1f} vs {ref:.1f}")
+    equator = haversine_m(0, 0, 0, 1)
+    check("1° of equatorial longitude ≈ 111.19 km", abs(equator - 111195.0) < 500, f"{equator:.0f} m")
+    check("zero distance is zero", haversine_m(51.5, -0.1, 51.5, -0.1) == 0)
+
+    # BEARING: due north, due east, and the round trip
+    check("bearing due north = 0°", abs(bearing_deg(51.0, 0.0, 52.0, 0.0)) < 0.5)
+    check("bearing due east ≈ 90°", abs(bearing_deg(51.0, 0.0, 51.0, 1.0) - 90) < 1.0)
+    check("bearing south from north = 180°", abs(bearing_deg(52.0, 0.0, 51.0, 0.0) - 180) < 0.5)
+
+    # THE COMPLEMENTARY HEADING FUSION: a gyro at 30°/s with a mag that says
+    # 90° FIXED is a contradictory scenario — the per-step gyro push (0.06°)
+    # and the mag pull (weight·err) balance at err = 0.06/0.02 = 3°: the
+    # steady-state lag is PHYSICS, not a bug. Then the rotation STOPS and
+    # the filter must settle to the truth exactly.
+    fused = 0.0
+    mag_weight = 0.02
+    for _ in range(2000):  # 4 s of spinning
+        gyro_term = fused + 30.0 * 0.002
+        err = ((90.0 - gyro_term) + 540.0) % 360.0 - 180.0
+        fused = gyro_term + mag_weight * err
+    check("compass fusion tracks within the push/pull balance", abs(((fused - 90.0) + 540) % 360 - 180) < 4.0,
+          f"fused={fused:.2f}° (the physics equilibrium is ±3°)")
+    for _ in range(1000):  # 2 s of stillness — now it must CONVERGE
+        gyro_term = fused + 0.0
+        err = ((90.0 - gyro_term) + 540.0) % 360.0 - 180.0
+        fused = gyro_term + mag_weight * err
+    check("still gyro: the compass converges exactly", abs(((fused - 90.0) + 540) % 360 - 180) < 0.5,
+          f"fused={fused:.2f}°")
+
+    # GYRO BIAS: 300 samples of a true-zero gyro with a +1.5°/s bias must
+    # recover the bias, and applying it must zero the readings
+    s_bias_sum = [0.0, 0.0, 0.0]; n = 0; ready = False; bias = [0, 0, 0]
+    rng = random.Random(77)
+    for _ in range(300):
+        gx, gy, gz = 1.5 + rng.gauss(0, 0.02), -0.4, 0.2
+        if not ready and n < 300:
+            s_bias_sum[0] += gx; s_bias_sum[1] += gy; s_bias_sum[2] += gz; n += 1
+        if not ready and n >= 300:
+            bias = [v / n for v in s_bias_sum]; ready = True
+    check("gyro bias recovered within 0.1°/s", abs(bias[0] - 1.5) < 0.1, f"{bias[0]:.3f}")
+
+    # THE LEVEL CHECK: ±3.5° — inside passes, outside fails, edge is exact
+    check("level 3.4° passes", level_within(3.4, -3.4))
+    check("3.6° fails", not level_within(3.6, 0.0))
+    check("exactly 3.5° passes", level_within(3.5, -3.5))
+    # THE PRE-ARM BATTERY: 11.1 V threshold — 11.09 fails, 11.11 passes
+    check("pre-arm battery: 11.09 V fails", not battery_above_pream(11090))
+    check("pre-arm battery: 11.11 V passes", battery_above_pream(11110))
+    check("the in-flight floor (10.5) would NOT pass pre-arm",
+          not battery_above_pream(10800))
+
+    # BMP280 ALTITUDE FORMULA: the standard barometric inversion — sea level
+    # pressure → 0 m, and each hPa of pressure drop ≈ +8.4 m near the ground
+    def bmp_altitude(pressure_hpa, sea_hpa=1013.25):
+        return 44330.0 * (1.0 - (pressure_hpa / 100.0 / sea_hpa) ** 0.1902949572)
+    check("sea-level pressure reads 0 m", abs(bmp_altitude(101325.0)) < 0.5,
+          f"{bmp_altitude(101325.0):.2f} m")
+    check("−10 hPa ≈ +85 m", 80 < bmp_altitude(101325.0 - 1000.0) < 90,
+          f"{bmp_altitude(101325.0 - 1000.0):.1f} m")
+
+    # THE NMEA COORDINATE PARSE: ddmm.mmmm + hemisphere → decimal degrees
+    def nmea_coord(raw, hemi, lat=True):
+        deg_digits = 2 if lat else 3
+        deg = int(raw[:deg_digits])
+        minutes = float(raw[deg_digits:])
+        value = deg + minutes / 60.0
+        return -value if hemi in ("S", "W") else value
+    check("NMEA 4042.6142 N = 40.7102°", abs(nmea_coord("4042.6142", "N") - 40.710236) < 0.0001,
+          f"{nmea_coord('4042.6142', 'N'):.6f}")
+    check("NMEA 07400.3736 W = −74.0062°", abs(nmea_coord("07400.3736", "W", False) + 74.006227) < 0.0001,
+          f"{nmea_coord('07400.3736', 'W', False):.6f}")
+
+    # THE WAYPOINT SEQUENCER: arrival within the 2 m boundary advances; RTH
+    # engages on mesh death; reaching HOME ends the RTH
+    class Mission:
+        def __init__(self, wps):
+            self.wps = wps; self.i = 0; self.rth = False; self.home = wps[0]
+        def step(self, lat, lon, mesh_alive):
+            if self.rth:
+                if haversine_m(lat, lon, self.home[0], self.home[1]) <= 2.0:
+                    return (None, True)  # home, done
+                return (self.home, False)
+            if not mesh_alive and not self.rth:
+                self.rth = True
+            if self.i >= len(self.wps):
+                return (None, True)
+            target = self.wps[self.i]
+            if haversine_m(lat, lon, target[0], target[1]) <= 2.0:
+                self.i += 1
+                if self.i >= len(self.wps):
+                    return (None, True)
+                target = self.wps[self.i]
+            return (target, False)
+    ms = Mission([(51.5, -0.1), (51.51, -0.1)])
+    # she launches ~11 m OUTSIDE wp1 (51.5001 is 11 m north of 51.5)
+    t, done = ms.step(51.5001, -0.1, True)
+    check("waypoint 1 active from outside its radius", t == (51.5, -0.1) and not done, f"{t}")
+    t, done = ms.step(51.5, -0.1, True)       # entering the 2 m boundary...
+    t2, done2 = ms.step(51.5, -0.1, True)     # ...so the next step targets wp2
+    check("entering the 2 m boundary advances", t2 == (51.51, -0.1) and not done2, f"{t2}")
+    t, done = ms.step(51.51, -0.1, True)      # arrive at wp2 — the mission is flown
+    check("the mission completes at the last waypoint", done, f"{t},{done}")
+    ms = Mission([(51.5, -0.1), (51.51, -0.1)])
+    ms.step(51.5001, -0.1, True)
+    t, done = ms.step(51.5001, -0.1, False)   # the mesh dies mid-mission
+    check("mesh death engages RTH", ms.rth, f"target={t}")
+    t, done = ms.step(51.5, -0.1, False)      # she reaches HOME
+    check("reaching HOME ends the RTH", done, f"{t},{done}")
+
+
 def main():
     test_madgwick()
     test_dshot()
@@ -430,6 +584,7 @@ def main():
     test_cascade()
     test_command_canon()
     test_packet_canon()
+    test_nav_and_sensors()
     print(f"\nfirmware math mirror: {PASS} pass, {FAIL} fail")
     sys.exit(1 if FAIL else 0)
 

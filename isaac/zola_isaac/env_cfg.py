@@ -369,3 +369,9 @@ class ZolaTouchdownCfg(ZolaHandsCfg):
     pose_approach_s = 1.5
     action_space = len(ARM_JOINTS)+12
     observation_space = 4*(len(ARM_JOINTS)+12)+12
+
+
+@configclass
+class ZolaTouchdownSigmoidCfg(ZolaTouchdownCfg):
+    """The sigmoid A/B's env: identical to the touchdown task (the env is
+    activation-agnostic — the A/B variable lives in the agent runner)."""

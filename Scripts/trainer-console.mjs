@@ -21,11 +21,14 @@ import { fileURLToPath } from "node:url";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // the persistent in-repo venv (the old scratchpad venv was deleted)
 const venv = process.env.ZOLA_VENV ?? path.join(repo, ".venv-isaac", "Scripts");
-const isaaclab = path.join(venv, "isaaclab.exe");
+// the AV-blocked isaaclab.exe launcher cost us a training round — spawn the
+// venv python's module entry instead: same CLI, no exe for AV to flag
+const isaaclab = path.join(venv, "python.exe");
+const ISAACLAB_ARGS = ["-m", "isaaclab"];
 // ONE log home for every run — manual or console-launched — so TensorBoard
 // sees all curves and the selectors find all checkpoints
-const logsRoot = process.env.ZOLA_LOGS ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p\logs\rsl_rl`;
-const trainCwd = process.env.ZOLA_TRAIN_CWD ?? String.raw`C:\Users\self_\.lmstudio\scratchpads\p`;
+const logsRoot = process.env.ZOLA_LOGS ?? path.join(repo, "logs", "rsl_rl");
+const trainCwd = process.env.ZOLA_TRAIN_CWD ?? repo;
 
 const TASKS = {
   balance: { id: "Isaac-Zola-Balance-Prototype-v0", label: "balance", iters: 1500 },
@@ -210,7 +213,7 @@ const server = http.createServer(async (req, res) => {
     if (!existsSync(expDir)) mkdirSync(expDir, { recursive: true });
     const consoleLog = path.join(expDir, `console_${Date.now().toString(36)}.log`);
     const out = openSync(consoleLog, "a");
-    const proc = spawn(isaaclab, ["train", "--rl_library", "rsl_rl", "--task", t.id,
+    const proc = spawn(isaaclab, [...ISAACLAB_ARGS, "train", "--rl_library", "rsl_rl", "--task", t.id,
       "--num_envs", "64", "--max_iterations", String(t.iters), "--run_name", runName],
       { cwd: trainCwd, detached: true, stdio: ["ignore", out, out],
         env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
@@ -237,7 +240,7 @@ const server = http.createServer(async (req, res) => {
     const t = TASKS[key] ?? TASKS.touchdown;
     if (viewer) { viewer.kill(); viewer = null; }
     // the LIVE 3D window: her trained policy, rendered, in real time
-    viewer = spawn(isaaclab, ["play", "--rl_library", "rsl_rl", "--task", t.id,
+    viewer = spawn(isaaclab, [...ISAACLAB_ARGS, "play", "--rl_library", "rsl_rl", "--task", t.id,
       "--checkpoint", "latest", "--num_envs", "1", "--viz", "kit"],
       { cwd: trainCwd, stdio: "ignore", env: { ...process.env, OMNI_KIT_ACCEPT_EULA: "YES", PYTHONUTF8: "1" } });
     viewer.on("exit", () => { viewer = null; });

@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const read64 = (p) => fs.readFileSync(p).toString("base64");
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url || __filename)), "..");
 
-const conceptRender = read64(path.join(repo, "..", ".lmstudio", "scratchpads", "p", "Gemini_Generated_Image_lfvgehlfvgehlfvg.jpg"));
+// the V12 canon render — rescued from the ephemeral scratchpad into the repo
+const conceptRender = read64(path.join(repo, "Saved", "canon", "zola-v12-render.jpg"));
 const panelShot = read64(path.join(repo, "Saved", "audit-collar-v2.png"));
 
 let isaacHover = null, isaacTouchdown = null;

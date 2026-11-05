@@ -13,8 +13,11 @@ export const dynamic = "force-dynamic";
 
 const POLICIES_DIR = path.resolve(process.cwd(), "isaac", "policies");
 
-const SERVICES: { name: string; port: number; probe: string | null }[] = [
-  { name: "panel", port: 3001, probe: null }, // this process IS the panel
+const SERVICES: { name: string; port: number; probe: string | null; self?: boolean }[] = [
+  // the panel probes ITSELF — a request-handler fetch to its own dev server
+  // deadlocks in Next dev, so the self entry is up by definition (this
+  // response could not exist otherwise)
+  { name: "panel", port: 3001, probe: null, self: true },
   { name: "trainer console", port: 3002, probe: "/status" },
   { name: "debug engine", port: 3003, probe: null },
   { name: "defense watch", port: 3004, probe: "/report" },
@@ -49,7 +52,7 @@ export async function GET(request: Request) {
   }
   const [ollama, ...serviceResults] = await Promise.all([
     probeOllama(),
-    ...SERVICES.map((s) => probeService(s.port, s.probe)),
+    ...SERVICES.map((s) => (s.self ? Promise.resolve(true) : probeService(s.port, s.probe))),
   ]);
 
   let policyCount = 0;

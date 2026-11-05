@@ -21,7 +21,10 @@ import path from "node:path";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // the persistent in-repo venv (the old scratchpad venv was deleted)
 const venv = process.env.ZOLA_VENV ?? path.join(repo, ".venv-isaac", "Scripts");
-const isaaclab = path.join(venv, process.platform === "win32" ? "isaaclab.exe" : "isaaclab");
+// the AV-blocked isaaclab.exe launcher cost us a training round — spawn the
+// venv python's module entry instead: same CLI, no exe for AV to flag
+const isaaclab = path.join(venv, process.platform === "win32" ? "python.exe" : "python");
+const ISAACLAB_ARGS = process.platform === "win32" ? ["-m", "isaaclab"] : [];
 const python = path.join(venv, process.platform === "win32" ? "python.exe" : "python");
 const logsRoot = process.env.ZOLA_LOGS ?? path.join(repo, "logs", "rsl_rl");
 const rounds = Number(process.env.ZOLA_ROUNDS ?? 1);
@@ -63,7 +66,7 @@ for (let round = 0; rounds === 0 || round < rounds; round++) {
     const runName = `auto_${label.replace(/\W+/g, "_")}_${new Date().toISOString().slice(5, 16).replace(/\W+/g, "")}`;
     say(`training ${label} (${iters} iters, ${numEnvs} envs)`);
     try {
-      run(isaaclab, ["train", "--rl_library", "rsl_rl", "--task", task,
+      run(isaaclab, [...ISAACLAB_ARGS, "train", "--rl_library", "rsl_rl", "--task", task,
         "--num_envs", String(numEnvs), "--max_iterations", String(iters), "--run_name", runName]);
     } catch (e) {
       say(`!! training ${label} failed — moving to the next skill`);

@@ -218,6 +218,38 @@ checkpoint from iteration 200 on. Exported `zola_sit_model_2499.onnx`
 joins the touchdown's in the canon: THE POSE ADAPTS TO THE PHYSICS — the
 training record is the measurement, not the wish.
 
+## Run 14 — the sigmoid A/B (2026-11-05)
+
+The activation question, answered by training rather than by opinion. One
+variable: `Isaac-Zola-TouchdownSigmoid-Prototype-v0` — the touchdown task
+byte-for-byte (including the OLD lr 3e-4, pinned) with sigmoid in the actor
+and critic instead of ELU. Referee: touchdown_v10 (ELU, peak smoothed reward
+33.8, 533/600 episodes).
+
+| Network | Final reward | Final episodes | Peak reward |
+|---|---|---|---|
+| ELU (touchdown_v10) | 33.8 (peak) | 533/600 | 33.8 |
+| **sigmoid (the A/B)** | 3.64 | 101/600 | 4.54 |
+
+**Verdict: sigmoid is REJECTED for the policy networks.** The curve never
+left the floor — the saturating tails (output pinned to 0/1) pass near-zero
+gradients exactly where the policy needs to move. ELU stays the canon; the
+sigmoid task stays registered as the experiment of record. This matches the
+standard prediction, but now the shelf's activation choice is MEASURED, not
+inherited.
+
+## The hyperparameter tune (2026-11-05) — the optimizer contract
+
+Documented in `isaac/zola_isaac/agent.py` (the OPTIMIZER CONTRACT comment):
+learning rate 3e-4 → **1e-3** (initial; the adaptive-KL schedule still
+governs the live value — desired_kl=.01 remains the ceiling on per-update
+policy change); Adam's momentum β₁=0.9, β₂=0.999 documented (the RslRl
+wrapper does not expose betas — its optimizer field is a name string only);
+the three real bias layers documented (Linear biases, the observation
+normalizer's offset, init_noise_std=.3 as the exploration bias). The lr
+tune's validation round: touchdown at 1e-3, 2500 iters, referee
+again touchdown_v10.
+
 ## Reproduce
 
 ```powershell

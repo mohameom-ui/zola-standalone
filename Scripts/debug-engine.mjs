@@ -221,7 +221,7 @@ const restarts = {
   panel: () => spawn("npm", ["run", "dev"], { cwd: repo, shell: true, detached: true, stdio: "ignore" }).unref(),
   console: () => spawn("node", [path.join(repo, "Scripts", "trainer-console.mjs")], { cwd: repo, detached: true, stdio: "ignore" }).unref(),
   tensorboard: () => spawn(path.join(venv, process.platform === "win32" ? "tensorboard.exe" : "tensorboard"),
-    ["--logdir", String.raw`C:\Users\self_\.lmstudio\scratchpads\p\logs\rsl_rl`, "--port", "6006"],
+    ["--logdir", path.join(repo, "logs", "rsl_rl"), "--port", "6006"],
     { cwd: repo, detached: true, stdio: "ignore" }).unref(),
 };
 

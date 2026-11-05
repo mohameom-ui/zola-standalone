@@ -12,7 +12,10 @@ let online = false;
 try { online = (await (await fetch(`${OLLAMA}/api/tags`, { signal: AbortSignal.timeout(2500) })).ok); } catch { online = false; }
 
 describe.skipIf(!online)("the self-builder in the wild (needs her Ollama)", () => {
-  it("her brain writes a capability, the gate passes it, the sandbox runs it", { timeout: 90_000 }, async () => {
+  // 240s: a LIVE end-to-end round trip through her Ollama brain — which
+  // shares the GPU with Isaac training, so generation slows while she
+  // trains. The 90s limit was a false FAIL under GPU contention.
+  it("her brain writes a capability, the gate passes it, the sandbox runs it", { timeout: 240_000 }, async () => {
     // pick her working text brain — same preference as LlmConsultant
     const tags = await (await fetch(`${OLLAMA}/api/tags`)).json() as { models?: { name: string }[] };
     const prefs = [/llama3\.1:8b/i, /llama3\.2:3b/i, /qwen2\.5/i, /mistral/i, /gemma/i];

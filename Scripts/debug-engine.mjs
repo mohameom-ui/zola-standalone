@@ -168,6 +168,31 @@ checks.push({ name: "ONNX shelf (drift + honesty gates)", group: "physics", fn: 
   return { level: "PASS", detail: `${manifests.length} artifacts across ${tasks.size} skills, all drift-verified` };
 }});
 
+// ---------- FIRMWARE GROUP -------------------------------------------------------
+checks.push({ name: "firmware math mirror (the flight code's referee)", group: "firmware", fn: async () => {
+  const out = sh(`${pythonExe} "${path.join(repo, "Scripts", "firmware_math_check.py")}"`, { timeout: 120_000, env: { ...process.env, PYTHONUTF8: "1" } });
+  const m = out.match(/(\d+) pass, (\d+) fail/);
+  if (!m || Number(m[2]) > 0) throw new Error(out.slice(-300));
+  return { level: "PASS", detail: `${m[1]} assertions on the FC's pure math (Madgwick, DShot, the cascade, the mixer, the canons, the nav, the vision, the OTA)` };
+}});
+checks.push({ name: "HIL lanes (serial + wireless, end to end)", group: "firmware", fn: async () => {
+  const out = sh(`node "${path.join(repo, "Scripts", "hil-test.mjs")}"`, { timeout: 60_000 });
+  if (!out.includes("HIL-TEST PASS")) throw new Error(out.slice(-300));
+  const out2 = sh(`node "${path.join(repo, "Scripts", "hil-udp-test.mjs")}"`, { timeout: 60_000 });
+  if (!out2.includes("HIL-UDP PASS")) throw new Error(out2.slice(-300));
+  return { level: "PASS", detail: "the sim bridge streams at 100 Hz; the wireless lane carries telemetry BOTH ways (the EMERGENCY DISARM reached the FC)" };
+}});
+checks.push({ name: "OTA signer (ED25519 round trip)", group: "firmware", fn: async () => {
+  const out = sh(`${pythonExe} "${path.join(repo, "Scripts", "zota_ota_tool.py")}" selftest`, { timeout: 60_000, env: { ...process.env, PYTHONUTF8: "1" } });
+  if (!out.includes("SELFTEST PASS")) throw new Error(out.slice(-300));
+  return { level: "PASS", detail: "valid verifies, one flipped image bit rejects (real ED25519)" };
+}});
+checks.push({ name: "pathfind (NetworkX A* over the costmap)", group: "firmware", fn: async () => {
+  const out = sh(`${pythonExe} "${path.join(repo, "bridge", "zola_pathfind.py")}"`, { timeout: 60_000, env: { ...process.env, PYTHONUTF8: "1" } });
+  if (!out.includes("self-test PASS")) throw new Error(out.slice(-300));
+  return { level: "PASS", detail: "the wall routed around, no corner cutting" };
+}});
+
 // ---------- PRINT GROUP -----------------------------------------------------------
 checks.push({ name: "print package (STL bboxes)", group: "print", fn: async () => {
   const dir = path.join(repo, "Saved", "print", "zola-v12");

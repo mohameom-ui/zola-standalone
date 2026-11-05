@@ -19,6 +19,14 @@ ledger reports its age, a missing manifest is a 404 with the repair command.
 | `/api/zola/integrity` | GET | SHA-256 integrity of every trust-critical local asset (bundle, ORT runtimes, model configs + weights, voice bins, gesture configs) | local runtime assets |
 | `/api/zola/pack` | GET | The forge's capability pack (requires `ZOLA_FORGE_HOME`; 500 without it, never a hardcoded fallback) | the forge home |
 
+## The HIL lanes (WebSocket, not HTTP — see docs/HIL.md)
+
+| Lane | Bridge | WS port | Envelope types |
+|---|---|---|---|
+| USB serial | `bridge/zola_bridge.py` | 8002 | `ZOLA_TELEMETRY_UPDATE` · `ZOLA_PDB_TELEMETRY` · inbound `ZOLA_COMMAND` |
+| Wi-Fi/UDP | `bridge/zola_udp_bridge.py` | 8003 | `ZOLA_UDP_TELEMETRY` · `ZOLA_PDB_TELEMETRY` · inbound `ZOLA_COMMAND` |
+| Blackbox dump | the serial bridge demuxes the FC's dump chunks into `Saved/blackbox/` | — | the lane's own `FD 0D` framing |
+
 ## The database layer
 
 Zola has no traditional database — her persistence is **files as the source

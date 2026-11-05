@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidHilFrame, parseHilEnvelope, HilTelemetryLink } from "./hilTelemetry";
+import { isValidHilFrame, parseHilEnvelope, parsePdbEnvelope, HilTelemetryLink } from "./hilTelemetry";
 
 const goodPayload = {
   sequence_id: 42,
@@ -29,6 +29,18 @@ describe("HIL telemetry", () => {
     // ZOLA_UDP_TELEMETRY — the panel hears the same truth on either
     expect(parseHilEnvelope(envelope(goodPayload))).toEqual(goodPayload);
     expect(parseHilEnvelope(JSON.stringify({ type: "ZOLA_UDP_TELEMETRY", panel_id: "hil_telemetry_03", payload: goodPayload }))).toEqual(goodPayload);
+  });
+
+  it("accepts the PDB variant and rejects a broken one", () => {
+    const pdb = {
+      sequence_id: 9, current_ma: 8400, power_w: 99.5, mah_used: 100,
+      esc_temp_max_c: 71, sag_mv: 480, throttle_limit_pct: 88,
+      erpm: [9500, 9500, 9480, 9520], v_bus_mv: 11300,
+      thermal_brake: false, sag_limiting: true,
+    };
+    expect(parsePdbEnvelope(JSON.stringify({ type: "ZOLA_PDB_TELEMETRY", panel_id: "hil_telemetry_03", payload: pdb }))).toEqual(pdb);
+    expect(parsePdbEnvelope(JSON.stringify({ type: "ZOLA_PDB_TELEMETRY", panel_id: "hil_telemetry_03", payload: { ...pdb, current_ma: "8400" } }))).toBeNull();
+    expect(parsePdbEnvelope(JSON.stringify({ type: "ZOLA_TELEMETRY_UPDATE", panel_id: "hil_telemetry_03", payload: pdb }))).toBeNull();
   });
 
   it("rejects structurally broken payloads (every field checked)", () => {

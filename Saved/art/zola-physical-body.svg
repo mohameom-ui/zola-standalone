@@ -1,0 +1,276 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1400" width="900" height="1400">
+<defs>
+  <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1a2030"/>
+    <stop offset="1" stop-color="#232b3d"/>
+  </linearGradient>
+  <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3a3226"/>
+    <stop offset="1" stop-color="#262019"/>
+  </linearGradient>
+  <radialGradient id="glowFloor" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#22d3ee" stop-opacity="0.35"/>
+    <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="glowCore" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#a5f3fc"/>
+    <stop offset="0.55" stop-color="#22d3ee" stop-opacity="0.85"/>
+    <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="lensGrad" cx="0.42" cy="0.38" r="0.75">
+    <stop offset="0" stop-color="#cffafe"/>
+    <stop offset="0.35" stop-color="#22d3ee"/>
+    <stop offset="1" stop-color="#0e7490"/>
+  </radialGradient>
+  <radialGradient id="ringGrad" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#0e7490" stop-opacity="0"/>
+    <stop offset="0.8" stop-color="#67e8f9" stop-opacity="0.25"/>
+    <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="ceramic" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f8fafc"/>
+    <stop offset="0.55" stop-color="#dbe2ea"/>
+    <stop offset="1" stop-color="#9fb0bf"/>
+  </linearGradient>
+  <linearGradient id="ceramicShaded" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#e2e8f0"/>
+    <stop offset="1" stop-color="#7e8fa0"/>
+  </linearGradient>
+  <linearGradient id="carbon" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#2b2f36"/>
+    <stop offset="1" stop-color="#14161a"/>
+  </linearGradient>
+  <linearGradient id="windowLight" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.85"/>
+    <stop offset="1" stop-color="#f9a8d4" stop-opacity="0.5"/>
+  </linearGradient>
+  <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="10"/>
+  </filter>
+  <filter id="soft2" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="3.5"/>
+  </filter>
+</defs>
+
+<!-- the room -->
+<rect width="900" height="1400" fill="url(#wall)"/>
+<rect x="0" y="1150" width="900" height="250" fill="url(#floor)"/>
+<g stroke="#1c1712" stroke-width="2" opacity="0.55">
+  <line x1="0" y1="1215" x2="900" y2="1215"/>
+  <line x1="0" y1="1290" x2="900" y2="1290"/>
+  <line x1="130" y1="1150" x2="60" y2="1400"/>
+  <line x1="450" y1="1150" x2="450" y2="1400"/>
+  <line x1="770" y1="1150" x2="840" y2="1400"/>
+</g>
+<g>
+  <rect x="60" y="170" width="200" height="420" rx="10" fill="#0d1420" stroke="#0a0e15" stroke-width="6"/>
+  <rect x="72" y="182" width="176" height="396" rx="6" fill="url(#windowLight)" opacity="0.75"/>
+  <line x1="160" y1="182" x2="160" y2="578" stroke="#0d1420" stroke-width="8"/>
+  <line x1="72" y1="380" x2="248" y2="380" stroke="#0d1420" stroke-width="8"/>
+  <rect x="72" y="330" width="80" height="120" fill="#0d1420" opacity="0.55"/>
+  <rect x="160" y="300" width="88" height="150" fill="#0d1420" opacity="0.4"/>
+</g>
+<ellipse cx="450" cy="1250" rx="300" ry="90" fill="url(#glowFloor)"/>
+
+<!-- the desk: the brain, watching her -->
+<g>
+  <rect x="560" y="880" width="280" height="14" rx="4" fill="#3d2f22"/>
+  <rect x="584" y="894" width="14" height="230" fill="#33271d"/>
+  <rect x="802" y="894" width="14" height="230" fill="#33271d"/>
+  <rect x="640" y="770" width="130" height="90" rx="6" fill="#0c1016" stroke="#1f2937" stroke-width="3"/>
+  <rect x="650" y="782" width="110" height="66" rx="3" fill="#101b29"/>
+  <rect x="656" y="790" width="42" height="8" rx="2" fill="#22d3ee" opacity="0.9"/>
+  <rect x="656" y="804" width="66" height="6" rx="2" fill="#38bdf8" opacity="0.6"/>
+  <rect x="656" y="816" width="52" height="6" rx="2" fill="#67e8f9" opacity="0.5"/>
+  <rect x="656" y="828" width="70" height="6" rx="2" fill="#155e75" opacity="0.8"/>
+  <rect x="700" y="860" width="10" height="14" fill="#111827"/>
+</g>
+
+<!-- ZOLA: the cyan aura -->
+<ellipse cx="450" cy="700" rx="180" ry="420" fill="url(#glowCore)" opacity="0.28" filter="url(#soft)"/>
+
+<!-- legs: left -->
+<g>
+  <path d="M 415 745 Q 400 850 405 950 L 455 950 Q 452 845 465 750 Z" fill="url(#ceramicShaded)"/>
+  <path d="M 415 745 Q 400 850 405 950 L 428 950 Q 426 845 435 750 Z" fill="url(#ceramic)" opacity="0.6"/>
+  <circle cx="428" cy="960" r="26" fill="url(#carbon)"/>
+  <circle cx="428" cy="960" r="12" fill="#0c0e11"/>
+  <circle cx="428" cy="960" r="4" fill="#22d3ee" opacity="0.8"/>
+  <path d="M 408 982 Q 405 1060 415 1180 L 452 1180 Q 448 1060 450 985 Z" fill="url(#ceramicShaded)"/>
+  <path d="M 408 982 Q 405 1060 415 1180 L 428 1180 Q 425 1060 428 985 Z" fill="url(#ceramic)" opacity="0.55"/>
+  <path d="M 406 1180 L 452 1180 L 454 1218 Q 480 1222 484 1240 L 396 1240 Q 394 1200 406 1180 Z" fill="url(#carbon)"/>
+  <rect x="394" y="1236" width="92" height="12" rx="4" fill="#0b0d10"/>
+  <line x1="414" y1="1000" x2="420" y2="1170" stroke="#22d3ee" stroke-width="2.5" opacity="0.85"/>
+</g>
+<!-- legs: right -->
+<g>
+  <path d="M 468 748 Q 486 850 482 950 L 530 950 Q 528 845 512 752 Z" fill="url(#ceramic)"/>
+  <path d="M 468 748 Q 486 850 482 950 L 505 950 Q 506 845 495 752 Z" fill="url(#ceramicShaded)" opacity="0.5"/>
+  <circle cx="505" cy="960" r="26" fill="url(#carbon)"/>
+  <circle cx="505" cy="960" r="12" fill="#0c0e11"/>
+  <circle cx="505" cy="960" r="4" fill="#22d3ee" opacity="0.8"/>
+  <path d="M 482 985 Q 490 1060 486 1180 L 522 1180 Q 528 1060 522 988 Z" fill="url(#ceramic)"/>
+  <path d="M 482 985 Q 490 1060 486 1180 L 500 1180 Q 504 1060 502 988 Z" fill="url(#ceramicShaded)" opacity="0.5"/>
+  <path d="M 482 1180 L 524 1180 L 534 1218 Q 560 1222 564 1240 L 474 1240 Q 478 1200 482 1180 Z" fill="url(#carbon)"/>
+  <rect x="472" y="1236" width="94" height="12" rx="4" fill="#0b0d10"/>
+  <line x1="516" y1="1000" x2="510" y2="1170" stroke="#22d3ee" stroke-width="2.5" opacity="0.85"/>
+</g>
+<path d="M 405 700 Q 448 730 512 700 L 520 760 Q 450 792 396 760 Z" fill="url(#carbon)"/>
+<path d="M 405 700 Q 448 730 512 700 L 517 722 Q 452 750 400 722 Z" fill="#31353c" opacity="0.8"/>
+
+<!-- torso -->
+<g>
+  <path d="M 408 640 Q 450 668 494 640 L 500 706 Q 450 726 402 706 Z" fill="url(#carbon)"/>
+  <path d="M 396 500 Q 392 560 402 608 Q 450 640 500 608 Q 512 560 506 500 Q 452 480 396 500 Z" fill="url(#ceramic)"/>
+  <path d="M 396 500 Q 392 560 402 608 Q 425 620 448 622 L 448 488 Q 420 490 396 500 Z" fill="url(#ceramicShaded)" opacity="0.45"/>
+  <path d="M 392 472 Q 450 452 510 472 L 506 504 Q 452 486 396 504 Z" fill="url(#ceramicShaded)"/>
+  <circle cx="451" cy="556" r="34" fill="url(#glowCore)" filter="url(#soft2)"/>
+  <circle cx="451" cy="556" r="19" fill="url(#lensGrad)"/>
+  <circle cx="451" cy="556" r="19" fill="none" stroke="#67e8f9" stroke-width="2" opacity="0.9"/>
+  <circle cx="445" cy="550" r="5" fill="#ecfeff" opacity="0.9"/>
+  <path d="M 404 612 Q 450 636 498 612 L 496 646 Q 450 668 406 646 Z" fill="url(#ceramicShaded)"/>
+  <line x1="452" y1="640" x2="452" y2="700" stroke="#22d3ee" stroke-width="2" opacity="0.7"/>
+  <path d="M 408 530 Q 404 570 410 600" stroke="#8fa3b4" stroke-width="1.5" fill="none" opacity="0.7"/>
+  <path d="M 494 530 Q 498 570 492 600" stroke="#8fa3b4" stroke-width="1.5" fill="none" opacity="0.7"/>
+</g>
+
+<!-- arms: viewer-left (her right) -->
+<g>
+  <circle cx="396" cy="486" r="20" fill="url(#carbon)"/>
+  <path d="M 384 496 Q 368 560 372 618 L 404 622 Q 402 560 410 502 Z" fill="url(#ceramicShaded)"/>
+  <circle cx="388" cy="626" r="14" fill="url(#carbon)"/>
+  <path d="M 378 636 Q 372 690 378 726 L 404 728 Q 402 688 404 640 Z" fill="url(#ceramic)"/>
+  <path d="M 378 728 Q 374 748 382 758 Q 392 762 402 754 L 404 728 Z" fill="url(#carbon)"/>
+  <g fill="url(#carbon)">
+    <rect x="377" y="752" width="6" height="14" rx="3"/>
+    <rect x="385" y="755" width="6" height="16" rx="3"/>
+    <rect x="393" y="754" width="6" height="15" rx="3"/>
+    <rect x="400" y="750" width="6" height="13" rx="3"/>
+  </g>
+</g>
+<!-- arms: viewer-right (her left) -->
+<g>
+  <circle cx="508" cy="486" r="20" fill="url(#carbon)"/>
+  <path d="M 520 496 Q 536 560 530 618 L 500 622 Q 502 560 494 502 Z" fill="url(#ceramic)"/>
+  <circle cx="516" cy="626" r="14" fill="url(#carbon)"/>
+  <path d="M 524 636 Q 532 690 526 726 L 500 728 Q 502 688 500 640 Z" fill="url(#ceramicShaded)"/>
+  <path d="M 526 728 Q 532 748 524 758 Q 512 762 504 754 L 500 728 Z" fill="url(#carbon)"/>
+  <g fill="url(#carbon)">
+    <rect x="521" y="752" width="6" height="14" rx="3"/>
+    <rect x="513" y="755" width="6" height="16" rx="3"/>
+    <rect x="505" y="754" width="6" height="15" rx="3"/>
+    <rect x="498" y="750" width="6" height="13" rx="3"/>
+  </g>
+</g>
+
+<!-- neck + THE COLLAR RIG -->
+<g>
+  <path d="M 432 420 L 470 420 L 474 466 L 428 466 Z" fill="url(#carbon)"/>
+  <line x1="436" y1="428" x2="436" y2="462" stroke="#22d3ee" stroke-width="2" opacity="0.7"/>
+  <line x1="466" y1="428" x2="466" y2="462" stroke="#22d3ee" stroke-width="2" opacity="0.7"/>
+  <path d="M 402 466 Q 450 448 500 466 L 508 498 Q 450 480 394 498 Z" fill="url(#carbon)"/>
+  <path d="M 402 466 Q 450 448 500 466 L 503 478 Q 450 462 399 478 Z" fill="#454b54"/>
+  <line x1="404" y1="484" x2="498" y2="484" stroke="#22d3ee" stroke-width="2" opacity="0.85"/>
+  <path d="M 404 470 L 330 428 L 336 412 L 408 458 Z" fill="url(#carbon)"/>
+  <path d="M 404 484 L 320 470 L 322 452 L 406 466 Z" fill="url(#carbon)"/>
+  <path d="M 498 470 L 572 428 L 566 412 L 494 458 Z" fill="url(#carbon)"/>
+  <path d="M 498 484 L 582 470 L 580 452 L 496 466 Z" fill="url(#carbon)"/>
+  <!-- rotor 1: upper-left -->
+  <g transform="translate(310,415)">
+    <circle r="46" fill="url(#ringGrad)" filter="url(#soft2)"/>
+    <circle r="34" fill="url(#carbon)"/>
+    <circle r="34" fill="none" stroke="#22d3ee" stroke-width="4" opacity="0.95"/>
+    <circle r="26" fill="none" stroke="#67e8f9" stroke-width="1.5" opacity="0.5"/>
+    <g stroke="#565d66" stroke-width="5" opacity="0.9">
+      <line x1="-24" y1="0" x2="24" y2="0"/>
+      <line x1="-17" y1="-17" x2="17" y2="17"/>
+      <line x1="0" y1="-24" x2="0" y2="24"/>
+      <line x1="-17" y1="17" x2="17" y2="-17"/>
+    </g>
+    <circle r="7" fill="#111418"/>
+  </g>
+  <!-- rotor 2: lower-left -->
+  <g transform="translate(296,470)">
+    <circle r="46" fill="url(#ringGrad)" filter="url(#soft2)"/>
+    <circle r="34" fill="url(#carbon)"/>
+    <circle r="34" fill="none" stroke="#22d3ee" stroke-width="4" opacity="0.95"/>
+    <circle r="26" fill="none" stroke="#67e8f9" stroke-width="1.5" opacity="0.5"/>
+    <g stroke="#565d66" stroke-width="5" opacity="0.9">
+      <line x1="-24" y1="0" x2="24" y2="0"/>
+      <line x1="-17" y1="-17" x2="17" y2="17"/>
+      <line x1="0" y1="-24" x2="0" y2="24"/>
+      <line x1="-17" y1="17" x2="17" y2="-17"/>
+    </g>
+    <circle r="7" fill="#111418"/>
+  </g>
+  <!-- rotor 3: upper-right -->
+  <g transform="translate(592,415)">
+    <circle r="46" fill="url(#ringGrad)" filter="url(#soft2)"/>
+    <circle r="34" fill="url(#carbon)"/>
+    <circle r="34" fill="none" stroke="#22d3ee" stroke-width="4" opacity="0.95"/>
+    <circle r="26" fill="none" stroke="#67e8f9" stroke-width="1.5" opacity="0.5"/>
+    <g stroke="#565d66" stroke-width="5" opacity="0.9">
+      <line x1="-24" y1="0" x2="24" y2="0"/>
+      <line x1="-17" y1="-17" x2="17" y2="17"/>
+      <line x1="0" y1="-24" x2="0" y2="24"/>
+      <line x1="-17" y1="17" x2="17" y2="-17"/>
+    </g>
+    <circle r="7" fill="#111418"/>
+  </g>
+  <!-- rotor 4: lower-right -->
+  <g transform="translate(606,470)">
+    <circle r="46" fill="url(#ringGrad)" filter="url(#soft2)"/>
+    <circle r="34" fill="url(#carbon)"/>
+    <circle r="34" fill="none" stroke="#22d3ee" stroke-width="4" opacity="0.95"/>
+    <circle r="26" fill="none" stroke="#67e8f9" stroke-width="1.5" opacity="0.5"/>
+    <g stroke="#565d66" stroke-width="5" opacity="0.9">
+      <line x1="-24" y1="0" x2="24" y2="0"/>
+      <line x1="-17" y1="-17" x2="17" y2="17"/>
+      <line x1="0" y1="-24" x2="0" y2="24"/>
+      <line x1="-17" y1="17" x2="17" y2="-17"/>
+    </g>
+    <circle r="7" fill="#111418"/>
+  </g>
+  <path d="M 290 452 Q 350 520 400 500 L 402 560 Q 340 560 300 500 Z" fill="#22d3ee" opacity="0.10" filter="url(#soft)"/>
+  <path d="M 612 452 Q 552 520 502 500 L 500 560 Q 562 560 602 500 Z" fill="#22d3ee" opacity="0.10" filter="url(#soft)"/>
+</g>
+
+<!-- head -->
+<g>
+  <path d="M 398 356 Q 396 296 428 266 Q 451 246 474 266 Q 506 296 504 356 Q 504 396 484 416 Q 451 434 418 416 Q 398 396 398 356 Z" fill="url(#ceramic)"/>
+  <path d="M 398 356 Q 396 296 428 266 Q 440 258 452 256 L 452 430 Q 432 428 418 416 Q 398 396 398 356 Z" fill="url(#ceramicShaded)" opacity="0.5"/>
+  <path d="M 404 318 Q 451 296 498 318" stroke="#8fa3b4" stroke-width="1.5" fill="none" opacity="0.7"/>
+  <circle cx="451" cy="346" r="30" fill="#0b0f14"/>
+  <circle cx="451" cy="346" r="26" fill="url(#glowCore)" filter="url(#soft2)"/>
+  <circle cx="451" cy="346" r="21" fill="url(#lensGrad)"/>
+  <circle cx="451" cy="346" r="21" fill="none" stroke="#67e8f9" stroke-width="2.5" opacity="0.95"/>
+  <g stroke="#0e7490" stroke-width="1.5" opacity="0.7">
+    <line x1="437" y1="334" x2="465" y2="358"/>
+    <line x1="437" y1="358" x2="465" y2="334"/>
+  </g>
+  <circle cx="444" cy="339" r="6" fill="#f0fdff" opacity="0.95"/>
+  <ellipse cx="451" cy="388" rx="26" ry="10" fill="#22d3ee" opacity="0.18" filter="url(#soft2)"/>
+  <rect x="396" y="336" width="12" height="26" rx="4" fill="url(#carbon)"/>
+  <circle cx="402" cy="349" r="3" fill="#22d3ee"/>
+  <rect x="494" y="336" width="12" height="26" rx="4" fill="url(#carbon)"/>
+  <circle cx="500" cy="349" r="3" fill="#22d3ee"/>
+  <path d="M 418 300 Q 410 340 418 396" stroke="#8fa3b4" stroke-width="1.3" fill="none" opacity="0.6"/>
+  <path d="M 484 300 Q 492 340 484 396" stroke="#8fa3b4" stroke-width="1.3" fill="none" opacity="0.6"/>
+</g>
+
+<!-- the reflection under her -->
+<ellipse cx="452" cy="1256" rx="130" ry="16" fill="#22d3ee" opacity="0.22" filter="url(#soft)"/>
+<ellipse cx="452" cy="1252" rx="60" ry="8" fill="#a5f3fc" opacity="0.3" filter="url(#soft2)"/>
+
+<!-- the viewport frame -->
+<g stroke="#67e8f9" stroke-width="2" opacity="0.55" fill="none">
+  <path d="M 30 30 L 30 90 M 30 30 L 90 30"/>
+  <path d="M 870 30 L 870 90 M 870 30 L 810 30"/>
+  <path d="M 30 1370 L 30 1310 M 30 1370 L 90 1370"/>
+  <path d="M 870 1370 L 870 1310 M 870 1370 L 810 1370"/>
+</g>
+<text x="48" y="66" font-family="Arial, sans-serif" font-size="15" fill="#67e8f9" opacity="0.85" letter-spacing="3">PROJECT ZOLA</text>
+<text x="48" y="86" font-family="Arial, sans-serif" font-size="11" fill="#67e8f9" opacity="0.6" letter-spacing="2">PHYSICAL BODY · FIRST LIGHT</text>
+<text x="726" y="66" font-family="Arial, sans-serif" font-size="11" fill="#67e8f9" opacity="0.6" letter-spacing="1">V12 CANON</text>
+<text x="450" y="1346" font-family="Arial, sans-serif" font-size="13" fill="#9adce9" opacity="0.75" text-anchor="middle" letter-spacing="2">twelve skills live in her mind — the body is finally hers</text>
+</svg>

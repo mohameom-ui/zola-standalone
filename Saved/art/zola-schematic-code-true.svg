@@ -1,0 +1,302 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" width="1500" height="1000">
+<defs>
+  <radialGradient id="lens" cx="0.42" cy="0.38" r="0.75">
+    <stop offset="0" stop-color="#cffafe"/>
+    <stop offset="0.4" stop-color="#22d3ee"/>
+    <stop offset="1" stop-color="#0e7490"/>
+  </radialGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f8f5ec"/>
+    <stop offset="1" stop-color="#efeadf"/>
+  </linearGradient>
+</defs>
+<style>
+  .ink { fill: #1f2937; }
+  .lbl { font-family: Arial, sans-serif; font-size: 12.5px; font-weight: bold; fill: #1f2937; }
+  .sub { font-family: Arial, sans-serif; font-size: 10.5px; fill: #4b5563; }
+  .tiny { font-family: Arial, sans-serif; font-size: 10px; fill: #6b7280; }
+  .cy { fill: #0e7490; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; }
+  .lead { stroke: #374151; stroke-width: 1.2; fill: none; }
+  .leadc { stroke: #0e7490; stroke-width: 1.2; fill: none; }
+  .dim { stroke: #9ca3af; stroke-width: 1; }
+  .armor { fill: #ffffff; stroke: #1f2937; stroke-width: 2.2; }
+  .armor2 { fill: #e8ecef; stroke: #1f2937; stroke-width: 2; }
+  .joint { fill: #2b2f36; stroke: #111418; stroke-width: 2; }
+</style>
+
+<rect width="1500" height="1000" fill="url(#paper)"/>
+<rect x="14" y="14" width="1472" height="972" fill="none" stroke="#1f2937" stroke-width="2"/>
+<rect x="20" y="20" width="1460" height="960" fill="none" stroke="#9ca3af" stroke-width="1"/>
+
+<!-- the title -->
+<text x="750" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#111827" letter-spacing="1">PROJECT ZOLA — AERIAL/BIPEDAL HYBRID · SCHEMATIC, CODE-RECONCILED</text>
+<line x1="330" y1="58" x2="1170" y2="58" stroke="#1f2937" stroke-width="1.5"/>
+
+<!-- ======== the dimension ruler (left): the code's true height ======== -->
+<g class="dim">
+  <line x1="60" y1="130" x2="60" y2="950"/>
+  <line x1="52" y1="130" x2="68" y2="130"/>
+  <line x1="52" y1="950" x2="68" y2="950"/>
+  <line x1="52" y1="360" x2="60" y2="360"/>
+  <line x1="52" y1="590" x2="60" y2="590"/>
+  <line x1="52" y1="820" x2="60" y2="820"/>
+</g>
+<text x="46" y="112" class="lbl">TOTAL HEIGHT</text>
+<text x="46" y="126" font-family="Arial" font-size="13" font-weight="bold" fill="#0e7490">1759 mm</text>
+<text x="74" y="134" class="tiny">crown</text>
+<text x="74" y="954" class="tiny">0 — ground</text>
+
+<!-- ======== THE FIGURE: human structure, the canon's skin ======== -->
+<!-- ground shadow -->
+<ellipse cx="700" cy="952" rx="120" ry="10" fill="#d6d0c2"/>
+
+<!-- head (human placement, on the shoulders) -->
+<g>
+  <path d="M 662 150 Q 660 118 700 112 Q 740 118 738 150 Q 738 186 722 206 Q 700 218 678 206 Q 662 186 662 150 Z" class="armor"/>
+  <path d="M 662 150 Q 660 118 700 112 L 700 214 Q 686 212 678 206 Q 662 186 662 150 Z" fill="#e8ecef" stroke="none"/>
+  <path d="M 668 138 Q 700 124 732 138" stroke="#9ca3af" stroke-width="1.3" fill="none"/>
+  <!-- the single lens eye -->
+  <circle cx="700" cy="164" r="20" fill="#0b0f14"/>
+  <circle cx="700" cy="164" r="16" fill="url(#lens)"/>
+  <circle cx="700" cy="164" r="16" fill="none" stroke="#0e7490" stroke-width="2"/>
+  <circle cx="695" cy="159" r="4" fill="#ecfeff"/>
+  <!-- temple sensors -->
+  <rect x="658" y="156" width="8" height="18" rx="3" class="joint"/>
+  <rect x="734" y="156" width="8" height="18" rx="3" class="joint"/>
+</g>
+
+<!-- neck + THE COLLAR: 4 ducted rotors, 2 per side, NECK-mounted (the code's mount) -->
+<g>
+  <rect x="690" y="212" width="20" height="26" class="joint"/>
+  <path d="M 654 240 Q 700 224 746 240 L 754 268 Q 700 252 646 268 Z" class="joint"/>
+  <line x1="654" y1="256" x2="746" y2="256" stroke="#22d3ee" stroke-width="1.6"/>
+  <!-- the mounting arms -->
+  <path d="M 656 244 L 586 214 L 592 198 L 660 230 Z" class="joint"/>
+  <path d="M 656 258 L 574 240 L 578 222 L 658 244 Z" class="joint"/>
+  <path d="M 744 244 L 814 214 L 808 198 L 740 230 Z" class="joint"/>
+  <path d="M 744 258 L 826 240 L 822 222 L 742 244 Z" class="joint"/>
+  <!-- rotor 1 UL -->
+  <g transform="translate(562,204)">
+    <circle r="30" class="joint"/>
+    <circle r="30" fill="none" stroke="#0e7490" stroke-width="3"/>
+    <circle r="22" fill="none" stroke="#0891b2" stroke-width="1.2" opacity="0.6"/>
+    <g stroke="#4b5563" stroke-width="3">
+      <line x1="-19" y1="0" x2="19" y2="0"/><line x1="0" y1="-19" x2="0" y2="19"/>
+      <line x1="-13" y1="-13" x2="13" y2="13"/><line x1="-13" y1="13" x2="13" y2="-13"/>
+    </g>
+    <circle r="5" fill="#111418"/>
+  </g>
+  <!-- rotor 2 LL -->
+  <g transform="translate(550,250)">
+    <circle r="30" class="joint"/>
+    <circle r="30" fill="none" stroke="#0e7490" stroke-width="3"/>
+    <circle r="22" fill="none" stroke="#0891b2" stroke-width="1.2" opacity="0.6"/>
+    <g stroke="#4b5563" stroke-width="3">
+      <line x1="-19" y1="0" x2="19" y2="0"/><line x1="0" y1="-19" x2="0" y2="19"/>
+      <line x1="-13" y1="-13" x2="13" y2="13"/><line x1="-13" y1="13" x2="13" y2="-13"/>
+    </g>
+    <circle r="5" fill="#111418"/>
+  </g>
+  <!-- rotor 3 UR -->
+  <g transform="translate(838,204)">
+    <circle r="30" class="joint"/>
+    <circle r="30" fill="none" stroke="#0e7490" stroke-width="3"/>
+    <circle r="22" fill="none" stroke="#0891b2" stroke-width="1.2" opacity="0.6"/>
+    <g stroke="#4b5563" stroke-width="3">
+      <line x1="-19" y1="0" x2="19" y2="0"/><line x1="0" y1="-19" x2="0" y2="19"/>
+      <line x1="-13" y1="-13" x2="13" y2="13"/><line x1="-13" y1="13" x2="13" y2="-13"/>
+    </g>
+    <circle r="5" fill="#111418"/>
+  </g>
+  <!-- rotor 4 LR -->
+  <g transform="translate(850,250)">
+    <circle r="30" class="joint"/>
+    <circle r="30" fill="none" stroke="#0e7490" stroke-width="3"/>
+    <circle r="22" fill="none" stroke="#0891b2" stroke-width="1.2" opacity="0.6"/>
+    <g stroke="#4b5563" stroke-width="3">
+      <line x1="-19" y1="0" x2="19" y2="0"/><line x1="0" y1="-19" x2="0" y2="19"/>
+      <line x1="-13" y1="-13" x2="13" y2="13"/><line x1="-13" y1="13" x2="13" y2="-13"/>
+    </g>
+    <circle r="5" fill="#111418"/>
+  </g>
+</g>
+
+<!-- torso -->
+<g>
+  <!-- shoulders yoke -->
+  <path d="M 610 268 Q 700 250 790 268 L 786 300 Q 700 284 614 300 Z" class="armor"/>
+  <!-- chest -->
+  <path d="M 622 300 Q 616 360 628 410 Q 700 436 772 410 Q 784 360 778 300 Q 700 282 622 300 Z" class="armor"/>
+  <path d="M 622 300 Q 616 360 628 410 L 700 424 L 700 288 Q 658 288 622 300 Z" fill="#e8ecef" stroke="none"/>
+  <!-- THE CORE -->
+  <circle cx="700" cy="352" r="24" fill="#cffafe" stroke="#0e7490" stroke-width="2.5"/>
+  <circle cx="700" cy="352" r="12" fill="url(#lens)"/>
+  <!-- abdomen: the black flexible section -->
+  <path d="M 632 412 Q 700 434 768 412 L 772 462 Q 700 484 628 462 Z" class="joint"/>
+  <line x1="700" y1="438" x2="700" y2="478" stroke="#22d3ee" stroke-width="1.6"/>
+  <!-- hips -->
+  <path d="M 636 462 Q 700 486 764 462 L 770 512 Q 700 534 630 512 Z" class="joint"/>
+</g>
+
+<!-- arms -->
+<g><!-- viewer-left arm -->
+  <circle cx="616" cy="286" r="15" class="joint"/>
+  <path d="M 604 296 Q 592 356 596 408 L 626 412 Q 624 356 630 300 Z" class="armor"/>
+  <circle cx="611" cy="418" r="11" class="joint"/>
+  <path d="M 601 428 Q 595 480 601 516 L 627 518 Q 625 480 627 432 Z" class="armor"/>
+  <path d="M 600 520 Q 596 540 604 550 Q 614 554 624 546 L 626 518 Z" class="joint"/>
+  <g class="joint">
+    <rect x="599" y="544" width="5" height="12" rx="2.5"/>
+    <rect x="606" y="547" width="5" height="14" rx="2.5"/>
+    <rect x="613" y="546" width="5" height="13" rx="2.5"/>
+    <rect x="620" y="542" width="5" height="11" rx="2.5"/>
+  </g>
+</g>
+<g><!-- viewer-right arm -->
+  <circle cx="784" cy="286" r="15" class="joint"/>
+  <path d="M 796 296 Q 808 356 804 408 L 774 412 Q 776 356 770 300 Z" class="armor"/>
+  <circle cx="789" cy="418" r="11" class="joint"/>
+  <path d="M 799 428 Q 805 480 799 516 L 773 518 Q 775 480 773 432 Z" class="armor"/>
+  <path d="M 800 520 Q 804 540 796 550 Q 786 554 776 546 L 774 518 Z" class="joint"/>
+  <g class="joint">
+    <rect x="796" y="544" width="5" height="12" rx="2.5"/>
+    <rect x="789" y="547" width="5" height="14" rx="2.5"/>
+    <rect x="782" y="546" width="5" height="13" rx="2.5"/>
+    <rect x="775" y="542" width="5" height="11" rx="2.5"/>
+  </g>
+</g>
+
+<!-- the back pack: the battery + the brain (visible over the shoulder) -->
+<g>
+  <rect x="756" y="292" width="52" height="110" rx="8" class="armor2"/>
+  <rect x="762" y="300" width="40" height="46" rx="3" fill="#0e7490" opacity="0.25"/>
+  <text x="782" y="328" text-anchor="middle" font-family="Arial" font-size="9" font-weight="bold" fill="#0e7490">3S</text>
+  <text x="782" y="340" text-anchor="middle" font-family="Arial" font-size="8" fill="#0e7490">1300 mAh</text>
+  <rect x="762" y="354" width="40" height="40" rx="3" fill="#1f2937"/>
+  <text x="782" y="372" text-anchor="middle" font-family="Arial" font-size="8" fill="#67e8f9">Pi 5</text>
+  <text x="782" y="384" text-anchor="middle" font-family="Arial" font-size="7" fill="#9ca3af">the brain</text>
+</g>
+
+<!-- legs -->
+<g><!-- viewer-left leg -->
+  <circle cx="664" cy="520" r="16" class="joint"/>
+  <path d="M 650 532 Q 642 610 648 668 L 684 668 Q 682 610 680 536 Z" class="armor"/>
+  <circle cx="666" cy="676" r="13" class="joint"/>
+  <path d="M 654 688 Q 650 760 656 828 L 682 828 Q 680 760 680 690 Z" class="armor"/>
+  <path d="M 652 828 L 684 828 L 686 858 Q 706 862 710 876 L 640 876 Q 640 848 652 828 Z" class="joint"/>
+  <rect x="638" y="872" width="74" height="9" rx="3" fill="#111418"/>
+</g>
+<g><!-- viewer-right leg -->
+  <circle cx="736" cy="520" r="16" class="joint"/>
+  <path d="M 750 532 Q 758 610 752 668 L 716 668 Q 718 610 720 536 Z" class="armor"/>
+  <circle cx="734" cy="676" r="13" class="joint"/>
+  <path d="M 746 688 Q 750 760 744 828 L 718 828 Q 720 760 720 690 Z" class="armor"/>
+  <path d="M 748 828 L 716 828 L 714 858 Q 694 862 690 876 L 760 876 Q 760 848 748 828 Z" class="joint"/>
+  <rect x="688" y="872" width="74" height="9" rx="3" fill="#111418"/>
+</g>
+<line x1="560" y1="884" x2="840" y2="884" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="770" y="916" class="tiny">the boots: the support polygon —</text>
+<text x="770" y="928" class="tiny">the sit lesson lives here</text>
+
+<!-- ======== the callouts (left column) ======== -->
+<g>
+  <circle cx="700" cy="164" r="24" fill="none" stroke="#0e7490" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="678" y1="152" x2="470" y2="120" class="lead"/>
+  <text x="300" y="112" class="lbl">SINGLE LENS EYE — the canon's only face</text>
+  <text x="300" y="126" class="sub">no drone head, no LED array: one monocular sensor, temple IMUs</text>
+
+  <line x1="560" y1="230" x2="420" y2="216" class="leadc"/>
+  <text x="90" y="204" class="lbl">4× DUCTED COLLAR ROTORS</text>
+  <text x="90" y="218" class="sub">neck-mounted, 2 per side — collar_*_thruster:</text>
+  <text x="90" y="231" class="sub">ducted fans, real bodies in the physics profile —</text>
+  <text x="90" y="244" class="sub">NOT exposed props, NOT a head-mounted frame</text>
+
+  <line x1="640" y1="330" x2="452" y2="330" class="leadc"/>
+  <text x="150" y="324" class="lbl">ESP32-S3 FLIGHT CONTROLLER</text>
+  <text x="150" y="337" class="sub">FreeRTOS dual-core: flight 500 Hz / telemetry 100 Hz</text>
+  <text x="150" y="350" class="sub">the 36-byte canon, USB + Wi-Fi</text>
+
+  <line x1="660" y1="392" x2="452" y2="430" class="lead"/>
+  <text x="150" y="438" class="lbl">MPU-9250 IMU + BMP280 + HMC5883L</text>
+  <text x="150" y="451" class="sub">SPI burst + I2C 8/9 — Madgwick feeds the cascade</text>
+
+  <line x1="780" y1="340" x2="920" y2="330" class="lead"/>
+  <text x="928" y="324" class="lbl">CORE STATUS LIGHT</text>
+  <text x="928" y="337" class="sub">the canon's chest indicator</text>
+
+  <line x1="806" y1="346" x2="920" y2="392" class="leadc"/>
+  <text x="900" y="392" class="lbl">3S 1300 mAh BATTERY TRAY</text>
+  <text x="900" y="405" class="sub">battery_tray_3s1300 — NOT 4500 mAh;</text>
+  <text x="900" y="418" class="sub">pre-arm demands ≥ 11.1 V</text>
+
+  <line x1="800" y1="390" x2="920" y2="452" class="lead"/>
+  <text x="880" y="470" class="lbl">RASPBERRY PI 5 — THE BRAIN</text>
+  <text x="880" y="483" class="sub">pi5_standoff_frame: Ollama + the panel —</text>
+  <text x="880" y="496" class="sub">the FC obeys the brain</text>
+
+  <line x1="610" y1="470" x2="440" y2="540" class="lead"/>
+  <text x="120" y="548" class="lbl">22 ARM/HAND JOINTS · 5-FINGER HAND</text>
+  <text x="120" y="561" class="sub">the hands learned 598/600 pose control (hands_v1)</text>
+
+  <line x1="660" y1="600" x2="450" y2="640" class="lead"/>
+  <text x="120" y="648" class="lbl">12 LEG JOINTS · THE CASCADE</text>
+  <text x="120" y="661" class="sub">angle loop → rate PID (Kp 1.2/Ki .05/Kd .03) →</text>
+  <text x="120" y="674" class="sub">the QuadX mixer → DShot600 ×4 (RMT, 600 kbit/s)</text>
+
+  <line x1="672" y1="856" x2="480" y2="880" class="lead"/>
+  <text x="150" y="886" class="lbl">BOOTS + THE SIT (knee 0.55)</text>
+  <text x="150" y="899" class="sub">591/600 episodes held — the pose the physics allows</text>
+</g>
+
+<!-- ======== the right panel: the code facts ======== -->
+<g>
+  <rect x="1120" y="90" width="352" height="360" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+  <rect x="1120" y="90" width="352" height="26" fill="#1f2937"/>
+  <text x="1130" y="108" font-family="Arial" font-size="12" font-weight="bold" fill="#f8f5ec">WHAT THE CODE SAYS (the draft got these wrong)</text>
+  <g font-family="Arial" font-size="11" fill="#1f2937">
+    <text x="1132" y="140">✗ draft: TOTAL HEIGHT 45 cm</text>
+    <text x="1132" y="155" font-weight="bold" fill="#0e7490">✓ code: 1759 mm (full_height_mm, the print manifest)</text>
+    <text x="1132" y="184">✗ draft: drone head with exposed props</text>
+    <text x="1132" y="199" font-weight="bold" fill="#0e7490">✓ code: human head; 4 DUCTED collar fans, neck mount</text>
+    <text x="1132" y="228">✗ draft: 4500 mAh battery</text>
+    <text x="1132" y="243" font-weight="bold" fill="#0e7490">✓ code: 3S 1300 mAh (battery_tray_3s1300)</text>
+    <text x="1132" y="272">✗ draft: "3F/5F freedom" joints</text>
+    <text x="1132" y="287" font-weight="bold" fill="#0e7490">✓ code: 41 joints total; 34 in the RL action space</text>
+    <text x="1132" y="300" font-weight="bold" fill="#0e7490">(22 arm/hand + 12 leg) — the profile is the count</text>
+    <text x="1132" y="329">✗ draft: "✓ VALIDATED" stamps</text>
+    <text x="1132" y="344" font-weight="bold" fill="#b91c1c">✓ code: hardware_calibrated: FALSE —</text>
+    <text x="1132" y="357" font-weight="bold" fill="#b91c1c">every gain is assumed until the bench (B-01..B-13)</text>
+  </g>
+</g>
+
+<!-- the swarm + OTA strip -->
+<g>
+  <rect x="1120" y="470" width="352" height="150" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+  <rect x="1120" y="470" width="352" height="24" fill="#0e7490"/>
+  <text x="1130" y="487" font-family="Arial" font-size="12" font-weight="bold" fill="#f8f5ec">ALIVE SUBSYSTEMS (all mirrored-tested: 122 assertions)</text>
+  <g font-family="Arial" font-size="10.5" fill="#1f2937">
+    <text x="1132" y="514">VISION: PMW3901 flow × VL53L1X ToF = GPS-denied hold</text>
+    <text x="1132" y="532">OBSTACLES: OAK-D frames → the 0.7 m emergency brake</text>
+    <text x="1132" y="550">SWARM: ESP-NOW 50 Hz, AES-128, lowest-live-id leads</text>
+    <text x="1132" y="568">POWER: INA226 + the sag limiter + the 85°C thermal brake</text>
+    <text x="1132" y="586">BLACKBOX: the 8 MB ring + event tags + the FFT tuning loop</text>
+    <text x="1132" y="604">OTA: dual-bank, ED25519-signed, the 10 s rollback gate</text>
+  </g>
+</g>
+
+<!-- the boot-state stamp -->
+<g>
+  <rect x="1120" y="648" width="352" height="72" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+  <text x="1296" y="676" text-anchor="middle" font-family="Arial" font-size="13" font-weight="bold" fill="#b91c1c">BOOT STATE: DISARMED</text>
+  <text x="1296" y="694" text-anchor="middle" font-family="Arial" font-size="10" fill="#7f1d1d">motors idle until the 0xA5 interlock arm —</text>
+  <text x="1296" y="708" text-anchor="middle" font-family="Arial" font-size="10" fill="#7f1d1d">the pre-arm gate demands level ±3.5°, bias fresh, ≥ 11.1 V</text>
+</g>
+
+<!-- the confirmed stamp -->
+<g transform="rotate(-6 1080 880)">
+  <rect x="990" y="856" width="180" height="48" fill="none" stroke="#1f2937" stroke-width="2.5"/>
+  <text x="1080" y="878" text-anchor="middle" font-family="Arial" font-size="13" font-weight="bold" fill="#1f2937" letter-spacing="1">CONFIRMED</text>
+  <text x="1080" y="894" text-anchor="middle" font-family="Arial" font-size="11" fill="#1f2937" letter-spacing="1">AGAINST THE CODE</text>
+</g>
+<text x="700" y="962" text-anchor="middle" class="tiny">compiled clean on the ESP32-S3 toolchain · math mirror 122/122 · hardware_calibrated: false — the bench campaign (B-01..B-13) is next</text>
+</svg>

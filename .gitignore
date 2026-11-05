@@ -44,3 +44,4 @@ zola-pipeline-home/
 
 # console-launched training rounds write their run dirs at the repo root
 logs/
+firmware/zola_fc/.pio/

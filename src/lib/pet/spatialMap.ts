@@ -101,7 +101,8 @@ export class SpatialMap {
   }
 
   getAnchor(label: string): Vec3 | null {
-    return this.anchors.get(label.toLowerCase())?.pos ?? null;
+    const anchored = this.anchors.get(label.toLowerCase());
+    return anchored ? { ...anchored.pos } : null; // defensive: callers cannot edit the map
   }
 
   /** The depth source behind a label's last anchor — null when never seen. */

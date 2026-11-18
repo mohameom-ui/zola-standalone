@@ -1,0 +1,14 @@
+# The app, CI and the Pi all run on Linux; keep the repo LF so diffs stay
+# readable and every checkout matches what CI builds.
+* text=auto eol=lf
+
+# Binary assets: never touch.
+*.glb binary
+*.gltf binary
+*.wasm binary
+*.onnx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.zip binary

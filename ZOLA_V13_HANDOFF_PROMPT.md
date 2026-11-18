@@ -39,8 +39,9 @@ port 3000); her MAVLink relay is `bridge/aura_relay.py` (baud-aware, serial-read
   (90-night season), episodic compression worker, dream journal.
 - **Spatial cybernetics:** ✅ `src/lib/pet/spatialMap.ts` — sparse voxel hash with
   ray-march sightline updates + semantic anchors (label → last 3D position).
-  ⚠️ OPEN ITEM: monocular depth is NOT yet tagged as heuristic-depth evidence in
-  the map's output — owner: the session that created spatialMap.ts.
+  ✅ CLOSED 2026-11-18: every sightline and anchor now carries its depth source
+  (`heuristic-depth` | `rangefinder`), and `stats().heuristicOnly` reports it.
+  The v13 hardware swap is one call-site argument in DronePetPanel (PR #3).
 - **Predictive control:** ✅ lives in `safety.ts` (`setPredictor` callback +
   1.5 s measured-velocity extrapolation wired in DronePetPanel) — ⚠️ the draft
   cited `neuralPredictor.ts`, which does NOT exist as a file. ✅ `semanticPercept.ts`

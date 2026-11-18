@@ -9,6 +9,12 @@
 // pose through a detection's bounding-box center, out to the distance her
 // own monocular size-model estimated. Space she has not observed remains
 // strictly UNKNOWN — never free, never occupied, never interpolated.
+//
+// EVIDENCE TAG (v13 open item, closed here): every sightline records WHERE
+// its depth came from. Today that is the monocular size model, so the map
+// reports `heuristicOnly: true` and the HUD can say so honestly. When the
+// ToF/LiDAR rangefinder lands, its stream passes "rangefinder" and no other
+// line in the map changes — the ray-marcher is the same, only the evidence is.
 // ============================================================================
 
 export interface Vec3 {
@@ -16,6 +22,9 @@ export interface Vec3 {
   y: number;
   z: number;
 }
+
+/** Where a sightline's terminal distance came from. */
+export type DepthEvidence = "heuristic-depth" | "rangefinder";
 
 const VOXEL = 0.1;          // 0.1 m resolution
 const LOG_ODDS_HIT = 0.85;  // a sightline ENDING here: evidence of surface
@@ -25,11 +34,24 @@ const OCCUPIED_THRESHOLD = 0.65; // P(occupied) after logistic(lo)
 
 const key = (ix: number, iy: number, iz: number) => `${ix},${iy},${iz}`;
 
+export interface SpatialMapStats {
+  rays: number;
+  occupied: number;
+  free: number;
+  anchors: number;
+  /** sightline count per depth source — the audit trail behind the map */
+  evidence: Record<DepthEvidence, number>;
+  /** true when every sightline is monocular; false once real range data lands */
+  heuristicOnly: boolean;
+}
+
 export class SpatialMap {
   /** voxel key → log-odds of occupancy */
   private voxels = new Map<string, number>();
-  /** semantic anchors: label → last confirmed 3D position (WAVE 11 module 2) */
-  private anchors = new Map<string, Vec3>();
+  /** semantic anchors: label → last confirmed 3D position + its depth source */
+  private anchors = new Map<string, { pos: Vec3; evidence: DepthEvidence }>();
+  /** sightline count per depth source */
+  private evidence: Record<DepthEvidence, number> = { "heuristic-depth": 0, rangefinder: 0 };
   rayCount = 0;
 
   private mark(ix: number, iy: number, iz: number, lo: number) {
@@ -43,9 +65,13 @@ export class SpatialMap {
    * point. Voxels along the ray become MORE free; the terminal voxel becomes
    * MORE occupied. Marches in voxel-size steps — no interpolation beyond
    * the ray geometry itself.
+   *
+   * `source` defaults to "heuristic-depth" because that is the only depth
+   * source she has today; a rangefinder stream must say so explicitly.
    */
-  markRay(from: Vec3, to: Vec3) {
+  markRay(from: Vec3, to: Vec3, source: DepthEvidence = "heuristic-depth") {
     this.rayCount += 1;
+    this.evidence[source] += 1;
     const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
     const len = Math.hypot(dx, dy, dz);
     if (len < VOXEL) {
@@ -70,25 +96,37 @@ export class SpatialMap {
   }
 
   /** Bind a semantic anchor: a label at a confirmed 3D position. */
-  anchor(label: string, pos: Vec3) {
-    this.anchors.set(label.toLowerCase(), { ...pos });
+  anchor(label: string, pos: Vec3, source: DepthEvidence = "heuristic-depth") {
+    this.anchors.set(label.toLowerCase(), { pos: { ...pos }, evidence: source });
   }
 
   getAnchor(label: string): Vec3 | null {
-    return this.anchors.get(label.toLowerCase()) ?? null;
+    return this.anchors.get(label.toLowerCase())?.pos ?? null;
+  }
+
+  /** The depth source behind a label's last anchor — null when never seen. */
+  getAnchorEvidence(label: string): DepthEvidence | null {
+    return this.anchors.get(label.toLowerCase())?.evidence ?? null;
   }
 
   anchorCount(): number {
     return this.anchors.size;
   }
 
-  stats(): { rays: number; occupied: number; free: number; anchors: number } {
+  stats(): SpatialMapStats {
     let occupied = 0, free = 0;
     for (const lo of this.voxels.values()) {
       const p = 1 / (1 + Math.exp(-lo));
       if (p > OCCUPIED_THRESHOLD) occupied += 1;
       else if (p < 0.4) free += 1;
     }
-    return { rays: this.rayCount, occupied, free, anchors: this.anchors.size };
+    return {
+      rays: this.rayCount,
+      occupied,
+      free,
+      anchors: this.anchors.size,
+      evidence: { ...this.evidence },
+      heuristicOnly: this.evidence.rangefinder === 0,
+    };
   }
 }

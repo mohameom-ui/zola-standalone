@@ -1351,8 +1351,10 @@ export default function DronePetPanel() {
           const pos = { x: pose.x + Math.cos(sightYaw) * dist, y: pose.y + Math.sin(sightYaw) * dist, z: pose.z };
           // WAVE 11 — occupancy: integrate the TRUE sightline (free along the
           // ray, occupied at the resolved surface) + bind the semantic anchor
-          spatialRef.current.markRay({ x: pose.x, y: pose.y, z: pose.z }, pos);
-          if (d.certain) spatialRef.current.anchor(d.label, pos);
+          // depth source is the monocular size model today — say so, so the map
+          // can report heuristicOnly; a ToF stream becomes "rangefinder" here
+          spatialRef.current.markRay({ x: pose.x, y: pose.y, z: pose.z }, pos, "heuristic-depth");
+          if (d.certain) spatialRef.current.anchor(d.label, pos, "heuristic-depth");
           // self-learned obstacles: scanned items mark her own map (not near dock)
           petMapRef.current.addSoft(pos.x, pos.y, 0.08 + dist * 0.06);
           const { item, isNew, moved } = memory.learnItem(d.label, pose.yaw, pos, d.sig, d.shape);

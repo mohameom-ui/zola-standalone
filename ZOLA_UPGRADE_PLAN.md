@@ -30,7 +30,7 @@ Full story in `C:\GameDevLibrary\AUDIT.md` (✅ RESOLVED entry).
 | **6. Flight polish** | SITL-integrated: takeoff/landing stingers, altitude wind layer (GDC2023), "returning home" line on the approach state machine. Acceptance = one full SITL flight | ★★ | MED | ✓ |
 
 ## Verification gates
-- `npm run build` passes (no vitest installed — flag if wanted)
+- `npm run build` passes; `npx vitest run` passes (176 tests, verified 2026-11-18)
 - Behavior demonstrated live: browser (Slices 2-5), full SITL loop (Slice 6)
 - `ZOLA_UPGRADE_NOTES.md` updated with library paths + Pi-destined files
 

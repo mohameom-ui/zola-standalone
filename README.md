@@ -20,7 +20,7 @@ browser brain (Next.js :3001)                her body
 ## Run her
 
 ```bash
-npm install
+npm ci
 npm run dev            # http://localhost:3001
 npm test                    # 176 tests — the safety lines are all in here
 node zola-live-loop.mjs     # build → ledger → reincarnation → use, in the real panel
@@ -103,7 +103,7 @@ See [DEPLOY.md](DEPLOY.md) for what flies and what stays home.
 | `public/assets/models/zola-anims/` | her movement library (20 clips) |
 | `Scripts/` | the gesture pipeline (Blender retarget: BVH → her rig → GLB) |
 | `isaac/` | physics-model contract and Isaac Sim / Isaac Lab training path |
-| `docs/` | specs & recipes — [ZOLA-KNOWLEDGE-BASE.md](docs/ZOLA-KNOWLEDGE-BASE.md) is the current factual base; `zola-v2-spec.md` is the historical v2 spec |
+| `docs/` | specs & recipes ([zola-v2-spec.md](docs/zola-v2-spec.md) is the living spec) |
 
 ## License
 

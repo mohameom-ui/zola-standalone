@@ -2,7 +2,10 @@
   "name": "zola-standalone",
   "version": "13.0.0",
   "private": true,
-  "description": "ZOLA \u00e2\u20ac\u201d Drone AI Pet (standalone web brain)",
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "ZOLA — Drone AI Pet (standalone web brain)",
   "scripts": {
     "dev": "next dev --turbopack -p 3001",
     "build": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build",

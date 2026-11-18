@@ -22,7 +22,7 @@ browser brain (Next.js :3001)                her body
 ```bash
 npm install
 npm run dev            # http://localhost:3001
-npm test                    # 143 tests — the safety lines are all in here
+npm test                    # 176 tests — the safety lines are all in here
 node zola-live-loop.mjs     # build → ledger → reincarnation → use, in the real panel
 node zola-full-check.mjs    # ALL ORGANS: eyes, ears, voice, body, mind, life export
 npx tsc --noEmit       # types
@@ -104,3 +104,7 @@ See [DEPLOY.md](DEPLOY.md) for what flies and what stays home.
 | `Scripts/` | the gesture pipeline (Blender retarget: BVH → her rig → GLB) |
 | `isaac/` | physics-model contract and Isaac Sim / Isaac Lab training path |
 | `docs/` | specs & recipes ([zola-v2-spec.md](docs/zola-v2-spec.md) is the living spec) |
+
+## License
+
+MIT, see [LICENSE](LICENSE).

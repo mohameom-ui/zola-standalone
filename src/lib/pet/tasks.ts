@@ -18,6 +18,10 @@ export interface TaskStep {
   target?: string;
   durationMs?: number;
   done: boolean;
+  /** set when the step gave up — `done` alone cannot tell success from failure */
+  failed?: boolean;
+  /** attempts used so far on a retry-capable step */
+  attempts?: number;
   /** goto_item: remembered heading of the item (fallback if no map position) */
   targetYaw?: number | null;
   /** goto_item: remembered world position from the spatial map */
@@ -38,7 +42,12 @@ export interface Task {
   createdAt: number;
   /** patrol/guard tasks re-run their steps until cancelled */
   recurring: boolean;
+  /** clauses the planner heard but could not turn into a step */
+  unparsed?: string[];
 }
+
+/** How a finished task actually went — not just that it stopped. */
+export type TaskOutcome = "completed" | "partial" | "failed";
 
 export interface TickCtx {
   now: number;
@@ -61,10 +70,14 @@ export interface TickResult {
   vx?: number;
   /** a completed training drill, self-graded from telemetry */
   grade?: { drill: string; score: number };
+  /** only set on the tick that ends the task */
+  outcome?: TaskOutcome;
 }
 
 const SEARCH_TIMEOUT_MS = 30_000;
 const MAX_CYCLES = 12;
+/** one retry per step — enough to recover from a bad angle, not an infinite loop */
+const MAX_STEP_ATTEMPTS = 2;
 
 export class TaskRunner {
   private task: Task | null = null;
@@ -104,6 +117,9 @@ export class TaskRunner {
 
     const clauses = t.split(/\s+(?:and\s+then|then|after that|and after)\s+/);
     const steps: TaskStep[] = [];
+    /** clauses that matched nothing — silently dropping them would let her
+     *  report "Task complete" for a request she only half understood */
+    const unparsed: string[] = [];
     for (const c of clauses) {
       const findMatch = /(?:find|look for|search for)\s+(?:my |the |a |an )?(.{2,30})/.exec(c);
       if (findMatch) {
@@ -139,6 +155,8 @@ export class TaskRunner {
         steps.push({ kind: "scan", label: "Scan the room", durationMs: 6_000, done: false });
         continue;
       }
+      const rest = c.trim();
+      if (rest) unparsed.push(rest);
     }
     if (steps.length === 0) return null;
     return {
@@ -147,6 +165,7 @@ export class TaskRunner {
       steps,
       createdAt: Date.now(),
       recurring: /patrol|guard|watch over|watch the/.test(t),
+      unparsed: unparsed.length > 0 ? unparsed : undefined,
     };
   }
 
@@ -230,6 +249,23 @@ export class TaskRunner {
     return `Task cancelled: ${d}.${report}`;
   }
 
+  /**
+   * One retry, then an honest failure. A timeout used to be marked `done`,
+   * which is why a failed search still ended with "Task complete".
+   */
+  private retryOrFail(step: TaskStep, now: number, retryLine: string, failLine: string): string {
+    const attempts = step.attempts ?? 1;
+    if (attempts < MAX_STEP_ATTEMPTS) {
+      step.attempts = attempts + 1;
+      this.stepStartedAt = now;
+      return retryLine;
+    }
+    step.failed = true;
+    step.done = true;
+    this.stepStartedAt = now;
+    return failLine;
+  }
+
   /** Drive the active task one frame. Returns the activity it wants. */
   tick(ctx: TickCtx): TickResult {
     if (!this.task) return { activity: null, say: null, done: false };
@@ -245,18 +281,38 @@ export class TaskRunner {
     // all steps done
     if (idx === -1) {
       if (task.recurring && this.cycles < MAX_CYCLES) {
-        for (const s of task.steps) s.done = false;
+        for (const s of task.steps) {
+          s.done = false;
+          s.failed = false;
+          s.attempts = undefined;
+        }
         this.cycles += 1;
         this.stepStartedAt = ctx.now;
         return { activity: "scan", say: null, done: false };
       }
       this.task = null;
       const isPatrol = task.steps.some((s) => s.kind === "patrol_cycle");
-      const report = isPatrol && this.patrolLog.length > 0
-        ? `Patrol report: I logged ${this.patrolLog.slice(0, 6).join(", ")}. All quiet on my watch.`
-        : "Task complete.";
+      const missed = task.unparsed ?? [];
+      const failed = task.steps.filter((s) => s.failed).length;
+      const outcome: TaskOutcome =
+        failed === 0 && missed.length === 0
+          ? "completed"
+          : failed > 0 && failed >= task.steps.length
+            ? "failed"
+            : "partial";
+      let report: string;
+      if (isPatrol && this.patrolLog.length > 0 && outcome === "completed") {
+        report = `Patrol report: I logged ${this.patrolLog.slice(0, 6).join(", ")}. All quiet on my watch.`;
+      } else if (outcome === "completed") {
+        report = "Task complete.";
+      } else {
+        const parts: string[] = [];
+        if (failed > 0) parts.push(`${failed} step${failed === 1 ? "" : "s"} failed`);
+        if (missed.length > 0) parts.push(`I did not understand: ${missed.join(", ")}`);
+        report = `Task ${outcome === "failed" ? "failed" : "partly done"} — ${parts.join("; ")}.`;
+      }
       this.patrolLog = [];
-      return { activity: null, say: report, done: true };
+      return { activity: null, say: report, done: true, outcome };
     }
 
     if (!this.stepStartedAt) this.stepStartedAt = ctx.now;
@@ -283,8 +339,12 @@ export class TaskRunner {
           say = `Found the ${target}!`;
           finish();
         } else if (elapsed > SEARCH_TIMEOUT_MS) {
-          say = `I could not find the ${target}. Moving on.`;
-          finish();
+          say = this.retryOrFail(
+            step,
+            ctx.now,
+            `No ${target} yet — widening the search.`,
+            `I could not find the ${target}. Moving on.`,
+          );
         }
         break;
       }
@@ -317,8 +377,12 @@ export class TaskRunner {
           break;
         }
         if (elapsed > 25_000) {
-          say = `I could not reach the ${target}.`;
-          finish();
+          say = this.retryOrFail(
+            step,
+            ctx.now,
+            `Not there yet — one more pass for the ${target}.`,
+            `I could not reach the ${target}.`,
+          );
           break;
         }
         if (step.targetPos) {
@@ -373,8 +437,12 @@ export class TaskRunner {
           break;
         }
         if (elapsed > 45_000) {
-          say = `The stroll to the ${target} ran long — calling it. I got close.`;
-          finish();
+          say = this.retryOrFail(
+            step,
+            ctx.now,
+            `Long stroll — taking one more line to the ${target}.`,
+            `The stroll to the ${target} ran long — calling it. I got close.`,
+          );
           break;
         }
         if (step.targetPos) {

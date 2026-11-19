@@ -22,6 +22,12 @@ export interface TaskStep {
   failed?: boolean;
   /** attempts used so far on a retry-capable step */
   attempts?: number;
+  /** "if …" gate — evaluated once, when the step becomes active */
+  when?: Predicate;
+  /** result of that single evaluation; keeps the gate from re-checking every tick */
+  gate?: "open" | "closed";
+  /** true when the gate stayed closed — skipped, not failed */
+  skipped?: boolean;
   /** goto_item: remembered heading of the item (fallback if no map position) */
   targetYaw?: number | null;
   /** goto_item: remembered world position from the spatial map */
@@ -59,6 +65,8 @@ export interface TickCtx {
   /** drone world position */
   px: number;
   py: number;
+  /** battery percent, when the caller has it — needed by battery predicates */
+  battery?: number;
 }
 
 export interface TickResult {
@@ -78,6 +86,93 @@ const SEARCH_TIMEOUT_MS = 30_000;
 const MAX_CYCLES = 12;
 /** one retry per step — enough to recover from a bad angle, not an infinite loop */
 const MAX_STEP_ATTEMPTS = 2;
+
+/** A sensor condition she can actually evaluate — nothing metaphysical. */
+export type Predicate =
+  | { kind: "sees"; target: string }
+  | { kind: "someone" }
+  | { kind: "no_one" }
+  | { kind: "battery_below"; percent: number };
+
+/** Text → predicate. Unknown conditions are refused, never guessed. */
+function parsePredicate(text: string): Predicate | null {
+  const c = text.trim();
+  const sees = /^(?:you\s+)?(?:can\s+)?see\s+(?:my\s+|the\s+|a\s+|an\s+)?(.{2,30})$/.exec(c);
+  if (sees) return { kind: "sees", target: sees[1].trim() };
+  if (/^(?:someone|somebody)\s+is\s+(?:here|around)$/.test(c)) return { kind: "someone" };
+  if (/^(?:nobody|no\s+one)\s+is\s+here$/.test(c)) return { kind: "no_one" };
+  const batt = /^(?:your\s+)?battery\s+is\s+(?:below|under)\s+(\d{1,3})\s*%?$/.exec(c);
+  if (batt) return { kind: "battery_below", percent: Math.max(0, Math.min(100, Number(batt[1]))) };
+  if (/^(?:your\s+)?battery\s+is\s+low$/.test(c)) return { kind: "battery_below", percent: 25 };
+  return null;
+}
+
+function describePredicate(p: Predicate): string {
+  switch (p.kind) {
+    case "sees": return `you see ${p.target}`;
+    case "someone": return "someone is here";
+    case "no_one": return "nobody is here";
+    case "battery_below": return `battery below ${p.percent}%`;
+  }
+}
+
+/** "if you see my cup, come to me" → { when, action: "come to me" }. */
+function splitConditional(text: string): { when?: Predicate; action: string; invalid?: boolean } {
+  const m = /^if\s+(.+?)(?:,|\s+then\s+)\s*(.+)$/.exec(text);
+  if (!m) return { action: text };
+  const pred = parsePredicate(m[1]);
+  if (!pred) return { action: text, invalid: true };
+  return { when: pred, action: m[2] };
+}
+
+/** Evaluated against exactly what she can sense right now. */
+export function evalPredicate(p: Predicate, ctx: TickCtx): boolean {
+  switch (p.kind) {
+    case "sees": {
+      const target = p.target;
+      return ctx.visibleItems.some((i) => i === target || target.includes(i) || i.includes(target));
+    }
+    case "someone":
+      return ctx.faceSeen;
+    case "no_one":
+      return !ctx.faceSeen;
+    case "battery_below":
+      return (ctx.battery ?? 100) < p.percent;
+  }
+}
+
+/** One clause → its steps. Kept separate so a conditional can wrap them. */
+function clauseSteps(c: string): TaskStep[] {
+  const findMatch = /(?:find|look for|search for)\s+(?:my |the |a |an )?(.{2,30})/.exec(c);
+  if (findMatch) {
+    return [{ kind: "search_item", label: `Find ${findMatch[1].trim()}`, target: findMatch[1].trim(), done: false }];
+  }
+  if (/patrol|guard|watch over|watch the/.test(c)) {
+    return [{ kind: "patrol_cycle", label: "Patrol & scan the room", durationMs: 12_000, done: false }];
+  }
+  if (/check on me/.test(c)) {
+    return [{ kind: "come", label: "Check on you", durationMs: 12_000, done: false }];
+  }
+  if (/count/.test(c) && /people|person/.test(c)) {
+    return [{ kind: "scan", label: "Count people", durationMs: 6_000, done: false }];
+  }
+  if (/dance/.test(c)) {
+    return [
+      { kind: "trick", label: "Dance move 1", durationMs: 2_600, done: false },
+      { kind: "trick", label: "Dance move 2", durationMs: 2_600, done: false },
+    ];
+  }
+  if (/come|here/.test(c)) {
+    return [{ kind: "come", label: "Come to you", durationMs: 12_000, done: false }];
+  }
+  if (/follow/.test(c)) {
+    return [{ kind: "follow", label: "Follow you", durationMs: 15_000, done: false }];
+  }
+  if (/scan|look around|inventory/.test(c)) {
+    return [{ kind: "scan", label: "Scan the room", durationMs: 6_000, done: false }];
+  }
+  return [];
+}
 
 export class TaskRunner {
   private task: Task | null = null;
@@ -113,50 +208,38 @@ export class TaskRunner {
   /** Parse a natural-language request into a task, or null if not a task. */
   plan(text: string): Task | null {
     const t = text.toLowerCase().trim();
-    if (!/\b(find|look for|search for|patrol|guard|watch|check on me|count|dance)\b/.test(t)) return null;
+    // A conditional is allowed through even when its action is a verb the
+    // reflex brain normally handles alone ("if you see my cup, come to me").
+    const looksConditional = /^if\s+.+,/.test(t);
+    if (!looksConditional && !/\b(find|look for|search for|patrol|guard|watch|check on me|count|dance)\b/.test(t)) return null;
 
     const clauses = t.split(/\s+(?:and\s+then|then|after that|and after)\s+/);
     const steps: TaskStep[] = [];
     /** clauses that matched nothing — silently dropping them would let her
      *  report "Task complete" for a request she only half understood */
     const unparsed: string[] = [];
-    for (const c of clauses) {
-      const findMatch = /(?:find|look for|search for)\s+(?:my |the |a |an )?(.{2,30})/.exec(c);
-      if (findMatch) {
-        steps.push({ kind: "search_item", label: `Find ${findMatch[1].trim()}`, target: findMatch[1].trim(), done: false });
+    for (const raw of clauses) {
+      const clause = raw.trim();
+      if (!clause) continue;
+      const conditional = splitConditional(clause);
+      if (conditional.invalid) {
+        // "if the moon is full, dance" — refuse the unknown condition rather
+        // than quietly dancing unconditionally
+        unparsed.push(clause);
         continue;
       }
-      if (/patrol|guard|watch over|watch the/.test(c)) {
-        steps.push({ kind: "patrol_cycle", label: "Patrol & scan the room", durationMs: 12_000, done: false });
+      const produced = clauseSteps(conditional.action);
+      if (produced.length === 0) {
+        unparsed.push(clause);
         continue;
       }
-      if (/check on me/.test(c)) {
-        steps.push({ kind: "come", label: "Check on you", durationMs: 12_000, done: false });
-        continue;
+      if (conditional.when) {
+        for (const s of produced) {
+          s.when = conditional.when;
+          s.label = `If ${describePredicate(conditional.when)}: ${s.label}`;
+        }
       }
-      if (/count/.test(c) && /people|person/.test(c)) {
-        steps.push({ kind: "scan", label: "Count people", durationMs: 6_000, done: false });
-        continue;
-      }
-      if (/dance/.test(c)) {
-        steps.push({ kind: "trick", label: "Dance move 1", durationMs: 2_600, done: false });
-        steps.push({ kind: "trick", label: "Dance move 2", durationMs: 2_600, done: false });
-        continue;
-      }
-      if (/come|here/.test(c)) {
-        steps.push({ kind: "come", label: "Come to you", durationMs: 12_000, done: false });
-        continue;
-      }
-      if (/follow/.test(c)) {
-        steps.push({ kind: "follow", label: "Follow you", durationMs: 15_000, done: false });
-        continue;
-      }
-      if (/scan|look around|inventory/.test(c)) {
-        steps.push({ kind: "scan", label: "Scan the room", durationMs: 6_000, done: false });
-        continue;
-      }
-      const rest = c.trim();
-      if (rest) unparsed.push(rest);
+      steps.push(...produced);
     }
     if (steps.length === 0) return null;
     return {
@@ -294,6 +377,7 @@ export class TaskRunner {
       const isPatrol = task.steps.some((s) => s.kind === "patrol_cycle");
       const missed = task.unparsed ?? [];
       const failed = task.steps.filter((s) => s.failed).length;
+      const skipped = task.steps.filter((s) => s.skipped).length;
       const outcome: TaskOutcome =
         failed === 0 && missed.length === 0
           ? "completed"
@@ -304,7 +388,9 @@ export class TaskRunner {
       if (isPatrol && this.patrolLog.length > 0 && outcome === "completed") {
         report = `Patrol report: I logged ${this.patrolLog.slice(0, 6).join(", ")}. All quiet on my watch.`;
       } else if (outcome === "completed") {
-        report = "Task complete.";
+        report = skipped > 0
+          ? `Task complete. ${skipped} step${skipped === 1 ? "" : "s"} skipped (condition not met).`
+          : "Task complete.";
       } else {
         const parts: string[] = [];
         if (failed > 0) parts.push(`${failed} step${failed === 1 ? "" : "s"} failed`);
@@ -317,6 +403,20 @@ export class TaskRunner {
 
     if (!this.stepStartedAt) this.stepStartedAt = ctx.now;
     const step = task.steps[idx];
+
+    // An "if" gate is evaluated once, the moment the step becomes active.
+    // A closed gate skips the step — it is not a failure.
+    if (step.when && !step.gate) {
+      const open = evalPredicate(step.when, ctx);
+      step.gate = open ? "open" : "closed";
+      if (!open) {
+        step.skipped = true;
+        step.done = true;
+        this.stepStartedAt = ctx.now;
+        return { activity: null, say: `Condition not met — skipping: ${step.label}.`, done: false };
+      }
+    }
+
     const elapsed = ctx.now - this.stepStartedAt;
     let activity: Activity = "hover";
     let say: string | null = null;

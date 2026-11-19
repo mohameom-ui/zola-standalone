@@ -50,6 +50,7 @@ import { SfxFiles } from "@/lib/pet/sfxFiles";
 import { NeuralVoice, KOKORO_VOICES } from "@/lib/pet/voiceKokoro";
 import { HAZARD_LABELS } from "@/lib/pet/lexicon";
 import { DeepEyes } from "@/lib/pet/eyesDeep";
+import { DeepSenseLoop } from "@/lib/pet/deepSenseLoop";
 import DroneBody3D, { type GestureApi, GESTURE_REPERTOIRE } from "./DroneBody3D";
 import { PetMap, DOCK, ROOM_EXTENT } from "@/lib/pet/map";
 import type { FaceTrack } from "@/lib/pet/vision";
@@ -1956,6 +1957,28 @@ export default function DronePetPanel() {
       pushLog("sys", "deep eyes could not describe this frame — normal perception still works");
     }
   }, [pushLog, say]);
+
+  // DEEP SENSE LOOP — runs only while DEEP EYES is enabled: a slow VLM look
+  // every few seconds refreshes her live context. DeepSenseLoop owns the
+  // cadence, the overlap guard, and the staleness window; if the camera or
+  // model is not ready it returns null and counts a failed look.
+  useEffect(() => {
+    if (!deepEyesOn) return;
+    const loop = new DeepSenseLoop(
+      {
+        describe: async () => {
+          const v = videoRef.current;
+          if (!v || !visionRef.current?.active || !deepEyesRef.current.loaded) return null;
+          return deepEyesRef.current.describe(v);
+        },
+        onText: (text) => { lastDeepSightRef.current = text; },
+        onError: () => pushLog("sys", "deep sense hiccup — normal perception continues"),
+      },
+      { intervalMs: 4_000, staleMs: 8_000 },
+    );
+    const id = setInterval(() => { void loop.tick(performance.now()); }, 1_000);
+    return () => clearInterval(id);
+  }, [deepEyesOn, pushLog]);
 
   // ZERO-CLICK SESSION RESTORE: everything she was doing re-arms after a reload
   const restoreStartedRef = useRef(false);

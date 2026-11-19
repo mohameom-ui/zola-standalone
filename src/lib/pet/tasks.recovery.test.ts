@@ -117,10 +117,10 @@ describe("TaskRunner honest outcomes", () => {
 
     runner.start(task, 1_000);
     runner.tick(ctx(1_000));
-    runner.tick(ctx(3_700));
-    runner.tick(ctx(3_800));
-    runner.tick(ctx(6_400));
-    const end = runner.tick(ctx(6_500));
+    runner.tick(ctx(3_700));   // first trick finishes (elapsed > 2600)
+    runner.tick(ctx(3_800));   // second trick starts
+    runner.tick(ctx(6_500));   // second trick finishes
+    const end = runner.tick(ctx(6_600));
 
     expect(end.done).toBe(true);
     expect(end.outcome).toBe("completed");

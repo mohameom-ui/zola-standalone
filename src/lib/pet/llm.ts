@@ -109,11 +109,23 @@ interface GenPipeline {
 export class LocalGenie {
   private gen: GenPipeline | null = null;
   loaded = false;
-  tier: BrainTier = "smart";
+  /** default to the larger on-device brain; load() falls back if it fails */
+  tier: BrainTier = "genius";
 
   async load(onDiag: (m: string) => void, tier?: BrainTier): Promise<boolean> {
     const target = tier ?? this.tier;
     if (this.loaded && target === this.tier) return true;
+    const ok = await this.loadTier(target, onDiag);
+    if (ok) return true;
+    if (target === "genius") {
+      // A model that cannot load must not leave her without a language brain.
+      onDiag("GENIUS-XL unavailable — falling back to the 0.5B brain.");
+      return this.loadTier("smart", onDiag);
+    }
+    return false;
+  }
+
+  private async loadTier(target: BrainTier, onDiag: (m: string) => void): Promise<boolean> {
     this.tier = target;
     const label = target === "genius" ? "GENIUS-XL" : "GENIUS";
     onDiag(`${label}: downloading her thinking brain once (~${target === "genius" ? "1" : "0.35"} GB)...`);

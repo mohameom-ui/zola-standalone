@@ -11,6 +11,8 @@
 //   ollama pull llama3.2
 // ============================================================================
 
+import { LatencyMeter } from "./latency";
+
 export interface LlmDecision {
   say: string | null;
   do: string | null;
@@ -111,6 +113,14 @@ export class LocalGenie {
   loaded = false;
   /** default to the larger on-device brain; load() falls back if it fails */
   tier: BrainTier = "genius";
+  /** last load's diagnostic sink — reused to report inference timing */
+  private diag: ((m: string) => void) | null = null;
+  private readonly latency = new LatencyMeter(24);
+
+  /** Rolling p50/p95 of real inference time — the data behind "is 1.5B usable?" */
+  latencyStats() {
+    return this.latency.stats();
+  }
 
   async load(onDiag: (m: string) => void, tier?: BrainTier): Promise<boolean> {
     const target = tier ?? this.tier;
@@ -127,6 +137,7 @@ export class LocalGenie {
 
   private async loadTier(target: BrainTier, onDiag: (m: string) => void): Promise<boolean> {
     this.tier = target;
+    this.diag = onDiag;
     const label = target === "genius" ? "GENIUS-XL" : "GENIUS";
     onDiag(`${label}: downloading her thinking brain once (~${target === "genius" ? "1" : "0.35"} GB)...`);
     try {
@@ -157,12 +168,19 @@ export class LocalGenie {
       { role: "system", content: `Live context: ${context}` },
       { role: "user", content: input },
     ];
+    const t0 = performance.now();
     const out = (await this.gen(messages, {
       max_new_tokens: 90,
       temperature: 0.6,
       do_sample: true,
       return_full_text: false,
     })) as unknown;
+    const elapsed = performance.now() - t0;
+    this.latency.record(elapsed);
+    const s = this.latency.stats();
+    this.diag?.(
+      `think: ${Math.round(elapsed)} ms · p50 ${Math.round(s.p50Ms)} ms · p95 ${Math.round(s.p95Ms)} ms (${s.count} samples)`,
+    );
     const arr = Array.isArray(out) ? out : [out];
     const first = arr[0] as { generated_text?: unknown } | undefined;
     const raw = typeof first?.generated_text === "string"

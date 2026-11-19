@@ -22,7 +22,7 @@ browser brain (Next.js :3001)                her body
 ```bash
 npm ci
 npm run dev            # http://localhost:3001
-npm test                    # 182 tests — the safety lines are all in here
+npm test                    # full suite — the safety lines are all in here
 node zola-live-loop.mjs     # build → ledger → reincarnation → use, in the real panel
 node zola-full-check.mjs    # ALL ORGANS: eyes, ears, voice, body, mind, life export
 npx tsc --noEmit       # types

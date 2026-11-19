@@ -415,7 +415,8 @@ export default function DronePetPanel() {
   const [scannerOn, setScannerOn] = useState(false);
   const [llmOn, setLlmOn] = useState(false);
   const [geniusOn, setGeniusOn] = useState(false);
-  const [brainTier, setBrainTier] = useState<"smart" | "genius">("smart");
+  // default to the 1.5B brain; LocalGenie falls back to 0.5B if it cannot load
+  const [brainTier, setBrainTier] = useState<"smart" | "genius">("genius");
   const [deepEyesOn, setDeepEyesOn] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [soundEvent, setSoundEvent] = useState("");

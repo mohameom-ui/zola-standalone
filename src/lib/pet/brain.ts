@@ -173,6 +173,8 @@ export interface BrainHooks {
   reinforceChatter?: (category: string, responded: boolean) => void;
   /** what she was doing when the human last left */
   resumeTask?: () => string | null;
+  /** a planned task ended — memory can learn from the outcome */
+  onTaskOutcome?: (task: string, outcome: string, line: string | null) => void;
   /** "where is my cup" — answered from item memory */
   whereIs?: (target: string) => string | null;
   /** remembered heading of an item, for spatial navigation */
@@ -1082,8 +1084,11 @@ export class PetBrain {
 
     // --- autonomous task execution ---------------------------------------------
     if (taskActive) {
+      const taskBefore = this.runner.current?.description ?? null;
       const r = this.runner.tick({ now, faceSeen: p.faceSeen, faceSize: p.faceSize, visibleItems: p.visibleItems, yaw: p.yaw, px: p.px, py: p.py });
       this.lastTaskTick = r;
+      // Outcome memory: a failure is a fact about the world worth keeping.
+      if (r.done) this.hooks.onTaskOutcome?.(taskBefore ?? "task", r.outcome ?? "completed", r.say);
       if (r.say && !p.say) { p.say = r.say; this.lastLine = r.say; }
       // TRAINING: record grades, personal bests, and SELF-TUNE the hover gains
       if (r.grade) {

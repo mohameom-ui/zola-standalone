@@ -57,6 +57,20 @@ export interface Task {
 /** How a finished task actually went — not just that it stopped. */
 export type TaskOutcome = "completed" | "partial" | "failed";
 
+/** On-disk shape of an active task. Versioned so a future change can refuse it. */
+export interface TaskSnapshot {
+  v: 1;
+  task: Task;
+  cycles: number;
+  announced: string[];
+}
+
+const STEP_KINDS = new Set<string>([
+  "scan", "search_item", "come", "follow", "trick", "hover",
+  "patrol_cycle", "goto_item", "walk_item",
+  "drill_hover", "drill_square", "drill_circle",
+]);
+
 export interface TickCtx {
   now: number;
   faceSeen: boolean;
@@ -185,6 +199,49 @@ export class TaskRunner {
   private patrolLog: string[] = [];
 
   get current(): Task | null { return this.task; }
+
+  /**
+   * Serialize the active task so a reload does not erase it.
+   * Returns null when idle — nothing to remember.
+   */
+  snapshot(): string | null {
+    if (!this.task) return null;
+    const snap: TaskSnapshot = {
+      v: 1,
+      task: this.task,
+      cycles: this.cycles,
+      announced: [...this.announced],
+    };
+    return JSON.stringify(snap);
+  }
+
+  /**
+   * Resume a snapshot. The current step gets a fresh clock: counting the
+   * downtime as elapsed time would make the step time out the instant she
+   * wakes up, which is not what "resume" should mean.
+   */
+  restore(json: string, now: number): boolean {
+    let snap: Partial<TaskSnapshot>;
+    try {
+      snap = JSON.parse(json) as Partial<TaskSnapshot>;
+    } catch {
+      return false;
+    }
+    if (!snap || snap.v !== 1 || !snap.task || !Array.isArray(snap.task.steps)) return false;
+    if (typeof snap.task.description !== "string" || snap.task.steps.length === 0) return false;
+    for (const s of snap.task.steps) {
+      if (!s || typeof s.kind !== "string" || !STEP_KINDS.has(s.kind)) return false;
+      if (typeof s.done !== "boolean" || typeof s.label !== "string") return false;
+    }
+    this.task = snap.task;
+    this.stepStartedAt = now;
+    this.cycles = typeof snap.cycles === "number" ? snap.cycles : 0;
+    this.announced = new Set(
+      Array.isArray(snap.announced) ? snap.announced.filter((x): x is string => typeof x === "string") : [],
+    );
+    this.patrolLog = [];
+    return true;
+  }
 
   /** Build a training session — difficulty grows with her personal bests. */
   planDrill(bestHover = 0): Task {

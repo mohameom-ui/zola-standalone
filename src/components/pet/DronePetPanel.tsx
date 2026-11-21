@@ -1980,6 +1980,26 @@ export default function DronePetPanel() {
     return () => clearInterval(id);
   }, [deepEyesOn, pushLog]);
 
+  // TASK PERSISTENCE — a reload must not erase what she is in the middle of.
+  // Snapshot once a second while a task is active; restore on boot. The runner
+  // rebases the current step's clock, so downtime is not counted as elapsed.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("zola_active_task");
+      if (saved && brainRef.current?.runner.restore(saved, performance.now())) {
+        pushLog("sys", "resumed the task she was on before the reload");
+      }
+    } catch { /* storage unavailable — run without persistence */ }
+    const id = setInterval(() => {
+      try {
+        const snap = brainRef.current?.runner.snapshot();
+        if (snap) localStorage.setItem("zola_active_task", snap);
+        else localStorage.removeItem("zola_active_task");
+      } catch { /* quota or private mode — ignore */ }
+    }, 1_000);
+    return () => clearInterval(id);
+  }, [pushLog]);
+
   // ZERO-CLICK SESSION RESTORE: everything she was doing re-arms after a reload
   const restoreStartedRef = useRef(false);
   useEffect(() => {

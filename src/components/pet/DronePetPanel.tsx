@@ -22,6 +22,8 @@ import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { RangeSource } from "@/lib/pet/rangeSource";
 import { RecallIndex } from "@/lib/pet/recall";
+import { LocalEmbedder } from "@/lib/pet/embedder";
+import { fuseRecall, SemanticIndex } from "@/lib/pet/semanticRecall";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
 import { ollamaVision } from "@/lib/pet/llm";
@@ -144,6 +146,10 @@ export default function DronePetPanel() {
   const healthRef = useRef<HealthMonitor>(new HealthMonitor());
   const genieRef = useRef<LocalGenie>(new LocalGenie());
   const deepEyesRef = useRef<DeepEyes>(new DeepEyes());
+  const embedderRef = useRef<LocalEmbedder | null>(null);
+  if (!embedderRef.current) embedderRef.current = new LocalEmbedder();
+  /** text → embedding, so only new memories are ever embedded */
+  const vectorCacheRef = useRef<Map<string, number[]>>(new Map());
   // VISUAL TRICKS — her latest deep-eyes description, fed to the brain so the
   // pixels can trigger the matching body clip (dictionary PART V).
   const lastDeepSightRef = useRef<string | null>(null);
@@ -539,22 +545,59 @@ export default function DronePetPanel() {
     setItemsCount(memory.itemCount());
   }, [memory]);
 
-  /** Live context injected into every LLM prompt — the LLM knows what AURA knows. */
-  const buildContext = useCallback((query?: string) => {
+  /** Every stored line that could be worth recalling — one flat corpus. */
+  const collectMemoryDocs = useCallback(() => {
     const snap = memory.snapshot;
-    const owner = snap.people.map((p) => p.name).join(", ") || "unknown (not introduced yet)";
-    const items = snap.items.slice(-8).map((i) => `${i.customName ?? i.label}(${i.sightings})`).join(", ") || "none yet";
-    // RECALL, not tail: rank everything she has stored against what was just
-    // said. Her diary is bigger than her context; this is what closes the gap.
-    const docs = [
+    return [
       ...snap.facts.map((f, i) => ({ id: `fact:${i}`, text: f.text, kind: "fact" })),
       ...snap.items.map((it, i) => ({ id: `item:${i}`, text: it.customName ?? it.label, kind: "item" })),
       ...memory.getEpisodes().map((e, i) => ({ id: `ep:${i}`, text: e.summary, kind: "episode" })),
       ...memory.getDiary().map((d, i) => ({ id: `diary:${i}`, text: d.summary, kind: "diary" })),
     ];
-    const recalled = query && query.trim().length > 0
-      ? new RecallIndex(docs).search(query, 8).map((h) => h.doc.text)
-      : [];
+  }, [memory]);
+
+  /**
+   * Hybrid recall: BM25 always; embeddings when the local model is loaded.
+   * Meaning outranks words for paraphrases, and the lexical list is the
+   * fallback whenever the embedder is absent or still warming up.
+   */
+  const recallTexts = useCallback(async (query: string): Promise<string[]> => {
+    const docs = collectMemoryDocs();
+    if (!query.trim() || docs.length === 0) return [];
+    const lexical = new RecallIndex(docs).search(query, 8);
+    const embedder = embedderRef.current;
+    if (!embedder?.loaded) return lexical.map((h) => h.doc.text);
+
+    const queryVec = await embedder.embedOne(query);
+    if (!queryVec) return lexical.map((h) => h.doc.text);
+
+    const missing = docs.filter((d) => !vectorCacheRef.current.has(d.text));
+    if (missing.length > 0) {
+      const vectors = await embedder.embed(missing.map((d) => d.text));
+      if (vectors) missing.forEach((d, i) => vectorCacheRef.current.set(d.text, vectors[i]));
+    }
+    const embedded = docs
+      .map((d) => ({ doc: d, vector: vectorCacheRef.current.get(d.text) }))
+      .filter((x): x is { doc: (typeof docs)[number]; vector: number[] } => Array.isArray(x.vector));
+    if (embedded.length === 0) return lexical.map((h) => h.doc.text);
+
+    const semantic = new SemanticIndex(embedded).search(queryVec, 8);
+    return fuseRecall(lexical, semantic, 8).map((h) => h.doc.text);
+  }, [collectMemoryDocs]);
+
+  /** Live context injected into every LLM prompt — the LLM knows what AURA knows. */
+  const buildContext = useCallback((query?: string, recalledTexts?: string[]) => {
+    const snap = memory.snapshot;
+    const owner = snap.people.map((p) => p.name).join(", ") || "unknown (not introduced yet)";
+    const items = snap.items.slice(-8).map((i) => `${i.customName ?? i.label}(${i.sightings})`).join(", ") || "none yet";
+    // RECALL, not tail: rank everything she has stored against what was just
+    // said. Her diary is bigger than her context; this is what closes the gap.
+    const docs = collectMemoryDocs();
+    const recalled = recalledTexts?.length
+      ? recalledTexts
+      : query && query.trim().length > 0
+        ? new RecallIndex(docs).search(query, 8).map((h) => h.doc.text)
+        : [];
     const facts = snap.facts.slice(-6).map((f) => f.text).join("; ") || "none yet";
     const memoryLine = recalled.length > 0
       ? `Relevant memories: ${recalled.join("; ")}`
@@ -576,7 +619,7 @@ export default function DronePetPanel() {
       : "";
     const selfBuilds = loadSelfBuilds();
     return `Owner: ${owner}. Known items: ${items}. ${memoryLine}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${emoLine} ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>, build:<capability to write>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.${selfBuilds.length ? `\nCapabilities you BUILT yourself: ${selfBuilds.map((b) => `${b.id} — ${b.description}`).join("; ")}. To USE one: ACTION: run:<id> args:<json of its inputs>.` : ""}`;
-  }, [memory, brain, persona]);
+  }, [memory, brain, persona, collectMemoryDocs]);
 
   // v2.4 CORTEX — manual dream cycle (the auto-wrap runs at 17-19h; the
   // brain can now demand one on demand)
@@ -794,6 +837,9 @@ export default function DronePetPanel() {
       if (line) { say(line); refreshCounts(); return; }
     }
 
+    // recall once, before any brain answers: lexical + semantic (when loaded)
+    const recalled = await recallTexts(text);
+
     // Tier 1: Ollama (if installed) — strongest local brain
     // v3.2 SELF-ENGAGEMENT: the brain engages ITSELF the moment Ollama is
     // reachable — she is never unresponsive again (the old code needed a
@@ -810,7 +856,7 @@ export default function DronePetPanel() {
     if (llm.enabled && !llm.isOnline) await llm.checkAvailable(); // self-healing retry
     if (llm.enabled && llm.isOnline) {
       try {
-        if (applyDecision(await llm.interpret(text, buildContext(text), history))) return;
+        if (applyDecision(await llm.interpret(text, buildContext(text, recalled), history))) return;
         pushLog("sys", "brain output unusable — reflexes answered instead");
       } catch {
         pushLog("sys", "LLM unreachable — trying her on-device brain");
@@ -820,7 +866,7 @@ export default function DronePetPanel() {
     // Tier 2: GENIUS MODE — on-device language model, zero setup
     if (geniusOn && genieRef.current.loaded) {
       try {
-        if (applyDecision(await genieRef.current.think(text, buildContext(text)))) return;
+        if (applyDecision(await genieRef.current.think(text, buildContext(text, recalled)))) return;
         pushLog("sys", "brain output unusable — reflexes answered instead");
       } catch {
         pushLog("sys", "on-device brain hiccup — reflexes took over");
@@ -2010,6 +2056,13 @@ export default function DronePetPanel() {
     const id = setInterval(() => { void loop.tick(performance.now()); }, 1_000);
     return () => clearInterval(id);
   }, [deepEyesOn, pushLog]);
+
+  // SEMANTIC MEMORY — lazy, local-only. If the model is not provisioned the
+  // loader reports why and recall stays lexical; nothing is fetched remotely.
+  useEffect(() => {
+    const id = setTimeout(() => { void embedderRef.current?.load((m) => pushLog("sys", m)); }, 6_000);
+    return () => clearTimeout(id);
+  }, [pushLog]);
 
   // TASK PERSISTENCE — a reload must not erase what she is in the middle of.
   // Snapshot once a second while a task is active; restore on boot. The runner

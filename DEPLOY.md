@@ -74,6 +74,24 @@ telemetry cadence. The browser fuses them as `rangefinder` evidence, so
 prints one JSON line per reading.
 - Parser tests: `cd bridge && python3 -m unittest test_range_sensor`.
 
+## 🧠 Semantic memory (optional, ~23 MB)
+
+Her recall is lexical by default (BM25 over facts, items, episodes, diary).
+With a local sentence embedder it also matches **meaning** — "spectacles"
+reaches the "glasses" memory.
+
+```bash
+node Scripts/fetch-embedder.mjs      # once; writes public/models/all-MiniLM-L6-v2
+node Scripts/semantic-bench.mjs      # 5 paraphrase checks against the real model
+```
+
+- Remote model fetching is **disabled** in the app. If the files are absent,
+she logs why and keeps lexical recall; nothing is downloaded at runtime.
+- The model lives under `public/models/`, which is gitignored — provision it per
+machine, exactly like Kokoro/Whisper.
+- Manual browser check: `npx next start -p 3019` then
+`node Scripts/semantic-live-check.mjs http://127.0.0.1:3019/`.
+
 ## 🏠 STAYS HOME (build-time only — never copied)
 
 | Path | Size | Why |

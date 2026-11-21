@@ -19,8 +19,6 @@ const CRITICAL: string[] = [
   "public/vendor/ort/ort-wasm-simd-threaded.jsep.wasm",
   "public/vendor/ort/ort-wasm-simd-threaded.mjs",
   "public/vendor/ort/ort-wasm-simd-threaded.wasm",
-  "public/vendor/ort-kokoro/ort-wasm-simd-threaded.jsep.mjs",
-  "public/vendor/ort-kokoro/ort-wasm-simd-threaded.jsep.wasm",
   "public/mediapipe/wasm/vision_wasm_internal.wasm",
   "public/models/kokoro-82m/config.json",
   "public/models/kokoro-82m/onnx/model_quantized.onnx",

@@ -23,8 +23,8 @@ function ld06Packet(startDeg: number, endDeg: number, mm: number[]): number[] {
     f[base + 1] = (d >> 8) & 0xff;
     f[base + 2] = 200;
   }
-  f[40] = Math.round(endDeg * 100) & 0xff;
-  f[41] = (Math.round(endDeg * 100) >> 8) & 0xff;
+  f[42] = Math.round(endDeg * 100) & 0xff; // per LD06 layout
+  f[43] = (Math.round(endDeg * 100) >> 8) & 0xff;
   f[46] = ld06Crc8(f, LD06_PACKET_SIZE - 1);
   return f;
 }

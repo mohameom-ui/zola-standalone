@@ -12,6 +12,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: relay parser tests (rangefinder wire formats)
+        run: python3 -m unittest discover -s bridge -p "test_*.py" -v
       - name: types
         run: npx tsc --noEmit
       - name: tests (the safety lines are the most important code in the project)

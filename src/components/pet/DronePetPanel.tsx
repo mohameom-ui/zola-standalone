@@ -20,6 +20,7 @@ import { runDiagnostics, type DiagnosticsResult } from "@/lib/pet/diagnostics";
 import { MissionExecutor, type Waypoint, type MissionAct } from "@/lib/pet/missions";
 import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
+import { RangeSource } from "@/lib/pet/rangeSource";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
 import { ollamaVision } from "@/lib/pet/llm";
@@ -457,6 +458,14 @@ export default function DronePetPanel() {
   const lastHapticTickRef = useRef(0);
   const missionRef = useRef<MissionExecutor>(new MissionExecutor());
   const spatialRef = useRef<SpatialMap>(new SpatialMap());
+  // measured rays from a real rangefinder (relay "range" lane)
+  const rangeSourceRef = useRef<RangeSource | null>(null);
+  if (!rangeSourceRef.current) {
+    rangeSourceRef.current = new RangeSource(spatialRef.current, () => {
+      const p = halRef.current?.pose();
+      return { x: p?.x ?? 0, y: p?.y ?? 0, z: p?.z ?? 0, yaw: p?.yaw ?? 0 };
+    });
+  }
   const hapticsRef = useRef<HapticLink>(new HapticLink());
   const hapticsNoteRef = useRef("");
   const prevPoseRef = useRef<{ pose: { x: number; y: number; z: number }; at: number } | null>(null);
@@ -2199,6 +2208,9 @@ export default function DronePetPanel() {
     const t = setTimeout(() => {
       hal = new MavLinkBridgeHAL(wsUrl, relayTokenRef.current);
       hal.avoid = (from, to, altitude) => petMapRef.current.steer(from, to, altitude);
+      // the relay's measured range lane feeds the same map as her camera,
+      // tagged "rangefinder" so the two evidence sources stay distinguishable
+      hal.onRange = (reading) => { rangeSourceRef.current?.ingest(reading); };
       setLinkState("NO LINK");
       hal.connect(
         () => { setLinkState("LINKED"); pushLog("sys", `linked to ${wsUrl} — flight remains disarmed until ARM & TAKE OFF is pressed`); },

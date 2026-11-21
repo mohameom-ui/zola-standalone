@@ -7,7 +7,8 @@ import path from "path";
 // they should be. SHA-256 of every trust-critical local file (bundle, ORT
 // runtimes, model configs + weights, voice bins, gesture GLBs' config files),
 // compared against a stored baseline. First run establishes the baseline;
-// later runs report OK / DRIFT (file changed — investigate) / MISSING.
+// later runs report OK / DRIFT (a present file changed — investigate) /
+// INCOMPLETE (assets not provisioned yet; each one is listed in `missing`).
 // Purely local: reads her own disk, writes one JSON next to the app.
 // ============================================================================
 
@@ -64,7 +65,7 @@ export async function GET() {
     results[rel] = await sha256(abs);
   }
 
-  let verdict: "BASELINE_CREATED" | "OK" | "DRIFT" = "BASELINE_CREATED";
+  let verdict: "BASELINE_CREATED" | "OK" | "DRIFT" | "INCOMPLETE" = "BASELINE_CREATED";
   const drifted: string[] = [];
   if (existsSync(BASELINE)) {
     const base = JSON.parse(readFileSync(BASELINE, "utf8")) as Record<string, string>;
@@ -72,9 +73,10 @@ export async function GET() {
     for (const [rel, hash] of Object.entries(results)) {
       if (base[rel] && base[rel] !== hash) { verdict = "DRIFT"; drifted.push(rel); }
     }
-    for (const rel of Object.keys(base)) {
-      if (!(rel in results)) { verdict = "DRIFT"; drifted.push(rel + " (missing)"); }
-    }
+    // Absent files are reported in `missing`, not as tampering. A clean
+    // checkout has no public/models/ (gitignored) — calling that "drift"
+    // trains people to ignore the warning that matters.
+    if (verdict === "OK" && missing.length > 0) verdict = "INCOMPLETE";
     // the baseline GROWS: newly added trust-critical files are baselined at
     // first sight (previously a static baseline meant new assets flew blind)
     const merged = { ...base };

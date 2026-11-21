@@ -184,6 +184,39 @@ export class SafetyGovernor {
     }
     act.vz = Math.max(act.vz, -0.5); // descent rate cap (no slam-landing)
 
+    // FINAL PROJECTION — the edits above (geofence return, predictive decel,
+    // vision hold) can undo an earlier clamp: a fuzz run produced 0.819 speed
+    // against a 0.55 cap, and a geofence return vector that turned a stand-off
+    // back into an approach. The invariants are therefore re-established once,
+    // at the end, so "clamped" means clamped regardless of order.
+    if (L.geofenceRadius > 0) {
+      const rr = Math.hypot(p.px, p.py);
+      if (rr >= L.geofenceRadius) {
+        const ux = p.px / (rr || 1);
+        const uy = p.py / (rr || 1);
+        const outward = act.vx * ux + act.vy * uy;
+        if (outward > 0) {
+          act.vx -= ux * outward; // remove any outward component entirely
+          act.vy -= uy * outward;
+          flags.push("GEOFENCE · FINAL PROJECTION");
+        }
+      }
+    }
+    // Person safety outranks the soft fence: when the two conflict (a face too
+    // close in the outward direction), backing away from the person wins.
+    if (p.faceSeen && p.faceSize > L.standoffSize && act.vx > 0) {
+      act.vx = -0.15;
+      flags.push("STAND-OFF · FINAL");
+    }
+    const finalSpeed = Math.max(Math.abs(act.vx), Math.abs(act.vy), Math.abs(act.vz));
+    if (finalSpeed > L.maxSpeed) {
+      const k = L.maxSpeed / finalSpeed;
+      act.vx *= k;
+      act.vy *= k;
+      act.vz *= k;
+      flags.push("SPEED LIMIT · FINAL");
+    }
+
     if (flags.length > 0) return { act, flags };
     return { act, flags };
   }

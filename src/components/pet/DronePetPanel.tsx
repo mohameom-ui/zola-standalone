@@ -866,7 +866,7 @@ export default function DronePetPanel() {
     // Tier 2: GENIUS MODE — on-device language model, zero setup
     if (geniusOn && genieRef.current.loaded) {
       try {
-        if (applyDecision(await genieRef.current.think(text, buildContext(text, recalled)))) return;
+        if (applyDecision(await genieRef.current.thinkPlanned(text, buildContext(text, recalled)))) return;
         pushLog("sys", "brain output unusable — reflexes answered instead");
       } catch {
         pushLog("sys", "on-device brain hiccup — reflexes took over");

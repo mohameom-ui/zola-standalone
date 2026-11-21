@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { LatencyMeter } from "./latency";
+import { parsePlan, voiceInstruction } from "./planning";
 
 export interface LlmDecision {
   say: string | null;
@@ -92,6 +93,13 @@ SAY: Stored. If you forget it, that is between you and your teeth.`;
 
 const SYSTEM_PROMPT = `${CORE_PROMPT}\n\nOutput strictly as JSON instead: {"say": "...", "do": "..."} with "do" from the same action list.`;
 
+export const PLAN_PROMPT = `You are the planning half of Zola, a drone pet. Choose exactly ONE action.
+Actions: none, come, follow, find:<thing>, goto:<place>, scan, patrol, gesture:<clip>, dance, status, diagnose, dream, vlog, recon:<topic>, remember:<fact>, remind:<what>|<when>, task:<text>, mode:<name>, mood:<name>, play:<what>, sleep, wake, cancel, story, sun, quiet, mission:<text>, body:sim|real, build:<capability>, run:<id> args:<json>, web:<query>.
+Rules: chat or feelings => none. A fact you do not know => recon:. Something you could compute => build:.
+Reply ONLY with JSON: {"action":"...","confidence":0.0-1.0,"why":"at most 8 words"}`;
+
+const VOICE_PROMPT = `You are Zola: a curious, playful, loyal drone pet with a little cheek. The action is already decided; you only speak. Reply with one line, at most 20 words, fully in character. Never mention JSON, planning, confidence, or action names.`;
+
 export const LOCAL_MODELS = {
   smart: "onnx-community/Qwen2.5-0.5B-Instruct",
   genius: "onnx-community/Qwen2.5-1.5B-Instruct", // ~3x smarter, ~3x bigger
@@ -169,28 +177,67 @@ export class LocalGenie {
       { role: "user", content: input },
     ];
     const t0 = performance.now();
-    const out = (await this.gen(messages, {
-      max_new_tokens: 90,
-      temperature: 0.6,
-      do_sample: true,
-      return_full_text: false,
-    })) as unknown;
+    const raw = await this.generate(messages, 90);
     const elapsed = performance.now() - t0;
     this.latency.record(elapsed);
     const s = this.latency.stats();
     this.diag?.(
       `think: ${Math.round(elapsed)} ms · p50 ${Math.round(s.p50Ms)} ms · p95 ${Math.round(s.p95Ms)} ms (${s.count} samples)`,
     );
+    const am = /ACTION:\s*([^\n]+)/i.exec(raw);
+    const sm = /SAY:\s*([^\n]+)/i.exec(raw);
+    return { do: am ? am[1].trim().split(/[.|]/)[0].trim() : null, say: sm ? sm[1].trim() : null };
+  }
+
+  /**
+   * TWO-PASS DELIBERATION — plan as strict JSON, then voice the decision.
+   * A malformed plan falls back to the single-pass brain, so this can only
+   * add structure, never lose the answer.
+   */
+  async thinkPlanned(input: string, context: string): Promise<LlmDecision> {
+    if (!this.gen) throw new Error("brain not loaded");
+    const t0 = performance.now();
+
+    const planRaw = await this.generate([
+      { role: "system", content: PLAN_PROMPT },
+      { role: "system", content: `Live context: ${context}` },
+      { role: "user", content: input },
+    ], 80);
+    const plan = parsePlan(planRaw);
+    if (!plan) return this.think(input, context);
+
+    const voiceRaw = await this.generate([
+      { role: "system", content: VOICE_PROMPT },
+      { role: "system", content: voiceInstruction(plan.action, plan.confidence) },
+      { role: "user", content: input },
+    ], 60);
+
+    const elapsed = performance.now() - t0;
+    this.latency.record(elapsed);
+    const s = this.latency.stats();
+    this.diag?.(
+      `think (two-pass): ${Math.round(elapsed)} ms · p50 ${Math.round(s.p50Ms)} ms · p95 ${Math.round(s.p95Ms)} ms (${s.count} samples)`,
+    );
+    const say = voiceRaw.trim().split("\n")[0]?.trim() || null;
+    return { do: plan.action, say };
+  }
+
+  /** One raw generation; text extraction lives here, not in every caller. */
+  private async generate(messages: unknown, maxNew: number): Promise<string> {
+    if (!this.gen) return "";
+    const out = (await this.gen(messages, {
+      max_new_tokens: maxNew,
+      temperature: 0.6,
+      do_sample: true,
+      return_full_text: false,
+    })) as unknown;
     const arr = Array.isArray(out) ? out : [out];
     const first = arr[0] as { generated_text?: unknown } | undefined;
-    const raw = typeof first?.generated_text === "string"
+    return typeof first?.generated_text === "string"
       ? first.generated_text
       : typeof first?.generated_text === "object" && first.generated_text !== null && "content" in (first.generated_text as Record<string, unknown>)
         ? String((first.generated_text as Record<string, unknown>).content)
         : "";
-    const am = /ACTION:\s*([^\n]+)/i.exec(raw);
-    const sm = /SAY:\s*([^\n]+)/i.exec(raw);
-    return { do: am ? am[1].trim().split(/[.|]/)[0].trim() : null, say: sm ? sm[1].trim() : null };
   }
 }
 

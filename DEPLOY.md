@@ -92,6 +92,27 @@ machine, exactly like Kokoro/Whisper.
 - Manual browser check: `npx next start -p 3019` then
 `node Scripts/semantic-live-check.mjs http://127.0.0.1:3019/`.
 
+## 🧪 Measure her brain
+
+The brain bench scores a model on 28 fixed utterances (action accuracy plus
+p50/p95 latency) using her real action vocabulary.
+
+```bash
+# with Ollama running (auto-picks 8B when installed)
+ZOLA_BENCH=1 npx vitest run src/lib/pet/brainBench.live.test.ts
+
+# PowerShell
+$env:ZOLA_BENCH=1; npx vitest run src/lib/pet/brainBench.live.test.ts
+
+# pin a model explicitly
+ZOLA_BENCH=1 ZOLA_BENCH_MODEL=llama3.2:3b npx vitest run src/lib/pet/brainBench.live.test.ts
+```
+
+Use it to decide between tiers instead of guessing: run 3B and 8B, compare
+accuracy first, then p95. The on-device brain now uses **two-pass**
+deliberation (plan as JSON, then speak), which costs one extra generation;
+watch the `think (two-pass)` line in her log.
+
 ## 🏠 STAYS HOME (build-time only — never copied)
 
 | Path | Size | Why |

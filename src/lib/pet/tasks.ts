@@ -28,6 +28,8 @@ export interface TaskStep {
   gate?: "open" | "closed";
   /** true when the gate stayed closed — skipped, not failed */
   skipped?: boolean;
+  /** why a step was skipped: a closed condition, or a failed dependency */
+  skipReason?: "condition" | "dependency";
   /** goto_item: remembered heading of the item (fallback if no map position) */
   targetYaw?: number | null;
   /** goto_item: remembered world position from the spatial map */
@@ -346,7 +348,26 @@ export class TaskRunner {
     step.failed = true;
     step.done = true;
     this.stepStartedAt = now;
+    this.skipDependents(step);
     return failLine;
+  }
+
+  /**
+   * Re-planning, in the only form that is honest without a planner: if she
+   * could not find something, do not then fly to where it supposedly was.
+   * Later steps that depend on the failed target are skipped, not attempted.
+   */
+  private skipDependents(failed: TaskStep): void {
+    if (!this.task || !failed.target) return;
+    for (const s of this.task.steps) {
+      if (s.done || s.failed || s.skipped) continue;
+      const depends = (s.kind === "goto_item" || s.kind === "walk_item") && s.target === failed.target;
+      if (depends) {
+        s.skipped = true;
+        s.skipReason = "dependency";
+        s.done = true;
+      }
+    }
   }
 
   /** Drive the active task one frame. Returns the activity it wants. */
@@ -377,23 +398,28 @@ export class TaskRunner {
       const isPatrol = task.steps.some((s) => s.kind === "patrol_cycle");
       const missed = task.unparsed ?? [];
       const failed = task.steps.filter((s) => s.failed).length;
-      const skipped = task.steps.filter((s) => s.skipped).length;
+      const skippedCondition = task.steps.filter((s) => s.skipped && s.skipReason === "condition").length;
+      const skippedDependency = task.steps.filter((s) => s.skipped && s.skipReason === "dependency").length;
+      // a task where nothing actually succeeded is a failure, even if the
+      // rest of the plan was skipped rather than attempted
+      const succeeded = task.steps.filter((s) => !s.failed && !s.skipped).length;
       const outcome: TaskOutcome =
         failed === 0 && missed.length === 0
           ? "completed"
-          : failed > 0 && failed >= task.steps.length
+          : succeeded === 0
             ? "failed"
             : "partial";
       let report: string;
       if (isPatrol && this.patrolLog.length > 0 && outcome === "completed") {
         report = `Patrol report: I logged ${this.patrolLog.slice(0, 6).join(", ")}. All quiet on my watch.`;
       } else if (outcome === "completed") {
-        report = skipped > 0
-          ? `Task complete. ${skipped} step${skipped === 1 ? "" : "s"} skipped (condition not met).`
+        report = skippedCondition > 0
+          ? `Task complete. ${skippedCondition} step${skippedCondition === 1 ? "" : "s"} skipped (condition not met).`
           : "Task complete.";
       } else {
         const parts: string[] = [];
         if (failed > 0) parts.push(`${failed} step${failed === 1 ? "" : "s"} failed`);
+        if (skippedDependency > 0) parts.push(`${skippedDependency} step${skippedDependency === 1 ? "" : "s"} skipped (dependency failed)`);
         if (missed.length > 0) parts.push(`I did not understand: ${missed.join(", ")}`);
         report = `Task ${outcome === "failed" ? "failed" : "partly done"} — ${parts.join("; ")}.`;
       }
@@ -411,6 +437,7 @@ export class TaskRunner {
       step.gate = open ? "open" : "closed";
       if (!open) {
         step.skipped = true;
+        step.skipReason = "condition";
         step.done = true;
         this.stepStartedAt = ctx.now;
         return { activity: null, say: `Condition not met — skipping: ${step.label}.`, done: false };

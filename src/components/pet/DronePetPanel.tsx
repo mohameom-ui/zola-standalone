@@ -441,7 +441,7 @@ export default function DronePetPanel() {
   const [voices, setVoices] = useState<{ name: string; lang: string }[]>([]);
   const [voiceName, setVoiceName] = useState("");
   const [musicOn, setMusicOn] = useState(false);
-  const [integrity, setIntegrity] = useState<"" | "OK" | "DRIFT" | "BASELINE_CREATED">("");
+  const [integrity, setIntegrity] = useState<"" | "OK" | "DRIFT" | "INCOMPLETE" | "BASELINE_CREATED">("");
   const [stretchCue, setStretchCue] = useState(0);
   const ambientRef = useRef<AmbientMusic | null>(null);
   const blackboxRef = useRef<Blackbox>(new Blackbox());
@@ -1625,9 +1625,10 @@ export default function DronePetPanel() {
   const runIntegrity = useCallback(async () => {
     try {
       const r = await fetch("/api/zola/integrity");
-      const d = (await r.json()) as { verdict: string; drifted: string[] };
+      const d = (await r.json()) as { verdict: string; drifted: string[]; missing?: string[] };
       setIntegrity(d.verdict as typeof integrity);
       if (d.verdict === "DRIFT") pushLog("sys", `INTEGRITY DRIFT: ${d.drifted.join(", ")} — investigate before trusting offline assets`);
+      else if (d.verdict === "INCOMPLETE") pushLog("sys", `INTEGRITY INCOMPLETE: ${d.missing?.length ?? 0} asset(s) not provisioned — see public/models/`);
     } catch { /* offline-safe: ignore */ }
   }, [pushLog]);
 
@@ -2491,6 +2492,7 @@ export default function DronePetPanel() {
             {safetyFlags && <span className="text-[9px] text-[var(--z-warn)] tracking-wider">{safetyFlags}</span>}
             {integrity === "OK" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(53,208,165,0.12)] text-[var(--z-b)] tracking-widest" title="SHA-256 of local models and runtimes matches the saved baseline">ASSETS VERIFIED</span>}
             {integrity === "DRIFT" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,77,79,0.25)] text-[var(--z-danger)] tracking-widest" title="A local asset changed since baseline — investigate">INTEGRITY DRIFT</span>}
+        {integrity === "INCOMPLETE" && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(255,193,94,0.18)] text-[#ffc15e] tracking-widest" title="Some local assets are not provisioned yet (public/models/ is gitignored); nothing has changed underneath her">ASSETS INCOMPLETE</span>}
             {(integrity === "" || integrity === "BASELINE_CREATED") && <span className="text-[9px] px-2 py-0.5 rounded bg-[rgba(139,143,156,0.15)] text-[#8b8f9c] tracking-widest">ASSET {integrity === "BASELINE_CREATED" ? "BASELINE SET" : "CHECKING…"}</span>}
           </div>
         </div>

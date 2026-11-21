@@ -129,6 +129,46 @@ describe("TaskRunner honest outcomes", () => {
     expect(end.say).toMatch(/1 step skipped \(dependency failed\)/i);
   });
 
+  it("serializes an active task and resumes it after a reload", () => {
+    const runner = new TaskRunner();
+    const task = runner.plan("find my cup then scan the room");
+    if (!task) throw new Error("plan did not parse");
+    runner.start(task, 1_000);
+    runner.tick(ctx(1_100));
+
+    const snap = runner.snapshot();
+    expect(snap).not.toBeNull();
+
+    const revived = new TaskRunner();
+    expect(revived.restore(snap!, 60_000)).toBe(true);
+    expect(revived.current?.description).toBe(task.description);
+
+    // the current step got a fresh clock — 60 s of downtime is not elapsed time
+    const stillSearching = revived.tick(ctx(60_100));
+    expect(stillSearching.done).toBe(false);
+    const found = revived.tick(ctx(60_200, ["cup"]));
+    expect(found.say).toMatch(/found the cup/i);
+
+    revived.tick(ctx(60_300));
+    revived.tick(ctx(66_400));
+    const end = revived.tick(ctx(66_500));
+    expect(end.done).toBe(true);
+    expect(end.outcome).toBe("completed");
+  });
+
+  it("returns null when there is nothing to save", () => {
+    expect(new TaskRunner().snapshot()).toBeNull();
+  });
+
+  it("refuses malformed or unknown snapshots", () => {
+    const runner = new TaskRunner();
+    expect(runner.restore("not json", 1_000)).toBe(false);
+    expect(runner.restore("{}", 1_000)).toBe(false);
+    expect(runner.restore('{"v":2,"task":{"steps":[]}}', 1_000)).toBe(false);
+    expect(runner.restore('{"v":1,"task":{"description":"x","steps":[{"kind":"fly","label":"x","done":false}]}}', 1_000)).toBe(false);
+    expect(runner.current).toBeNull();
+  });
+
   it("keeps a plain command task celebrating exactly as before", () => {
     const runner = new TaskRunner();
     const task = runner.plan("dance");

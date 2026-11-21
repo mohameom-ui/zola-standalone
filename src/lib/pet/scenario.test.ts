@@ -53,6 +53,22 @@ describe("headless scenarios", () => {
     expect(r.flags.join(" ")).toMatch(/CRITICAL BATTERY/);
   });
 
+  it("tells memory when a task failed", () => {
+    const seen: { task: string; outcome: string; line: string | null }[] = [];
+    runScenario({
+      frames: 150,
+      world: () => ({ visibleItems: [] }),
+      command: "find my cup",
+      hooks: { onTaskOutcome: (task, outcome, line) => seen.push({ task, outcome, line }) },
+    });
+
+    const failure = seen.find((s) => s.outcome !== "completed");
+    expect(failure).toBeDefined();
+    expect(failure!.task).toMatch(/cup/i);
+    expect(failure!.outcome).toBe("failed");
+    expect(failure!.line).toMatch(/failed/i);
+  });
+
   it("never exceeds the speed cap across a long random-ish run", () => {
     const r = runScenario({
       frames: 400,

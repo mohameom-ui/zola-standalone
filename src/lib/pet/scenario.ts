@@ -10,7 +10,7 @@
 // her limits) are deterministic, fast, and run in CI on every push.
 // ============================================================================
 
-import { PetBrain } from "./brain";
+import { PetBrain, type BrainHooks } from "./brain";
 import { SafetyGovernor } from "./safety";
 import type { Actuation, Percept } from "./types";
 
@@ -38,6 +38,8 @@ export interface ScenarioOptions {
   command?: string;
   /** governor used for every frame (a fresh one by default) */
   governor?: SafetyGovernor;
+  /** hooks to observe her cognition (e.g. outcome memory) */
+  hooks?: BrainHooks;
 }
 
 export interface ScenarioResult {
@@ -61,7 +63,7 @@ export interface ScenarioResult {
  */
 export function runScenario(opts: ScenarioOptions): ScenarioResult {
   const { frames, dtMs = 500, world, command } = opts;
-  const brain = new PetBrain({});
+  const brain = new PetBrain(opts.hooks ?? {});
   const governor = opts.governor ?? new SafetyGovernor();
 
   const transcript: string[] = [];

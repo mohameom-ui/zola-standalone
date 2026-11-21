@@ -21,6 +21,7 @@ import { MissionExecutor, type Waypoint, type MissionAct } from "@/lib/pet/missi
 import { runDreamCycle, type DreamResult } from "@/lib/pet/dreamEngine";
 import { SpatialMap } from "@/lib/pet/spatialMap";
 import { RangeSource } from "@/lib/pet/rangeSource";
+import { RecallIndex } from "@/lib/pet/recall";
 import { HapticLink } from "@/lib/pet/haptics";
 import { webRecon } from "@/lib/pet/recon";
 import { ollamaVision } from "@/lib/pet/llm";
@@ -211,6 +212,12 @@ export default function DronePetPanel() {
         memory.learnFact(f);
         memory.countCommand();
         return `Noted: ${f}.`;
+      },
+      // OUTCOME MEMORY — a failed search becomes a retrievable fact, so the
+      // next attempt starts from what she already learned instead of zero.
+      onTaskOutcome: (task, outcome, line) => {
+        if (outcome === "completed") return;
+        memory.learnFact(`Task "${task}" ended ${outcome}${line ? `: ${line}` : ""}`);
       },
       // WAVE 2+6.6 — on sleep: build the nightly node AND consolidate the day
       consolidateNight: () => {
@@ -533,11 +540,25 @@ export default function DronePetPanel() {
   }, [memory]);
 
   /** Live context injected into every LLM prompt — the LLM knows what AURA knows. */
-  const buildContext = useCallback(() => {
+  const buildContext = useCallback((query?: string) => {
     const snap = memory.snapshot;
     const owner = snap.people.map((p) => p.name).join(", ") || "unknown (not introduced yet)";
     const items = snap.items.slice(-8).map((i) => `${i.customName ?? i.label}(${i.sightings})`).join(", ") || "none yet";
+    // RECALL, not tail: rank everything she has stored against what was just
+    // said. Her diary is bigger than her context; this is what closes the gap.
+    const docs = [
+      ...snap.facts.map((f, i) => ({ id: `fact:${i}`, text: f.text, kind: "fact" })),
+      ...snap.items.map((it, i) => ({ id: `item:${i}`, text: it.customName ?? it.label, kind: "item" })),
+      ...memory.getEpisodes().map((e, i) => ({ id: `ep:${i}`, text: e.summary, kind: "episode" })),
+      ...memory.getDiary().map((d, i) => ({ id: `diary:${i}`, text: d.summary, kind: "diary" })),
+    ];
+    const recalled = query && query.trim().length > 0
+      ? new RecallIndex(docs).search(query, 8).map((h) => h.doc.text)
+      : [];
     const facts = snap.facts.slice(-6).map((f) => f.text).join("; ") || "none yet";
+    const memoryLine = recalled.length > 0
+      ? `Relevant memories: ${recalled.join("; ")}`
+      : `Facts about owner: ${facts}`;
     const visible = (visionRef.current?.objects ?? []).map((o) => o.label).join(", ") || "nothing";
     // the emotional intelligence: she READS their face and responds to the
     // feeling — not just the words (the advanced sensors feed this)
@@ -554,7 +575,7 @@ export default function DronePetPanel() {
       ? `Your current mode: ${cur.name} (${cur.archetype}). Voice now: warmth ${Math.round(t.warmth * 100)}%, energy ${Math.round(t.energy * 100)}%, sass ${Math.round(t.sass * 100)}%, formality ${Math.round(t.formality * 100)}%. Speak from this mode's character — a ${t.sass > 0.7 ? "sharp-tongued" : t.warmth > 0.7 ? "warm" : "cool"} ${t.energy > 0.7 ? "energetic" : "measured"} presence.`
       : "";
     const selfBuilds = loadSelfBuilds();
-    return `Owner: ${owner}. Known items: ${items}. Facts about owner: ${facts}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${emoLine} ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>, build:<capability to write>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.${selfBuilds.length ? `\nCapabilities you BUILT yourself: ${selfBuilds.map((b) => `${b.id} — ${b.description}`).join("; ")}. To USE one: ACTION: run:<id> args:<json of its inputs>.` : ""}`;
+    return `Owner: ${owner}. Known items: ${items}. ${memoryLine}. Today: ${today}. Relationship: ${profile}. Mood: ${brain.getMood()}. Activity: ${brain.getActivity()}. Visible right now: ${visible}. Battery: ${(batteryRef.current * 100).toFixed(0)}%. ${emoLine} ${voice}\nYou can also command yourself: diagnose, vlog, dream, story, sun, patrol, mood:<mood>, mode:<mode name>, mission:<text>, body:sim|real, recon:<topic>, build:<capability to write>. 500 modes are in your constellation — shift when the moment calls for it, not on a schedule.${selfBuilds.length ? `\nCapabilities you BUILT yourself: ${selfBuilds.map((b) => `${b.id} — ${b.description}`).join("; ")}. To USE one: ACTION: run:<id> args:<json of its inputs>.` : ""}`;
   }, [memory, brain, persona]);
 
   // v2.4 CORTEX — manual dream cycle (the auto-wrap runs at 17-19h; the
@@ -789,7 +810,7 @@ export default function DronePetPanel() {
     if (llm.enabled && !llm.isOnline) await llm.checkAvailable(); // self-healing retry
     if (llm.enabled && llm.isOnline) {
       try {
-        if (applyDecision(await llm.interpret(text, buildContext(), history))) return;
+        if (applyDecision(await llm.interpret(text, buildContext(text), history))) return;
         pushLog("sys", "brain output unusable — reflexes answered instead");
       } catch {
         pushLog("sys", "LLM unreachable — trying her on-device brain");
@@ -799,7 +820,7 @@ export default function DronePetPanel() {
     // Tier 2: GENIUS MODE — on-device language model, zero setup
     if (geniusOn && genieRef.current.loaded) {
       try {
-        if (applyDecision(await genieRef.current.think(text, buildContext()))) return;
+        if (applyDecision(await genieRef.current.think(text, buildContext(text)))) return;
         pushLog("sys", "brain output unusable — reflexes answered instead");
       } catch {
         pushLog("sys", "on-device brain hiccup — reflexes took over");

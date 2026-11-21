@@ -109,6 +109,26 @@ describe("TaskRunner honest outcomes", () => {
     expect(end.say).toMatch(/task failed/i);
   });
 
+  it("does not fly to an item it just failed to find", () => {
+    const runner = new TaskRunner();
+    const task = runner.planGoto("cup", null, null);
+    expect(task.steps.map((s) => s.kind)).toEqual(["search_item", "goto_item"]);
+
+    runner.start(task, 1_000);
+    runner.tick(ctx(1_100));
+    runner.tick(ctx(31_100));              // retry the search
+    runner.tick(ctx(61_200));              // give up — the goto is now pointless
+
+    expect(task.steps[0].failed).toBe(true);
+    expect(task.steps[1].skipped).toBe(true);
+    expect(task.steps[1].skipReason).toBe("dependency");
+
+    const end = runner.tick(ctx(61_300));
+    expect(end.outcome).toBe("failed");
+    expect(end.say).toMatch(/1 step failed/i);
+    expect(end.say).toMatch(/1 step skipped \(dependency failed\)/i);
+  });
+
   it("keeps a plain command task celebrating exactly as before", () => {
     const runner = new TaskRunner();
     const task = runner.plan("dance");

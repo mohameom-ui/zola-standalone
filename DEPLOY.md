@@ -56,6 +56,24 @@ The humanoid rig animates hands, fingers, arms, and legs, and the simulator
 supports ground travel. The real relay currently controls the flight
 controller only; physical limb servos need a separate configured driver.
 
+## 📡 Rangefinder (optional, measured depth)
+
+The relay can own the sensor UART and publish measured rays beside pose:
+
+```bash
+python3 bridge/aura_relay.py --connection /dev/serial0 \
+  --range-port /dev/ttyUSB0 --range-sensor tf-luna --range-baud 115200
+```
+
+- `tf-luna` — 9-byte frames (`0x59 0x59`), centimetres, sum checksum.
+- `ld06` — 47-byte packets, 12 points, CRC8 `0x4D`, north-wrap handled.
+- The relay emits `{"t":"range","points":[{distance,bearing,at}],...}` at
+telemetry cadence. The browser fuses them as `rangefinder` evidence, so
+`stats().heuristicOnly` turns false the first time a real ray lands.
+- Bench check, no app: `python3 bridge/range_sensor.py --port COM5 --sensor tf-luna`
+prints one JSON line per reading.
+- Parser tests: `cd bridge && python3 -m unittest test_range_sensor`.
+
 ## 🏠 STAYS HOME (build-time only — never copied)
 
 | Path | Size | Why |

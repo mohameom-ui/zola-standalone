@@ -106,8 +106,9 @@ export class Ld06Parser {
         continue;
       }
 
+      // layout: 6..41 = 12 points, 42..43 end angle, 44..45 stamp, 46 CRC
       const startDeg = u16(f[4], f[5]) / 100;
-      let endDeg = u16(f[40], f[41]) / 100;
+      let endDeg = u16(f[42], f[43]) / 100;
       if (endDeg < startDeg) endDeg += 360; // packet crosses north
 
       for (let i = 0; i < 12; i++) {

@@ -67,7 +67,11 @@ state = {
     "starting": False,
     "landing_requested": False,
     "clients": set(),
+    "range_sensor": None,
 }
+
+# optional hardware lane: TF-Luna / LD06 on a serial port
+RANGE_READER = None
 
 MASTER = None
 RELAXED = False
@@ -547,10 +551,26 @@ async def broadcast_loop():
                 "flying": state["flying"],
                 "led": state["led"],
             })
+        # rangefinder lane: a measured ray stream, separate from pose so a
+        # 12-point LiDAR packet never bloats the 5 Hz telemetry frame
+        range_payload = None
+        reader = RANGE_READER
+        if reader is not None:
+            latest = reader.latest()
+            if latest:
+                points, at = latest
+                range_payload = json.dumps({
+                    "t": "range",
+                    "sensor": state["range_sensor"],
+                    "points": points,
+                    "at": at,
+                })
         dead = set()
         for client in clients:
             try:
                 await client.send(payload)
+                if range_payload is not None:
+                    await client.send(range_payload)
             except Exception:
                 dead.add(client)
         if dead:
@@ -559,8 +579,9 @@ async def broadcast_loop():
         await asyncio.sleep(0.2)
 
 
-async def run(connection, baud=57600, ws_host=WS_HOST, ws_port=WS_PORT):
-    global MASTER
+async def run(connection, baud=57600, ws_host=WS_HOST, ws_port=WS_PORT,
+              range_port=None, range_sensor="tf-luna", range_baud=115200):
+    global MASTER, RANGE_READER
     print(f"[relay] connecting MAVLink on {connection} ...")
     await asyncio.get_running_loop().run_in_executor(None, connect_with_retry, connection, 8, baud)
     print(f"[relay] FC connected (sys {MASTER.target_system})")
@@ -577,6 +598,15 @@ async def run(connection, baud=57600, ws_host=WS_HOST, ws_port=WS_PORT):
     threading.Thread(target=reader_loop, daemon=True).start()
     threading.Thread(target=command_loop, daemon=True).start()
 
+    if range_port:
+        from range_sensor import RangeReader
+        state["range_sensor"] = range_sensor
+        RANGE_READER = RangeReader(range_port, range_sensor, range_baud)
+        RANGE_READER.start()
+        print(f"[relay] rangefinder {range_sensor} on {range_port} @ {range_baud}")
+    else:
+        print("[relay] no rangefinder configured (--range-port)")
+
     async with websockets.serve(ws_handler, ws_host, ws_port, max_size=16384, ping_interval=20):
         print(f"[relay] WebSocket listening on ws://{ws_host}:{ws_port}")
         print("[relay] READY. The Zola browser brain can connect; flight remains disarmed.")
@@ -591,6 +621,13 @@ if __name__ == "__main__":
     parser.add_argument("--ws-host", default=os.environ.get("ZOLA_RELAY_HOST", WS_HOST),
                         help="WebSocket bind address; non-loopback requires ZOLA_RELAY_TOKEN")
     parser.add_argument("--ws-port", type=int, default=int(os.environ.get("ZOLA_RELAY_PORT", str(WS_PORT))))
+    parser.add_argument("--range-port", default=os.environ.get("ZOLA_RANGE_PORT"),
+                        help="serial port of a rangefinder (e.g. /dev/serial0, COM5)")
+    parser.add_argument("--range-sensor", choices=["tf-luna", "ld06"],
+                        default=os.environ.get("ZOLA_RANGE_SENSOR", "tf-luna"),
+                        help="rangefinder protocol (default: tf-luna)")
+    parser.add_argument("--range-baud", type=int,
+                        default=int(os.environ.get("ZOLA_RANGE_BAUD", "115200")))
     parser.add_argument("--relaxed-arming", action="store_true",
                         help="disable arming checks (SITL only — never on hardware)")
     args = parser.parse_args()
@@ -603,7 +640,8 @@ if __name__ == "__main__":
 
     RELAXED = args.relaxed_arming
     try:
-        asyncio.run(run(args.connection, args.baud, args.ws_host, args.ws_port))
+        asyncio.run(run(args.connection, args.baud, args.ws_host, args.ws_port,
+                   args.range_port, args.range_sensor, args.range_baud))
     except KeyboardInterrupt:
         print("\n[relay] shutting down — requesting a controlled landing...")
         try:

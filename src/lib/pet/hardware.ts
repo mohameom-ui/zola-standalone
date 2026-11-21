@@ -15,6 +15,7 @@
 // ============================================================================
 
 import type { Actuation, DronePose } from "./types";
+import type { RangeReading } from "./rangeFusion";
 import { encodeSetAttitudeTarget } from "./mavlink";
 import { sunReport } from "./suncalc";
 
@@ -227,6 +228,8 @@ export class MavLinkBridgeHAL implements PetHAL {
   private bootAt = Date.now();
 
   avoid: AvoidFn | null = null;
+  /** Measured rangefinder points from the relay's "range" lane. */
+  onRange: ((r: RangeReading) => void) | null = null;
 
   constructor(url: string, token = "") { this.url = url; this.token = token; }
 
@@ -268,6 +271,22 @@ export class MavLinkBridgeHAL implements PetHAL {
               onOpen?.();
             } else {
               socket.close(1008, "relay authentication failed");
+            }
+            return;
+          }
+          if (d.t === "range") {
+            // measured rays from the relay (TF-Luna / LD06); each point is
+            // already in metres, radians, and milliseconds
+            const points = Array.isArray(d.points) ? d.points : [];
+            for (const raw of points) {
+              if (!raw || typeof raw !== "object") continue;
+              const p = raw as Record<string, unknown>;
+              const distance = typeof p.distance === "number" && Number.isFinite(p.distance) ? p.distance : null;
+              const bearing = typeof p.bearing === "number" && Number.isFinite(p.bearing) ? p.bearing : null;
+              const at = typeof p.at === "number" && Number.isFinite(p.at) ? p.at : null;
+              if (distance === null || bearing === null || at === null) continue;
+              const elevation = typeof p.elevation === "number" && Number.isFinite(p.elevation) ? p.elevation : undefined;
+              this.onRange?.({ distance, bearing, ...(elevation !== undefined ? { elevation } : {}), at });
             }
             return;
           }
